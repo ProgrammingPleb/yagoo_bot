@@ -1,0 +1,121 @@
+{
+    "637518305070153728": {
+        "766968834481061928": {
+            "url": "https://discord.com/api/webhooks/786518882046181376/qP0zlEY7--FOcyEP8s2RpP6OrEhbHrHxG9vzLF8veW8sRudk-UA7v6FquQwgaDWRlg92",
+            "subbed": [
+                "amelia"
+            ],
+            "notified": {
+                "amelia": {
+                    "videoId": "_XzJP9MIugs"
+                }
+            }
+        }
+    },
+    "751669314196602972": {
+        "751669314787999778": {
+            "url": "https://discord.com/api/webhooks/786780287094620180/D4Zh9T-1u4WOIaGu-YQqVb4jVRjT19S0Dczc5i4E6AUtDs4gRCljSyAWdmZrSKO3j6jC",
+            "subbed": [
+                "sora",
+                "haachama",
+                "roboco",
+                "miko",
+                "suisei",
+                "yozora",
+                "fubuki",
+                "matsuri",
+                "aki",
+                "aqua",
+                "shion",
+                "ayame",
+                "choco",
+                "subaru",
+                "ookami",
+                "okayu",
+                "korone",
+                "pekora",
+                "rushia",
+                "flare",
+                "noel",
+                "houshou",
+                "pptenshi",
+                "coco",
+                "watame",
+                "towa",
+                "luna",
+                "lamy",
+                "nene",
+                "botan",
+                "polka",
+                "azki",
+                "risu",
+                "moona",
+                "airani",
+                "kureiji",
+                "anya",
+                "reine",
+                "calli",
+                "kiara",
+                "ninomae",
+                "gura",
+                "amelia",
+                "miyabi",
+                "izuru",
+                "arurandeisu",
+                "rikka",
+                "astel",
+                "kishido",
+                "yukoku",
+                "shien",
+                "oga"
+            ],
+            "notified": {
+                "amelia": {
+                    "videoId": "_XzJP9MIugs"
+                },
+                "nene": {
+                    "videoId": "blsdI_jtgnA"
+                },
+                "gura": {
+                    "videoId": "HV7bmb6GOiQ"
+                },
+                "kiara": {
+                    "videoId": "0Tow5A9cnCI"
+                },
+                "kureiji": {
+                    "videoId": "BXLdu7pb4GM"
+                },
+                "kishido": {
+                    "videoId": "ZG86hsH_YIY"
+                },
+                "haachama": {
+                    "videoId": "A4BnqtzTat0"
+                },
+                "fubuki": {
+                    "videoId": "lDe-G1IYX2c"
+                },
+                "arurandeisu": {
+                    "videoId": "-ZKSYKyD-ls"
+                },
+                "astel": {
+                    "videoId": "I4alp3IZvys"
+                },
+                "miko": {
+                    "videoId": "r0iZDYvwjvc"
+                },
+                "coco": {
+                    "videoId": "isUvfnsoH9A"
+                },
+                "luna": {
+                    "videoId": "zyCl5kUTv_Q"
+                },
+                "botan": {
+                    "videoId": "VFro_wBle28"
+                },
+                "airani": {
+                    "videoId": "xjPx8qdqcUs"
+                }
+            }
+        }
+    }
+}
