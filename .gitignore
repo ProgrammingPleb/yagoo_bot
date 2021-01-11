@@ -5,3 +5,5 @@
 /status.log
 /yagoobot.code-workspace
 /__pycache__
+/milestone/generated/*
+/test
