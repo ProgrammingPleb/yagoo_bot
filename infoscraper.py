@@ -118,7 +118,8 @@ async def channelScrape(query: str):
             "gender": re.sub('\[\d+\]', '', infobox.find("div", {"data-source": "gender"}).find("div").text.replace('\n', '')),
             "height": re.sub('\[\d+\]', '', infobox.find("div", {"data-source": "height"}).find("div").text.replace('\n', '')),
             "age": re.sub('\[\d+\]', '', infobox.find("div", {"data-source": "age"}).find("div").text.replace('\n', '')),
-            "birthday": re.sub('\[\d+\]', '', infobox.find("div", {"data-source": "birthday"}).find("div").text.replace('\n', ''))
+            "birthday": re.sub('\[\d+\]', '', infobox.find("div", {"data-source": "birthday"}).find("div").text.replace('\n', '')),
+            "youtube": chInfo
         }
 
 def sInfoAdapter(id):
@@ -126,4 +127,4 @@ def sInfoAdapter(id):
     print(cData)
 
 if __name__ == "__main__":
-    sInfoAdapter("https://www.youtube.com/channel/UCt30jJgChL8qeT9VPadidSw")
+    sInfoAdapter("UC1DCedRgGHBdm81E1llLhOQ")
