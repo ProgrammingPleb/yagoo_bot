@@ -1,4 +1,4 @@
-import json, aiohttp, asyncio, re, sys
+import json, aiohttp, asyncio, re, sys, logging
 from bs4 import BeautifulSoup
 from typing import Union
 
@@ -119,7 +119,7 @@ async def channelScrape(query: str):
                             chLink = title
                     x += 1
                 if chLink == None:
-                    print("Not found! Returning to first entry.")
+                    logging.debug("Not found! Returning to first entry.")
                     chLink = resp[1][0]
             async with session.get(f'https://virtualyoutuber.fandom.com/api.php?action=parse&format=json&page={chLink.split("/")[0]}') as r:
                 resp = await r.json()
