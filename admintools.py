@@ -6,7 +6,7 @@ from infoscraper import channelInfo, channelScrape
 logging.basicConfig(level=logging.INFO, filename='status.log', filemode='w', format='[%(asctime)s] %(name)s - %(levelname)s - %(message)s')
 
 def channelscrape():
-    with open("channels.json", encoding="utf-8") as f:
+    with open("data/channels.json", encoding="utf-8") as f:
         channels = json.load(f)
 
     for channel in channels:
@@ -25,11 +25,11 @@ def channelscrape():
                                     break
                         channels[channel]["milestone"] = ytinfo["roundSubs"]
                         cinfo = ytdata["metadata"]["channelMetadataRenderer"]
-    with open("channels.json", "w", encoding="utf-8") as f:
+    with open("data/channels.json", "w", encoding="utf-8") as f:
         json.dump(channels, f, indent=4)
 
 def channelClean():
-    with open("channels.json", encoding="utf-8") as f:
+    with open("data/channels.json", encoding="utf-8") as f:
         channels = json.load(f)
     
     for channel in channels:
@@ -37,7 +37,7 @@ def channelClean():
         channels[channel].pop("image", None)
         channels[channel].pop("subbed", None)
     
-    with open("channels.json", "w", encoding="utf-8") as f:
+    with open("data/channels.json", "w", encoding="utf-8") as f:
         json.dump(channels, f, indent=4)
 
 def msImage():
@@ -61,7 +61,7 @@ def bdayInsert():
     bdayData = {}
     months = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"]
 
-    with open("channels.json", encoding="utf-8") as f:
+    with open("data/channels.json", encoding="utf-8") as f:
         channels = json.load(f)
     
     bdayData = {}
