@@ -1,4 +1,4 @@
-import json, aiohttp, asyncio, re, urllib.parse
+import json, aiohttp, asyncio, re, sys
 from bs4 import BeautifulSoup
 from typing import Union
 
@@ -98,33 +98,79 @@ async def channelScrape(query: str):
         }
     else:
         chNSplit = chInfo["name"].split()
-        async with aiohttp.ClientSession() as session:
-            async with session.get(f'https://virtualyoutuber.fandom.com/wiki/Special:Search?query={urllib.parse.quote_plus(chInfo["name"])}') as r:
-                soup = BeautifulSoup(await r.text(), "html5lib")
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'
+        }
+        async with aiohttp.ClientSession(headers=headers) as session:
+            # https://virtualyoutuber.fandom.com/wiki/Special:Search?query=%E3%82%A2%E3%82%AD%E3%83%AD%E3%82%BCCh%E3%80%82Vtuber%2F%E3%83%9B%E3%83%AD%E3%83%A9%E3%82%A4%E3%83%96%E6%89%80%E5%B1%9E
+            async with session.get(f'https://virtualyoutuber.fandom.com/api.php?action=opensearch&format=json&search={chInfo["name"]}') as r:
+                """soup = BeautifulSoup(await r.text(), "html5lib")
                 sArticles = soup.find("ul", {"class": "unified-search__results"}).find_all("article")
                 chLink = None
                 for article in sArticles:
                     for name in chNSplit:
                         if name in article.text:
-                            chLink = article.find("a")["href"]
-            async with session.get(chLink) as r:
-                with open("test/debug.html", "w", encoding="utf-8") as f:
-                    f.write(await r.text())
-                soup = BeautifulSoup(await r.text(), "html5lib")
-                infobox = soup.find("aside", {"class": "portable-infobox"})
-
-        return {
+                            chLink = article.find("a")["href"]"""
+                resp = await r.json()
+                chLink = None
+                x = 0
+                for title in resp[1]:
+                    for name in chNSplit:
+                        if name in title:
+                            chLink = title
+                    x += 1
+                if chLink == None:
+                    print("Not found! Returning to first entry.")
+                    chLink = resp[1][0]
+            async with session.get(f'https://virtualyoutuber.fandom.com/api.php?action=parse&format=json&page={chLink.split("/")[0]}') as r:
+                resp = await r.json()
+                for prop in resp["parse"]["properties"]:
+                    if prop["name"] == "infoboxes":
+                        infobox = prop["*"]
+                        break
+                    x += 1
+                infobox = json.loads(infobox)
+                dataSource = infobox[0]["data"][4]["data"]["value"]
+        
+        result = {
             "success": True,
-            "gender": re.sub('\[\d+\]', '', infobox.find("div", {"data-source": "gender"}).find("div").text.replace('\n', '')),
-            "height": re.sub('\[\d+\]', '', infobox.find("div", {"data-source": "height"}).find("div").text.replace('\n', '')),
-            "age": re.sub('\[\d+\]', '', infobox.find("div", {"data-source": "age"}).find("div").text.replace('\n', '')),
-            "birthday": re.sub('\[\d+\]', '', infobox.find("div", {"data-source": "birthday"}).find("div").text.replace('\n', '')),
             "youtube": chInfo
         }
+
+        infoGrab = {
+            "1": {
+                "dict": "gender",
+                "source": "gender"
+            },
+            "2": {
+                "dict": "height",
+                "source": "height"
+            },
+            "3": {
+                "dict": "age",
+                "source": "age"
+            },
+            "4": {
+                "dict": "birthday",
+                "source": "birthday"
+            }
+        }
+
+        for entry in infoGrab:
+            infoPresent = False
+            for data in dataSource:
+                if data["type"] == "data":
+                    if data["data"]["source"] == infoGrab[entry]["source"]:
+                        result[infoGrab[entry]["dict"]] = re.sub('\[\d+\]', '', data["data"]["value"].replace('\n', ''))
+                        infoPresent = True
+            if not infoPresent:
+                result[infoGrab[entry]["dict"]] = None
+
+        return result
 
 def sInfoAdapter(id):
     cData = asyncio.run(channelScrape(id))
     print(cData)
 
 if __name__ == "__main__":
-    sInfoAdapter("UC1DCedRgGHBdm81E1llLhOQ")
+    sInfoAdapter(sys.argv[1])
