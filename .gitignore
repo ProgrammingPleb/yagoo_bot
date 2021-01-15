@@ -1,10 +1,7 @@
 /.vscode
-/channels_refresh.json
-/idformat.txt
-/settings.yaml
 /status.log
 /yagoobot.code-workspace
 /__pycache__
 /milestone/generated/*
-/test
-/servers.json
+/test/
+/data/
