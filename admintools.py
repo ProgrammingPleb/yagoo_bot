@@ -23,10 +23,8 @@ def channelscrape():
                             except:
                                 if x == 2:
                                     break
-                        print(ytinfo)
                         channels[channel]["milestone"] = ytinfo["roundSubs"]
                         cinfo = ytdata["metadata"]["channelMetadataRenderer"]
-                        print(cinfo["title"])
     with open("channels.json", "w", encoding="utf-8") as f:
         json.dump(channels, f, indent=4)
 
@@ -58,7 +56,6 @@ def subFormat(subnum):
             subtext = f'{int(subnum / 1000000)}M Subscribers'
         else:
             subtext = f'{subnum / 1000000}M Subscribers'
-    print(subtext)
 
 def bdayInsert():
     bdayData = {}
@@ -90,7 +87,7 @@ def bdayInsert():
                         break
                 x += 1
         except:
-            print(chInfo)
+            print(f"Couldn't get birthday for {chInfo['youtube']['name']}!")
             continue
     
     with open("birthdays.json", "w") as f:
