@@ -96,6 +96,15 @@ def bdayInsert():
     with open("birthdays.json", "w") as f:
         json.dump(bdayData, f, indent=4, sort_keys=True)
 
+# To be used in programs only, not the CLI
+async def debugFile(output, type, filename):
+    print("Writing to file...")
+    with open(f'test/{filename}.{type}', "w", encoding="utf-8") as f:
+        if type == "json":
+            json.dump(output, f, indent=4)
+        else:
+            f.write(output)
+
 if __name__ == "__main__":
     if sys.argv[1] == "scrape":
         print("Scraping channels...")
