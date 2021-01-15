@@ -264,6 +264,8 @@ async def on_guild_remove(server):
 
 @bot.command(aliases=['sub'])
 async def subscribe(ctx):
+    listmsg = await ctx.send("Loading channels list...")
+
     with open("channels.json", encoding="utf-8") as f:
         channels = json.load(f)
     csplit = []
@@ -287,7 +289,7 @@ async def subscribe(ctx):
         pickstr += f'A. Subscribe to all channels\nN. Go to next page\nB. Go to previous page\nX. Cancel'
 
     listembed = discord.Embed(title="Subscribe to channel:", description=pickstr)
-    listmsg = await ctx.send(embed=listembed)
+    await listmsg.edit(content=None, embed=listembed)
 
     while True:
         if not first:
@@ -312,7 +314,6 @@ async def subscribe(ctx):
             first = False
 
         def check(m):
-            print(m)
             return m.content.lower() in ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'n', 'b', 'x'] and m.author == ctx.author
 
         while True:
