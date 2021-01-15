@@ -6,7 +6,7 @@ from discord import Webhook, AsyncWebhookAdapter
 from discord.ext import commands, tasks
 from infoscraper import streamInfo, channelInfo
 
-with open("settings.yaml") as f:
+with open("data/settings.yaml") as f:
     settings = yaml.load(f, Loader=yaml.FullLoader)
 
 if settings["logging"] == "info":
@@ -54,12 +54,12 @@ async def getwebhook(servers, cserver, cchannel):
             webhook = await cchannel.create_webhook(name="Yagoo", avatar=image.read())
         whurl = webhook.url
         servers[str(cserver.id)][str(cchannel.id)]["url"] = whurl
-        with open("servers.json", "w") as f:
+        with open("data/servers.json", "w") as f:
             json.dump(servers, f, indent=4)
     return whurl
 
 async def streamcheck(ctx = None, test: bool = False, loop: bool = False):
-    with open("channels.json", encoding="utf-8") as f:
+    with open("data/channels.json", encoding="utf-8") as f:
         channels = json.load(f)
     if not test:
         cstreams = {}
@@ -115,7 +115,7 @@ async def streamcheck(ctx = None, test: bool = False, loop: bool = False):
         await ctx.send(stext2.strip())
 
 async def streamNotify(cData):
-    with open("servers.json", encoding="utf-8") as f:
+    with open("data/servers.json", encoding="utf-8") as f:
         servers = json.load(f)
     for server in servers:
         for channel in servers[server]:
@@ -133,11 +133,11 @@ async def streamNotify(cData):
                         webhook = Webhook.from_url(whurl, adapter=AsyncWebhookAdapter(session))
                         await webhook.send(f'New livestream from {cData[ytch]["name"]}!', embed=embed, username=cData[ytch]["name"], avatar_url=cData[ytch]["image"])
                         servers[server][channel]["notified"][ytch]["videoId"] = cData[ytch]["videoId"]
-    with open("servers.json", "w", encoding="utf-8") as f:
+    with open("data/servers.json", "w", encoding="utf-8") as f:
         servers = json.dump(servers, f, indent=4)
 
 async def streamClean(cData):
-    with open("servers.json", encoding="utf-8") as f:
+    with open("data/servers.json", encoding="utf-8") as f:
         servers = json.load(f)
     livech = []
     for ytch in cData:
@@ -147,7 +147,7 @@ async def streamClean(cData):
             for ytch in servers[server][channel]["notified"]:
                 if ytch not in livech:
                     servers[server][channel]["notified"].remove(ytch)
-    with open("servers.json", "w", encoding="utf-8") as f:
+    with open("data/servers.json", "w", encoding="utf-8") as f:
         servers = json.dump(servers, f, indent=4)
     
 class StreamCycle(commands.Cog):
@@ -166,7 +166,7 @@ class StreamCycle(commands.Cog):
         logging.info("Stream checks done.")
 
 async def milestoneCheck():
-    with open("channels.json") as f:
+    with open("data/channels.json") as f:
         channels = json.load(f)
     
     milestone = {}
@@ -201,13 +201,13 @@ async def milestoneCheck():
                     logging.warning(f'Failed to get info for {channel}. Retrying...')
     
     if not noWrite:
-        with open("channels.json", "w") as f:
+        with open("data/channels.json", "w") as f:
             json.dump(channels, f, indent=4)
     
     return milestone
 
 async def milestoneNotify(msDict):
-    with open("servers.json") as f:
+    with open("data/servers.json") as f:
         servers = json.load(f)
     for channel in msDict:
         with open("milestone/milestone.html") as f:
@@ -256,17 +256,17 @@ async def on_ready():
 @bot.event
 async def on_guild_remove(server):
     logging.info(f'Got removed from a server, cleaning up server data for: {str(server)}')
-    with open("servers.json") as f:
+    with open("data/servers.json") as f:
         servers = json.load(f)
     servers.pop(str(server.id), None)
-    with open("servers.json", "w") as f:
+    with open("data/servers.json", "w") as f:
         json.dump(servers, f, indent=4)
 
 @bot.command(aliases=['sub'])
 async def subscribe(ctx):
     listmsg = await ctx.send("Loading channels list...")
 
-    with open("channels.json", encoding="utf-8") as f:
+    with open("data/channels.json", encoding="utf-8") as f:
         channels = json.load(f)
     csplit = []
     for split in chunks(channels, 9):
@@ -325,10 +325,10 @@ async def subscribe(ctx):
                 return
             else:
                 if msg.content in ['1', '2', '3', '4', '5', '6', '7', '8', '9']:
-                    with open("servers.json") as f:
+                    with open("data/servers.json") as f:
                         servers = json.load(f)
                     await getwebhook(servers, ctx.guild, ctx.channel)
-                    with open("servers.json") as f:
+                    with open("data/servers.json") as f:
                         servers = json.load(f)
                     if picklist[int(msg.content) - 1] not in servers[str(ctx.guild.id)][str(ctx.channel.id)]["subbed"]:
                         servers[str(ctx.guild.id)][str(ctx.channel.id)]["subbed"].append(picklist[int(msg.content) - 1])
@@ -338,7 +338,7 @@ async def subscribe(ctx):
                         await msg.delete()
                         await ctx.message.delete()
                         return
-                    with open("servers.json", "w") as f:
+                    with open("data/servers.json", "w") as f:
                         json.dump(servers, f, indent=4)
                     ytch = await channelInfo(csplit[pagepos][picklist[int(msg.content) - 1]]["channel"])
                     await listmsg.edit(content=f'This channel is now subscribed to: {ytch["name"]}.', embed=None)
@@ -346,15 +346,15 @@ async def subscribe(ctx):
                     await ctx.message.delete()
                     return
                 elif msg.content.lower() == 'a':
-                    with open("servers.json") as f:
+                    with open("data/servers.json") as f:
                         servers = json.load(f)
                     await getwebhook(servers, ctx.guild, ctx.channel)
-                    with open("servers.json") as f:
+                    with open("data/servers.json") as f:
                         servers = json.load(f)
                     for ytch in channels:
                         if ytch not in servers[str(ctx.guild.id)][str(ctx.channel.id)]["subbed"]:
                             servers[str(ctx.guild.id)][str(ctx.channel.id)]["subbed"].append(ytch)
-                    with open("servers.json", "w") as f:
+                    with open("data/servers.json", "w") as f:
                         json.dump(servers, f, indent=4)
                     await listmsg.edit(content=f'This channel is now subscribed to all Hololive YouTube channels.', embed=None)
                     await msg.delete()
@@ -378,9 +378,9 @@ async def subscribe(ctx):
 
 @bot.command(aliases=["unsub"])
 async def unsubscribe(ctx):
-    with open("channels.json", encoding="utf-8") as f:
+    with open("data/channels.json", encoding="utf-8") as f:
         channels = json.load(f)
-    with open("servers.json") as f:
+    with open("data/servers.json") as f:
         servers = json.load(f)
     
     try:
@@ -449,10 +449,10 @@ async def unsubscribe(ctx):
                 return
             else:
                 if msg.content in ['1', '2', '3', '4', '5', '6', '7', '8', '9']:
-                    with open("servers.json") as f:
+                    with open("data/servers.json") as f:
                         servers = json.load(f)
                     await getwebhook(servers, ctx.guild, ctx.channel)
-                    with open("servers.json") as f:
+                    with open("data/servers.json") as f:
                         servers = json.load(f)
                     try:
                         servers[str(ctx.guild.id)][str(ctx.channel.id)]["subbed"].remove(subProc[int(msg.content) - 1])
@@ -463,20 +463,20 @@ async def unsubscribe(ctx):
                         servers[str(ctx.guild.id)][str(ctx.channel.id)]["notified"].pop(subProc[int(msg.content) - 1], None)
                         ytch = await channelInfo(channels[subProc[int(msg.content) - 1]]["channel"])
                         await unsubmsg.edit(content=f'Unsubscribed from: {ytch["name"]}.', embed=None)
-                    with open("servers.json", "w") as f:
+                    with open("data/servers.json", "w") as f:
                         json.dump(servers, f, indent=4)
                     await msg.delete()
                     await ctx.message.delete()
                     return
                 elif msg.content.lower() == 'a':
-                    with open("servers.json") as f:
+                    with open("data/servers.json") as f:
                         servers = json.load(f)
                     await getwebhook(servers, ctx.guild, ctx.channel)
-                    with open("servers.json") as f:
+                    with open("data/servers.json") as f:
                         servers = json.load(f)
                     servers[str(ctx.guild.id)][str(ctx.channel.id)]["subbed"] = []
                     servers[str(ctx.guild.id)][str(ctx.channel.id)]["notified"] = {}
-                    with open("servers.json", "w") as f:
+                    with open("data/servers.json", "w") as f:
                         json.dump(servers, f, indent=4)
                     await unsubmsg.edit(content=f'This channel is now unsubscribed from any Hololive YouTube channels.', embed=None)
                     await msg.delete()
@@ -501,9 +501,9 @@ async def unsubscribe(ctx):
 
 @bot.command(aliases=["subs", "subslist", "subscriptions", "subscribed"])
 async def sublist(ctx):
-    with open("channels.json", encoding="utf-8") as f:
+    with open("data/channels.json", encoding="utf-8") as f:
         channels = json.load(f)
-    with open("servers.json") as f:
+    with open("data/servers.json") as f:
         servers = json.load(f)
     
     try:
@@ -601,7 +601,7 @@ async def livestatus(ctx):
 @bot.command()
 @commands.check(creatorCheck)
 async def mscheck(ctx, vtuber):
-    with open("channels.json") as f:
+    with open("data/channels.json") as f:
         channels = json.load(f)
 
     ytch = await channelInfo(channels[vtuber]["channel"])
@@ -626,7 +626,7 @@ async def mscheck(ctx, vtuber):
 @bot.command()
 @commands.check(creatorCheck)
 async def nstest(ctx):
-    with open("servers.json") as f:
+    with open("data/servers.json") as f:
         servers = json.load(f)
     
     live = await streamcheck()
@@ -643,9 +643,9 @@ async def nstest(ctx):
 @bot.command()
 @commands.check(creatorCheck)
 async def postas(ctx, vtuber, *, text):
-    with open("channels.json", encoding="utf-8") as f:
+    with open("data/channels.json", encoding="utf-8") as f:
         channels = json.load(f)
-    with open("servers.json") as f:
+    with open("data/servers.json") as f:
         servers = json.load(f)
     whurl = await getwebhook(servers, ctx.guild, ctx.channel)
     ytch = await channelInfo(channels[vtuber]["channel"])
