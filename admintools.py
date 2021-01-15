@@ -1,4 +1,4 @@
-import json, requests, sys, asyncio, logging, imgkit
+import json, requests, sys, asyncio, logging, imgkit, os, shutil, yaml
 from imgkit.api import config
 from bs4 import BeautifulSoup
 from infoscraper import channelInfo, channelScrape
@@ -10,21 +10,8 @@ def channelscrape():
         channels = json.load(f)
 
     for channel in channels:
-        if channels[channel]["channel"] != "":
-            with requests.get(f'https://www.youtube.com/channel/{channels[channel]["channel"]}') as r:
-                soup = BeautifulSoup(r.text, "lxml")
-                scripts = soup.find_all("script")
-                for script in scripts:
-                    if "var ytInitialData" in script.getText():
-                        ytdata = json.loads(script.getText().replace(';', '').replace('var ytInitialData = ', ''))
-                        for x in range(2):
-                            try:
-                                ytinfo = asyncio.run(channelInfo(channels[channel]["channel"]))
-                            except:
-                                if x == 2:
-                                    break
-                        channels[channel]["milestone"] = ytinfo["roundSubs"]
-                        cinfo = ytdata["metadata"]["channelMetadataRenderer"]
+        ytinfo = asyncio.run(channelInfo(channels[channel]["channel"]))
+        channels[channel]["milestone"] = ytinfo["roundSubs"]
     with open("data/channels.json", "w", encoding="utf-8") as f:
         json.dump(channels, f, indent=4)
 
@@ -56,6 +43,7 @@ def subFormat(subnum):
             subtext = f'{int(subnum / 1000000)}M Subscribers'
         else:
             subtext = f'{subnum / 1000000}M Subscribers'
+    return subtext
 
 def bdayInsert():
     bdayData = {}
@@ -79,7 +67,7 @@ def bdayInsert():
                             chDay: [channels[channel]["channel"]]
                         }
                         break
-                    elif chInfo["birthday"].lower().replace(month, "").strip() not in bdayData[str(x)]:
+                    elif chDay not in bdayData[str(x)]:
                         bdayData[str(x)][chDay] = [channels[channel]["channel"]]
                         break
                     else:
@@ -90,8 +78,35 @@ def bdayInsert():
             print(f"Couldn't get birthday for {chInfo['youtube']['name']}!")
             continue
     
-    with open("birthdays.json", "w") as f:
+    with open("data/birthdays.json", "w") as f:
         json.dump(bdayData, f, indent=4, sort_keys=True)
+
+def initBot():
+    if not os.path.exists("data"):
+        print("Creating data directory...")
+        os.mkdir("data")
+    if not os.path.exists("data/servers.json"):
+        shutil.copy("setup/servers.json", "data/servers.json")
+    if not os.path.exists("data/channels.json"):
+        shutil.copy("setup/channels.json", "data/channels.json")
+    if not os.path.exists("data/settings.yaml"):
+        shutil.copy("setup/settings.yaml", "data/settings.yaml")
+    with open("data/settings.yaml") as f:
+        settings = yaml.load(f, Loader=yaml.FullLoader)
+    if settings["token"] != None:
+        print("This bot is already setup!")
+        return
+    print("To get a bot token, go to https://discord.com/developers/ and make a new application.\n"
+          "Go to the application that was made, click on 'Bot' on the sidebar, and click on 'Add Bot'\n"
+          "Below 'Token' is a 'Copy' button, click on it and paste it below.")
+    settings["token"] = input("Bot Token: ")
+    print("Collecting channel data...")
+    channelscrape()
+    print("Generating birthday file...")
+    bdayInsert()
+    print("Saving settings...")
+    with open("data/settings.yaml", "w") as f:
+        yaml.dump(settings, f)
 
 # To be used in programs only, not the CLI
 async def debugFile(output, type, filename):
@@ -103,7 +118,11 @@ async def debugFile(output, type, filename):
             f.write(output)
 
 if __name__ == "__main__":
-    if sys.argv[1] == "scrape":
+    if sys.argv[1] == "init":
+        print("Prepping initial data for bot...")
+        initBot()
+        print("Bot can now be started by launching the bot.py file.")
+    elif sys.argv[1] == "scrape":
         print("Scraping channels...")
         channelscrape()
         print("Done.")
