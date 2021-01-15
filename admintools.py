@@ -1,7 +1,7 @@
 import json, requests, sys, asyncio, logging, imgkit
 from imgkit.api import config
 from bs4 import BeautifulSoup
-from infoscraper import channelInfo
+from infoscraper import channelInfo, channelScrape
 
 logging.basicConfig(level=logging.INFO, filename='status.log', filemode='w', format='[%(asctime)s] %(name)s - %(levelname)s - %(message)s')
 
@@ -60,6 +60,42 @@ def subFormat(subnum):
             subtext = f'{subnum / 1000000}M Subscribers'
     print(subtext)
 
+def bdayInsert():
+    bdayData = {}
+    months = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"]
+
+    with open("channels.json", encoding="utf-8") as f:
+        channels = json.load(f)
+    
+    bdayData = {}
+    for channel in channels:
+        chInfo = asyncio.run(channelScrape(channels[channel]["channel"]))
+        x = 1
+        try:
+            for month in months:
+                if month in chInfo["birthday"].lower():
+                    for section in chInfo["birthday"].lower().replace(month, "").strip().split():
+                        if len(section) <= 2:
+                            chDay = section
+                    if str(x) not in bdayData:
+                        bdayData[str(x)] = {
+                            chDay: [channels[channel]["channel"]]
+                        }
+                        break
+                    elif chInfo["birthday"].lower().replace(month, "").strip() not in bdayData[str(x)]:
+                        bdayData[str(x)][chDay] = [channels[channel]["channel"]]
+                        break
+                    else:
+                        bdayData[str(x)][chDay].append(channels[channel]["channel"])
+                        break
+                x += 1
+        except:
+            print(chInfo)
+            continue
+    
+    with open("birthdays.json", "w") as f:
+        json.dump(bdayData, f, indent=4, sort_keys=True)
+
 if __name__ == "__main__":
     if sys.argv[1] == "scrape":
         print("Scraping channels...")
@@ -77,3 +113,9 @@ if __name__ == "__main__":
         print("Formatting subscribers count...")
         subFormat(int(sys.argv[2]))
         print("Done.")
+    elif sys.argv[1] == "bday":
+        print("Getting member birthdays...")
+        bdayInsert()
+        print("Done.")
+    else:
+        print("No valid command was entered!\nValid commands are scrape, clean, image and sub.")
