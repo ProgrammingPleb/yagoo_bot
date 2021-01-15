@@ -102,7 +102,6 @@ async def channelScrape(query: str):
             'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'
         }
         async with aiohttp.ClientSession(headers=headers) as session:
-            # https://virtualyoutuber.fandom.com/wiki/Special:Search?query=%E3%82%A2%E3%82%AD%E3%83%AD%E3%82%BCCh%E3%80%82Vtuber%2F%E3%83%9B%E3%83%AD%E3%83%A9%E3%82%A4%E3%83%96%E6%89%80%E5%B1%9E
             async with session.get(f'https://virtualyoutuber.fandom.com/api.php?action=opensearch&format=json&search={chInfo["name"]}') as r:
                 """soup = BeautifulSoup(await r.text(), "html5lib")
                 sArticles = soup.find("ul", {"class": "unified-search__results"}).find_all("article")
