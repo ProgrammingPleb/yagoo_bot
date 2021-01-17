@@ -22,8 +22,12 @@ def chunks(data, SIZE=10000):
     for i in range(0, len(data), SIZE):
         yield {k:data[k] for k in islice(it, SIZE)}
 
-async def creatorCheck(ctx):
+def creatorCheck(ctx):
     return ctx.author.id == 256009740239241216
+
+def subPerms(ctx):
+    userPerms = ctx.channel.permissions_for(ctx.author)
+    return userPerms.administrator or userPerms.manage_webhooks or ctx.guild.owner_id == ctx.author.id
 
 async def getwebhook(servers, cserver, cchannel):
     if isinstance(cserver, str) and isinstance(cchannel, str):
@@ -301,6 +305,7 @@ async def on_guild_remove(server):
         json.dump(servers, f, indent=4)
 
 @bot.command(aliases=['sub'])
+@commands.check(subPerms)
 async def subscribe(ctx):
     listmsg = await ctx.send("Loading channels list...")
 
@@ -415,6 +420,7 @@ async def subscribe(ctx):
                     await msg.delete()
 
 @bot.command(aliases=["unsub"])
+@commands.check(subPerms)
 async def unsubscribe(ctx):
     with open("data/channels.json", encoding="utf-8") as f:
         channels = json.load(f)
@@ -538,6 +544,7 @@ async def unsubscribe(ctx):
                     await msg.delete()
 
 @bot.command(aliases=["subs", "subslist", "subscriptions", "subscribed"])
+@commands.check(subPerms)
 async def sublist(ctx):
     with open("data/channels.json", encoding="utf-8") as f:
         channels = json.load(f)
@@ -631,6 +638,7 @@ async def test(ctx):
     await ctx.send("Rushia Ch. \u6f64\u7fbd\u308b\u3057\u3042")
 
 @bot.command(aliases=["livestats", "livestat"])
+@commands.check(subPerms)
 async def livestatus(ctx):
     loadmsg = await ctx.send("Loading info...")
     await streamcheck(ctx, True)
