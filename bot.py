@@ -14,7 +14,7 @@ if settings["logging"] == "info":
 elif settings["logging"] == "debug":
     logging.basicConfig(level=logging.DEBUG, handlers=[logging.FileHandler('status.log', 'w', 'utf-8')], format='[%(asctime)s] %(name)s - %(levelname)s - %(message)s')
 
-bot = commands.Bot(command_prefix=commands.when_mentioned_or(settings["prefix"]))
+bot = commands.Bot(command_prefix=commands.when_mentioned_or(settings["prefix"]), help_command=None)
 bot.remove_command('help')
 
 def chunks(data, SIZE=10000):
@@ -303,6 +303,26 @@ async def on_guild_remove(server):
     servers.pop(str(server.id), None)
     with open("data/servers.json", "w") as f:
         json.dump(servers, f, indent=4)
+
+@bot.command(alias=['h'])
+async def help(ctx):
+    hembed = discord.Embed(title="Yagoo Bot Commands")
+    hembed.description = "Currently the bot only has a small number of commands, as it is still in development!\n" \
+                         "New stream notifications will be posted on a 3 minute interval, thus any new notifications " \
+                         "will not come immediately after subscribing."
+    
+    hembed.add_field(name="Commands",
+                     value="**y!sub** (Alias: subscribe)\n"
+                           "Brings up a list of channels to subscribe to.\n"
+                           "[Requires user to have `Administrator` or `Manage Webhook` perms]\n\n"
+                           "**y!unsub** (Alias: unsubscribe)\n"
+                           "Brings up a list of channels to unsubscribe to.\n"
+                           "[Requires user to have `Administrator` or `Manage Webhook` perms]\n\n"
+                           "**y!sublist** (Alias: subs, subslist)\n"
+                           "Brings up a list of channels that the current chat channel has subscribed to.\n"
+                           "[Requires user to have `Administrator` or `Manage Webhook` perms]\n\n")
+
+    await ctx.send(embed=hembed)
 
 @bot.command(aliases=['sub'])
 @commands.check(subPerms)
