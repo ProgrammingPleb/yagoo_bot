@@ -1,4 +1,5 @@
 /.vscode
+/.venv
 /status.log
 /yagoobot.code-workspace
 /__pycache__
