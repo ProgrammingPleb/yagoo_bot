@@ -87,7 +87,7 @@ def initBot():
         os.mkdir("data")
     if not os.path.exists("data/servers.json"):
         shutil.copy("setup/blank.json", "data/servers.json")
-    if not os.path.exists("data/servers.json"):
+    if not os.path.exists("data/bot.json"):
         shutil.copy("setup/blank.json", "data/bot.json")
     if not os.path.exists("data/channels.json"):
         shutil.copy("setup/channels.json", "data/channels.json")
