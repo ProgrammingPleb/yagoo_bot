@@ -1,210 +1,262 @@
 {
-    "sora": {
-        "channel": "UCp6993wxpyDPHUpavwDFqgg",
+    "UCp6993wxpyDPHUpavwDFqgg": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "roboco": {
-        "channel": "UCDqI2jOz0weumE8s7paEk6g",
+    "UCDqI2jOz0weumE8s7paEk6g": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "miko": {
-        "channel": "UC-hM6YJuNYVAmUWxeIr9FeA",
+    "UC-hM6YJuNYVAmUWxeIr9FeA": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "suisei": {
-        "channel": "UC5CwaMl1eIgY8h02uZw7u8A",
+    "UC5CwaMl1eIgY8h02uZw7u8A": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "yozora": {
-        "channel": "UCD8HOxPs4Xvsm8H0ZxXGiBw",
+    "UCD8HOxPs4Xvsm8H0ZxXGiBw": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "fubuki": {
-        "channel": "UCdn5BQ06XqgXoAxIhbqw5Rg",
+    "UCdn5BQ06XqgXoAxIhbqw5Rg": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "matsuri": {
-        "channel": "UCQ0UDLQCjY0rmuxCDE38FGg",
+    "UCQ0UDLQCjY0rmuxCDE38FGg": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "aki": {
-        "channel": "UCFTLzh12_nrtzqBPsTCqenA",
+    "UCFTLzh12_nrtzqBPsTCqenA": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "haachama": {
-        "channel": "UC1CfXB_kRs3C-zaeTG3oGyg",
+    "UC1CfXB_kRs3C-zaeTG3oGyg": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "aqua": {
-        "channel": "UC1opHUrw8rvnsadT-iGp7Cg",
+    "UC1opHUrw8rvnsadT-iGp7Cg": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "shion": {
-        "channel": "UCXTpFs_3PqI41qX2d9tL2Rw",
+    "UCXTpFs_3PqI41qX2d9tL2Rw": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "ayame": {
-        "channel": "UC7fk0CB07ly8oSl0aqKkqFg",
+    "UC7fk0CB07ly8oSl0aqKkqFg": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "choco": {
-        "channel": "UC1suqwovbL1kzsoaZgFZLKg",
+    "UC1suqwovbL1kzsoaZgFZLKg": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "subaru": {
-        "channel": "UCvzGlP9oQwU--Y0r9id_jnA",
+    "UCvzGlP9oQwU--Y0r9id_jnA": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "ookami": {
-        "channel": "UCp-5t9SrOQwXMU7iIjQfARg",
+    "UCp-5t9SrOQwXMU7iIjQfARg": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "okayu": {
-        "channel": "UCvaTdHTWBGv3MKj3KVqJVCw",
+    "UCvaTdHTWBGv3MKj3KVqJVCw": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "korone": {
-        "channel": "UChAnqc_AY5_I3Px5dig3X1Q",
+    "UChAnqc_AY5_I3Px5dig3X1Q": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "pekora": {
-        "channel": "UC1DCedRgGHBdm81E1llLhOQ",
+    "UC1DCedRgGHBdm81E1llLhOQ": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "rushia": {
-        "channel": "UCl_gCybOJRIgOXw6Qb4qJzQ",
+    "UCl_gCybOJRIgOXw6Qb4qJzQ": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "flare": {
-        "channel": "UCvInZx9h3jC2JzsIzoOebWg",
+    "UCvInZx9h3jC2JzsIzoOebWg": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "noel": {
-        "channel": "UCdyqAaZDKHXg4Ahi7VENThQ",
+    "UCdyqAaZDKHXg4Ahi7VENThQ": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "houshou": {
-        "channel": "UCCzUftO8KOVkV4wQG1vkUvg",
+    "UCCzUftO8KOVkV4wQG1vkUvg": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "pptenshi": {
-        "channel": "UCZlDXzGoo7d44bwdNObFacg",
+    "UCZlDXzGoo7d44bwdNObFacg": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "coco": {
-        "channel": "UCS9uQI-jC3DE0L4IpXyvr6w",
+    "UCS9uQI-jC3DE0L4IpXyvr6w": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "watame": {
-        "channel": "UCqm3BQLlJfvkTsX_hvm0UmA",
+    "UCqm3BQLlJfvkTsX_hvm0UmA": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "towa": {
-        "channel": "UC1uv2Oq6kNxgATlCiez59hw",
+    "UC1uv2Oq6kNxgATlCiez59hw": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "luna": {
-        "channel": "UCa9Y57gfeY0Zro_noHRVrnw",
+    "UCa9Y57gfeY0Zro_noHRVrnw": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "lamy": {
-        "channel": "UCFKOVgVbGmX65RxO3EtH3iw",
+    "UCFKOVgVbGmX65RxO3EtH3iw": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "nene": {
-        "channel": "UCAWSyEs_Io8MtpY3m-zqILA",
+    "UCAWSyEs_Io8MtpY3m-zqILA": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "botan": {
-        "channel": "UCUKD-uaobj9jiqB-VXt71mA",
+    "UCUKD-uaobj9jiqB-VXt71mA": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "polka": {
-        "channel": "UCK9V2B22uJYu3N7eR_BT9QA",
+    "UCK9V2B22uJYu3N7eR_BT9QA": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "azki": {
-        "channel": "UC0TXe_LYZ4scaW2XMyi5_kw",
+    "UC0TXe_LYZ4scaW2XMyi5_kw": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "risu": {
-        "channel": "UCOyYb1c43VlX9rc_lT6NKQw",
+    "UCOyYb1c43VlX9rc_lT6NKQw": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "moona": {
-        "channel": "UCP0BspO_AMEe3aQqqpo89Dg",
+    "UCP0BspO_AMEe3aQqqpo89Dg": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "airani": {
-        "channel": "UCAoy6rzhSf4ydcYjJw3WoVg",
+    "UCAoy6rzhSf4ydcYjJw3WoVg": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "kureiji": {
-        "channel": "UCYz_5n-uDuChHtLo7My1HnQ",
+    "UCYz_5n-uDuChHtLo7My1HnQ": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "anya": {
-        "channel": "UC727SQYUvx5pDDGQpTICNWg",
+    "UC727SQYUvx5pDDGQpTICNWg": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "reine": {
-        "channel": "UChgTyjG-pdNvxxhdsXfHQ5Q",
+    "UChgTyjG-pdNvxxhdsXfHQ5Q": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "calli": {
-        "channel": "UCL_qhgtOy0dy1Agp8vkySQg",
+    "UCL_qhgtOy0dy1Agp8vkySQg": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "kiara": {
-        "channel": "UCHsx4Hqa-1ORjQTh9TYDhww",
+    "UCHsx4Hqa-1ORjQTh9TYDhww": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "ninomae": {
-        "channel": "UCMwGHR0BTZuLsmjY_NT5Pwg",
+    "UCMwGHR0BTZuLsmjY_NT5Pwg": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "gura": {
-        "channel": "UCoSrY_IQQVpmIRZ9Xf-y93g",
+    "UCoSrY_IQQVpmIRZ9Xf-y93g": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "amelia": {
-        "channel": "UCyl1z3jo3XHR1riLFKG5UAg",
+    "UCyl1z3jo3XHR1riLFKG5UAg": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "miyabi": {
-        "channel": "UC6t3-_N8A6ME1JShZHHqOMw",
+    "UC6t3-_N8A6ME1JShZHHqOMw": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "izuru": {
-        "channel": "UCZgOv3YDEs-ZnZWDYVwJdmA",
+    "UCZgOv3YDEs-ZnZWDYVwJdmA": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "arurandeisu": {
-        "channel": "UCKeAhJvy8zgXWbh9duVjIaQ",
+    "UCKeAhJvy8zgXWbh9duVjIaQ": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "rikka": {
-        "channel": "UC9mf_ZVpouoILRY9NUIaK-w",
+    "UC9mf_ZVpouoILRY9NUIaK-w": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "astel": {
-        "channel": "UCNVEsYbiZjH5QLmGeSgTSzg",
+    "UCNVEsYbiZjH5QLmGeSgTSzg": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "kishido": {
-        "channel": "UCGNI4MENvnsymYjKiZwv9eg",
+    "UCGNI4MENvnsymYjKiZwv9eg": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "yukoku": {
-        "channel": "UCANDOlYTJT7N5jlRC3zfzVA",
+    "UCANDOlYTJT7N5jlRC3zfzVA": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "shien": {
-        "channel": "UChSvpZYRPh0FvG4SJGSga3g",
+    "UChSvpZYRPh0FvG4SJGSga3g": {
+        "name": "",
+        "image": "",
         "milestone": 0
     },
-    "oga": {
-        "channel": "UCwL7dgTxKo8Y4RFIKWaf8gA",
+    "UCwL7dgTxKo8Y4RFIKWaf8gA": {
+        "name": "",
+        "image": "",
         "milestone": 0
     }
 }
