@@ -77,6 +77,9 @@ def initBot():
     if not os.path.exists("data"):
         print("Creating data directory...")
         os.mkdir("data")
+    if not os.path.exists("data"):
+        print("Creating generated milestones directory...")
+        os.mkdir("milestone/generated")
     if not os.path.exists("data/servers.json"):
         shutil.copy("setup/blank.json", "data/servers.json")
     if not os.path.exists("data/bot.json"):
