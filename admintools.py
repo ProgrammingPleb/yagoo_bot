@@ -125,16 +125,22 @@ def migrateData():
             "milestone": channels[ytch]["milestone"]
         }
 
+    newServ = servers
+
     print("Converting server data...")
     for server in servers:
         for channel in servers[server]:
+            livestream = []
             for sub in servers[server][channel]["subbed"]:
-                if "livestream" not in servers[server][channel]:
-                    servers[server][channel]["livestream"] = [channels[sub]["channel"]]
-                else:
-                    servers[server][channel]["livestream"].append(channels[sub]["channel"])
-            servers[server][channel]["milestone"] = servers[server][channel]["livestream"]
-            servers[server][channel].pop("subbed", None)
+                livestream.append(channels[sub]["channel"])
+            newServ[server][channel]["livestream"] = livestream
+            newNot = {}
+            for chNot in servers[server][channel]["notified"]:
+                chLink = channels[chNot]["channel"]
+                newNot[chLink] = servers[server][channel]["notified"][chNot]
+            newServ[server][channel]["notified"] = newNot
+            newServ[server][channel]["milestone"] = livestream
+            newServ[server][channel].pop("subbed", None)
     
     with open("data/servers.json", "w") as f:
         json.dump(servers, f, indent=4)
