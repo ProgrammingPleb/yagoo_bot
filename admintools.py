@@ -11,6 +11,11 @@ def channelscrape():
 
     for channel in channels:
         ytinfo = asyncio.run(channelInfo(channels[channel]["channel"]))
+        channels[ytch] = {
+            "name": chData["name"],
+            "image": chData["image"],
+            "milestone": channels[ytch]["milestone"]
+        }
         channels[channel]["milestone"] = ytinfo["roundSubs"]
     with open("data/channels.json", "w", encoding="utf-8") as f:
         json.dump(channels, f, indent=4)
@@ -113,10 +118,8 @@ def initBot():
 def migrateData():
     if not os.path.exists("data_backup/"):
         os.mkdir("data_backup")
-    if not os.path.exists("data/servers.json"):
-        shutil.copy("data/servers.json", "data_backup/servers.json")
-    if not os.path.exists("data/channels.json"):
-        shutil.copy("data/channels.json", "data_backup/channels.json")
+    shutil.copy("data/servers.json", "data_backup/servers.json")
+    shutil.copy("data/channels.json", "data_backup/channels.json")
     
     with open("data/servers.json") as f:
         servers = json.load(f)
@@ -129,7 +132,7 @@ def migrateData():
     print("Converting channel data...")
     for ytch in channels:
         chData = asyncio.run(channelInfo(channels[ytch]["channel"]))
-        newCh[ytch] = {
+        newCh[channels[ytch]["channel"]] = {
             "name": chData["name"],
             "image": chData["image"],
             "milestone": channels[ytch]["milestone"]
