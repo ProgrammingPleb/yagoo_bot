@@ -228,7 +228,7 @@ async def milestoneNotify(msDict):
         os.remove("milestone/msTemp.html")
         for server in servers:
             for dch in servers[server]:
-                if channel in servers[server][dch]["subbed"]:
+                if channel in servers[server][dch]["milestone"]:
                     await bot.get_channel(int(dch)).send(f'{msDict[channel]["name"]} has reached {msDict[channel]["msText"].replace("Subscribers", "subscribers")}!', file=discord.File(f'milestone/generated/{channel}.png'))
                     await bot.get_channel(int(dch)).send("おめでとう！")
 
