@@ -10,13 +10,12 @@ def channelscrape():
         channels = json.load(f)
 
     for channel in channels:
-        ytinfo = asyncio.run(channelInfo(channels[channel]["channel"]))
-        channels[ytch] = {
+        chData = asyncio.run(channelInfo(channels[channel]["channel"]))
+        channels[channel] = {
             "name": chData["name"],
             "image": chData["image"],
-            "milestone": channels[ytch]["milestone"]
+            "milestone": chData["roundSubs"]
         }
-        channels[channel]["milestone"] = ytinfo["roundSubs"]
     with open("data/channels.json", "w", encoding="utf-8") as f:
         json.dump(channels, f, indent=4)
 
