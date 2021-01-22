@@ -19,18 +19,6 @@ def channelscrape():
     with open("data/channels.json", "w", encoding="utf-8") as f:
         json.dump(channels, f, indent=4)
 
-def channelClean():
-    with open("data/channels.json", encoding="utf-8") as f:
-        channels = json.load(f)
-    
-    for channel in channels:
-        channels[channel].pop("name", None)
-        channels[channel].pop("image", None)
-        channels[channel].pop("subbed", None)
-    
-    with open("data/channels.json", "w", encoding="utf-8") as f:
-        json.dump(channels, f, indent=4)
-
 def msImage():
     options = {
         "enable-local-file-access": "",
@@ -175,10 +163,6 @@ if __name__ == "__main__":
     elif sys.argv[1] == "scrape":
         print("Scraping channels...")
         channelscrape()
-        print("Done.")
-    elif sys.argv[1] == "clean":
-        print("Cleaning unused keys...")
-        channelClean()
         print("Done.")
     elif sys.argv[1] == "image":
         print("Generating milestone image...")
