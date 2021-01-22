@@ -10,7 +10,7 @@ def channelscrape():
         channels = json.load(f)
 
     for channel in channels:
-        chData = asyncio.run(channelInfo(channels[channel]["channel"]))
+        chData = asyncio.run(channelInfo(channel))
         channels[channel] = {
             "name": chData["name"],
             "image": chData["image"],
@@ -46,7 +46,7 @@ def bdayInsert():
     
     bdayData = {}
     for channel in channels:
-        chInfo = asyncio.run(channelScrape(channels[channel]["channel"]))
+        chInfo = asyncio.run(channelScrape(channel))
         x = 1
         try:
             for month in months:
@@ -56,14 +56,14 @@ def bdayInsert():
                             chDay = section
                     if str(x) not in bdayData:
                         bdayData[str(x)] = {
-                            chDay: [channels[channel]["channel"]]
+                            chDay: [channel]
                         }
                         break
                     elif chDay not in bdayData[str(x)]:
-                        bdayData[str(x)][chDay] = [channels[channel]["channel"]]
+                        bdayData[str(x)][chDay] = [channel]
                         break
                     else:
-                        bdayData[str(x)][chDay].append(channels[channel]["channel"])
+                        bdayData[str(x)][chDay].append(channel)
                         break
                 x += 1
         except:
