@@ -1,6 +1,7 @@
 /.vscode
 /.venv
 /status.log
+/data_backup
 /yagoobot.code-workspace
 /__pycache__
 /milestone/generated
