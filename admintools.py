@@ -110,6 +110,48 @@ def initBot():
     with open("data/settings.yaml", "w") as f:
         yaml.dump(settings, f)
 
+def migrateData():
+    if not os.path.exists("data_backup/"):
+        os.mkdir("data_backup")
+    if not os.path.exists("data/servers.json"):
+        shutil.copy("data/servers.json", "data_backup/servers.json")
+    if not os.path.exists("data/channels.json"):
+        shutil.copy("data/channels.json", "data_backup/channels.json")
+    
+    with open("data/servers.json") as f:
+        servers = json.load(f)
+    
+    with open("data/channels.json") as f:
+        channels = json.load(f)
+    
+    newCh = {}
+
+    print("Converting channel data...")
+    for ytch in channels:
+        chData = asyncio.run(channelInfo(channels[ytch]["channel"]))
+        newCh[ytch] = {
+            "name": chData["name"],
+            "image": chData["image"],
+            "milestone": channels[ytch]["milestone"]
+        }
+
+    print("Converting server data...")
+    for server in servers:
+        for channel in servers[server]:
+            for sub in servers[server][channel]["subbed"]:
+                if "livestream" not in servers[server][channel]:
+                    servers[server][channel]["livestream"] = [channels[sub]["channel"]]
+                else:
+                    servers[server][channel]["livestream"].append(channels[sub]["channel"])
+            servers[server][channel]["milestone"] = servers[server][channel]["livestream"]
+            servers[server][channel].pop("subbed", None)
+    
+    with open("data/servers.json", "w") as f:
+        json.dump(servers, f, indent=4)
+    
+    with open("data/channels.json", "w", encoding="utf-8") as f:
+        json.dump(newCh, f, indent=4)
+
 # To be used in programs only, not the CLI
 async def debugFile(output, type, filename):
     print("Writing to file...")
@@ -124,6 +166,10 @@ if __name__ == "__main__":
         print("Prepping initial data for bot...")
         initBot()
         print("Bot can now be started by launching the bot.py file.")
+    elif sys.argv[1] == "migrate":
+        print("Migrating data files to new format...")
+        migrateData()
+        print("Data files are now converted. Backups are in the 'data_backup' folder.")
     elif sys.argv[1] == "scrape":
         print("Scraping channels...")
         channelscrape()
