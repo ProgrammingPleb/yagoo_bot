@@ -29,6 +29,54 @@ def subPerms(ctx):
     userPerms = ctx.channel.permissions_for(ctx.author)
     return userPerms.administrator or userPerms.manage_webhooks or ctx.guild.owner_id == ctx.author.id
 
+async def subCheck(ctx, subMsg, mode, chName):
+    if mode == 1:
+        action = "Subscribe"
+    elif mode == 2:
+        action = "Unsubscribe"
+    else:
+        return {
+            "success": False
+        }
+    
+    subEmbed = discord.Embed(title=chName, description=f"{action} to this channel's:\n\n"
+                                                        "1. Livestream Notifications\n2. Milestone Notifications\n3. Both\n\n"
+                                                        "X. Cancel\n\n[Bypass this by setting the channel's default subscription type using `y!subdefault`]")
+    
+    await subMsg.edit(embed=subEmbed)
+
+    uInput = {
+        "success": False
+    }
+
+    def check(m):
+        return m.content.lower() in ['1', '2', '3', 'x'] and m.author == ctx.author
+
+    while True:
+        try:
+            msg = await bot.wait_for('message', timeout=60.0, check=check)
+        except asyncio.TimeoutError:
+            await subMsg.delete()
+            break
+        else:
+            if msg.content in ['1', '2', '3']:
+                await msg.delete()
+                if msg.content == '1':
+                    uInput["subType"] = ["livestream"]
+                elif msg.content == '2':
+                    uInput["subType"] = ["milestone"]
+                elif msg.content == '3':
+                    uInput["subType"] = ["livestream", "milestone"]
+                uInput["success"] = True
+                return
+            elif msg.content.lower() == 'x':
+                await msg.delete()
+                return
+            else:
+                await msg.delete()
+    
+    return uInput
+
 async def getwebhook(servers, cserver, cchannel):
     if isinstance(cserver, str) and isinstance(cchannel, str):
         cserver = bot.get_guild(int(cserver))
