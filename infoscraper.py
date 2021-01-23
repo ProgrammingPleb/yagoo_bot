@@ -160,11 +160,11 @@ async def channelScrape(query: str):
             for data in dataSource:
                 if data["type"] == "data":
                     if data["data"]["source"] == infoGrab[entry]["source"]:
-                        result[infoGrab[entry]["dict"]] = re.sub('\[\d+\]', '', data["data"]["value"].replace('\n', ''))
+                        result[infoGrab[entry]["dict"]] = re.sub('\[\d+\]', '', BeautifulSoup(data["data"]["value"], "html5lib").text.replace('\n', ''))
                         infoPresent = True
             if not infoPresent:
                 result[infoGrab[entry]["dict"]] = None
-
+        
         return result
 
 def sInfoAdapter(id):

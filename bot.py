@@ -43,16 +43,18 @@ async def getwebhook(servers, cserver, cchannel):
             servers[str(cserver.id)] = {
                 str(cchannel.id): {
                     "url": "",
-                    "subbed": [],
-                    "notified": {}
+                    "notified": {},
+                    "livestream": [],
+                    "milestone": []
                 }
             }
         elif str(cchannel.id) not in servers[str(cserver.id)]:
             logging.debug("New channel in server! Adding to database.")
             servers[str(cserver.id)][str(cchannel.id)] = {
                 "url": "",
-                "subbed": [],
-                "notified": {}
+                "notified": {},
+                "livestream": [],
+                "milestone": []
             }
         with open("yagoo.jpg", "rb") as image:
             webhook = await cchannel.create_webhook(name="Yagoo", avatar=image.read())
@@ -68,13 +70,12 @@ async def streamcheck(ctx = None, test: bool = False, loop: bool = False):
     if not test:
         cstreams = {}
         for channel in channels:
-            cshrt = channels[channel]
             for x in range(2):
                 try:
                     # print(f'Checking {cshrt["name"]}...')
-                    if cshrt["channel"] != "":
-                        status = await streamInfo(cshrt["channel"])
-                        ytchannel = await channelInfo(cshrt["channel"])
+                    if channel != "":
+                        status = await streamInfo(channel)
+                        ytchannel = await channelInfo(channel)
                         if status["isLive"]:
                             cstreams[channel] = {
                                 "name": ytchannel["name"],
@@ -91,13 +92,12 @@ async def streamcheck(ctx = None, test: bool = False, loop: bool = False):
         stext = ""
         stext2 = ""
         for channel in channels:
-            cshrt = channels[channel]
             for x in range(2):
                 try:
                     # print(f'Checking {cshrt["name"]}...')
-                    if cshrt["channel"] != "":
-                        status = await streamInfo(cshrt["channel"])
-                        ytchan = await channelInfo(cshrt["channel"])
+                    if channel != "":
+                        status = await streamInfo(channel)
+                        ytchan = await channelInfo(channel)
                         if len(stext) + len(f'{ytchan["name"]}: <:green_circle:786380003306111018>\n') <= 2000:
                             if status["isLive"]:
                                 stext += f'{ytchan["name"]}: <:green_circle:786380003306111018>\n'
@@ -124,11 +124,11 @@ async def streamNotify(cData):
     for server in servers:
         for channel in servers[server]:
             for ytch in cData:
-                if ytch not in servers[server][channel]["notified"] and ytch in servers[server][channel]["subbed"]:
+                if ytch not in servers[server][channel]["notified"] and ytch in servers[server][channel]["livestream"]:
                     servers[server][channel]["notified"][ytch] = {
                         "videoId": ""
                     }
-                if ytch in servers[server][channel]["subbed"] and cData[ytch]["videoId"] != servers[server][channel]["notified"][ytch]["videoId"]:
+                if ytch in servers[server][channel]["livestream"] and cData[ytch]["videoId"] != servers[server][channel]["notified"][ytch]["videoId"]:
                     whurl = await getwebhook(servers, server, channel)
                     async with aiohttp.ClientSession() as session:
                         embed = discord.Embed(title=f'{cData[ytch]["videoTitle"]}', url=f'https://youtube.com/watch?v={cData[ytch]["videoId"]}')
@@ -179,7 +179,7 @@ async def milestoneCheck():
     for channel in channels:
         for x in range(2):
             try:
-                ytch = await channelInfo(channels[channel]["channel"])
+                ytch = await channelInfo(channel)
                 if ytch["roundSubs"] > channels[channel]["milestone"]:
                     noWrite = False
                     if ytch["roundSubs"] < 1000000:
@@ -228,7 +228,7 @@ async def milestoneNotify(msDict):
         os.remove("milestone/msTemp.html")
         for server in servers:
             for dch in servers[server]:
-                if channel in servers[server][dch]["subbed"]:
+                if channel in servers[server][dch]["milestone"]:
                     await bot.get_channel(int(dch)).send(f'{msDict[channel]["name"]} has reached {msDict[channel]["msText"].replace("Subscribers", "subscribers")}!', file=discord.File(f'milestone/generated/{channel}.png'))
                     await bot.get_channel(int(dch)).send("おめでとう！")
 
@@ -340,16 +340,16 @@ async def subscribe(ctx):
     pickstr = ""
     picklist = []
     for split in csplit[pagepos]:
-        ytch = await channelInfo(csplit[pagepos][split]["channel"])
+        ytch = csplit[pagepos][split]
         pickstr += f'{picknum}. {ytch["name"]}\n'
         picklist.append(split)
         picknum += 1
     if pagepos == 0:
-        pickstr += f'A. Subscribe to all channels\nN. Go to next page\nX. Cancel'
+        pickstr += f'\nA. Subscribe to all channels\nN. Go to next page\nX. Cancel'
     elif pagepos == len(csplit) - 1:
-        pickstr += f'A. Subscribe to all channels\nB. Go to previous page\nX. Cancel'
+        pickstr += f'\nA. Subscribe to all channels\nB. Go to previous page\nX. Cancel'
     else:
-        pickstr += f'A. Subscribe to all channels\nN. Go to next page\nB. Go to previous page\nX. Cancel'
+        pickstr += f'\nA. Subscribe to all channels\nN. Go to next page\nB. Go to previous page\nX. Cancel'
 
     listembed = discord.Embed(title="Subscribe to channel:", description=pickstr)
     await listmsg.edit(content=None, embed=listembed)
@@ -360,16 +360,16 @@ async def subscribe(ctx):
             pickstr = ""
             picklist = []
             for split in csplit[pagepos]:
-                ytch = await channelInfo(csplit[pagepos][split]["channel"])
+                ytch = csplit[pagepos][split]
                 pickstr += f'{picknum}. {ytch["name"]}\n'
                 picklist.append(split)
                 picknum += 1
             if pagepos == 0:
-                pickstr += f'A. Subscribe to all channels\nN. Go to next page\nX. Cancel'
+                pickstr += f'\nA. Subscribe to all channels\nN. Go to next page\nX. Cancel'
             elif pagepos == len(csplit) - 1:
-                pickstr += f'A. Subscribe to all channels\nB. Go to previous page\nX. Cancel'
+                pickstr += f'\nA. Subscribe to all channels\nB. Go to previous page\nX. Cancel'
             else:
-                pickstr += f'A. Subscribe to all channels\nN. Go to next page\nB. Go to previous page\nX. Cancel'
+                pickstr += f'\nA. Subscribe to all channels\nN. Go to next page\nB. Go to previous page\nX. Cancel'
 
             listembed = discord.Embed(title="Subscribe to channel:", description=pickstr)
             await listmsg.edit(embed=listembed)
@@ -393,17 +393,18 @@ async def subscribe(ctx):
                     await getwebhook(servers, ctx.guild, ctx.channel)
                     with open("data/servers.json") as f:
                         servers = json.load(f)
-                    if picklist[int(msg.content) - 1] not in servers[str(ctx.guild.id)][str(ctx.channel.id)]["subbed"]:
-                        servers[str(ctx.guild.id)][str(ctx.channel.id)]["subbed"].append(picklist[int(msg.content) - 1])
+                    if picklist[int(msg.content) - 1] not in servers[str(ctx.guild.id)][str(ctx.channel.id)]["livestream"]:
+                        servers[str(ctx.guild.id)][str(ctx.channel.id)]["livestream"].append(picklist[int(msg.content) - 1])
+                        servers[str(ctx.guild.id)][str(ctx.channel.id)]["milestone"].append(picklist[int(msg.content) - 1])
                     else:
-                        ytch = await channelInfo(csplit[pagepos][picklist[int(msg.content) - 1]]["channel"])
+                        ytch = csplit[pagepos][picklist[int(msg.content) - 1]]
                         await listmsg.edit(content=f'This channel is already subscribed to {ytch["name"]}.', embed=None)
                         await msg.delete()
                         await ctx.message.delete()
                         return
                     with open("data/servers.json", "w") as f:
                         json.dump(servers, f, indent=4)
-                    ytch = await channelInfo(csplit[pagepos][picklist[int(msg.content) - 1]]["channel"])
+                    ytch = csplit[pagepos][picklist[int(msg.content) - 1]]
                     await listmsg.edit(content=f'This channel is now subscribed to: {ytch["name"]}.', embed=None)
                     await msg.delete()
                     await ctx.message.delete()
@@ -415,8 +416,10 @@ async def subscribe(ctx):
                     with open("data/servers.json") as f:
                         servers = json.load(f)
                     for ytch in channels:
-                        if ytch not in servers[str(ctx.guild.id)][str(ctx.channel.id)]["subbed"]:
-                            servers[str(ctx.guild.id)][str(ctx.channel.id)]["subbed"].append(ytch)
+                        if ytch not in servers[str(ctx.guild.id)][str(ctx.channel.id)]["livestream"]:
+                            servers[str(ctx.guild.id)][str(ctx.channel.id)]["livestream"].append(ytch)
+                        if ytch not in servers[str(ctx.guild.id)][str(ctx.channel.id)]["milestone"]:
+                            servers[str(ctx.guild.id)][str(ctx.channel.id)]["milestone"].append(ytch)
                     with open("data/servers.json", "w") as f:
                         json.dump(servers, f, indent=4)
                     await listmsg.edit(content=f'This channel is now subscribed to all Hololive YouTube channels.', embed=None)
@@ -448,7 +451,7 @@ async def unsubscribe(ctx):
         servers = json.load(f)
     
     try:
-        len(servers[str(ctx.guild.id)][str(ctx.channel.id)]["subbed"])
+        len(servers[str(ctx.guild.id)][str(ctx.channel.id)]["livestream"])
     except:
         await ctx.send("There are no subscriptions on this channel.")
         return
@@ -456,8 +459,8 @@ async def unsubscribe(ctx):
     multi = False
     sublist = []
     templist = []
-    if len(servers[str(ctx.guild.id)][str(ctx.channel.id)]["subbed"]) > 9:
-        for sub in servers[str(ctx.guild.id)][str(ctx.channel.id)]["subbed"]:
+    if len(servers[str(ctx.guild.id)][str(ctx.channel.id)]["livestream"]) > 9:
+        for sub in servers[str(ctx.guild.id)][str(ctx.channel.id)]["livestream"]:
             if len(templist) < 9:
                 templist.append(sub)
             else:
@@ -465,8 +468,8 @@ async def unsubscribe(ctx):
                 templist = [sub]
         sublist.append(templist)
         multi = True
-    elif len(servers[str(ctx.guild.id)][str(ctx.channel.id)]["subbed"]) > 0 and len(servers[str(ctx.guild.id)][str(ctx.channel.id)]["subbed"]) < 10:
-        for sub in servers[str(ctx.guild.id)][str(ctx.channel.id)]["subbed"]:
+    elif len(servers[str(ctx.guild.id)][str(ctx.channel.id)]["livestream"]) > 0 and len(servers[str(ctx.guild.id)][str(ctx.channel.id)]["livestream"]) < 10:
+        for sub in servers[str(ctx.guild.id)][str(ctx.channel.id)]["livestream"]:
             sublist.append(sub)
     else:
         await ctx.send("There are no subscriptions on this channel.")
@@ -481,19 +484,19 @@ async def unsubscribe(ctx):
         if multi:
             subProc = sublist[pagepos]
             for sub in subProc:
-                ytch = await channelInfo(channels[sub]["channel"])
+                ytch = channels[sub]
                 dispstring += f'{dispnum}. {ytch["name"]}\n'
                 dispnum += 1
             if pagepos == 0:
-                dispstring += f'A. Unsubscribe to all channels\nN. Go to next page\nX. Cancel'
+                dispstring += f'\nA. Unsubscribe to all channels\nN. Go to next page\nX. Cancel'
             elif pagepos == len(sublist) - 1:
-                dispstring += f'A. Unsubscribe to all channels\nB. Go to previous page\nX. Cancel'
+                dispstring += f'\nA. Unsubscribe to all channels\nB. Go to previous page\nX. Cancel'
             else:
-                dispstring += f'A. Unsubscribe to all channels\nN. Go to next page\nB. Go to previous page\nX. Cancel'
+                dispstring += f'\nA. Unsubscribe to all channels\nN. Go to next page\nB. Go to previous page\nX. Cancel'
         else:
             subProc = sublist
             for sub in sublist:
-                ytch = await channelInfo(channels[sub]["channel"])
+                ytch = channels[sub]
                 dispstring += f'{dispnum}. {ytch["name"]}\n'
                 dispnum += 1
             dispstring += f'A. Unsubscribe to all channels\nX. Cancel'
@@ -519,13 +522,14 @@ async def unsubscribe(ctx):
                     with open("data/servers.json") as f:
                         servers = json.load(f)
                     try:
-                        servers[str(ctx.guild.id)][str(ctx.channel.id)]["subbed"].remove(subProc[int(msg.content) - 1])
+                        servers[str(ctx.guild.id)][str(ctx.channel.id)]["livestream"].remove(subProc[int(msg.content) - 1])
+                        servers[str(ctx.guild.id)][str(ctx.channel.id)]["milestone"].remove(subProc[int(msg.content) - 1])
                     except:
-                        ytch = await channelInfo(channels[subProc[int(msg.content) - 1]]["channel"])
-                        await unsubmsg.edit(content=f'Couldn\'t unsubscibe from: {ytch["name"]}!', embed=None)
+                        ytch = channels[subProc[int(msg.content) - 1]]
+                        await unsubmsg.edit(content=f'Couldn\'t unsubscribe from: {ytch["name"]}!', embed=None)
                     else:
                         servers[str(ctx.guild.id)][str(ctx.channel.id)]["notified"].pop(subProc[int(msg.content) - 1], None)
-                        ytch = await channelInfo(channels[subProc[int(msg.content) - 1]]["channel"])
+                        ytch = channels[subProc[int(msg.content) - 1]]
                         await unsubmsg.edit(content=f'Unsubscribed from: {ytch["name"]}.', embed=None)
                     with open("data/servers.json", "w") as f:
                         json.dump(servers, f, indent=4)
@@ -538,7 +542,8 @@ async def unsubscribe(ctx):
                     await getwebhook(servers, ctx.guild, ctx.channel)
                     with open("data/servers.json") as f:
                         servers = json.load(f)
-                    servers[str(ctx.guild.id)][str(ctx.channel.id)]["subbed"] = []
+                    servers[str(ctx.guild.id)][str(ctx.channel.id)]["livestream"] = []
+                    servers[str(ctx.guild.id)][str(ctx.channel.id)]["milestone"] = []
                     servers[str(ctx.guild.id)][str(ctx.channel.id)]["notified"] = {}
                     with open("data/servers.json", "w") as f:
                         json.dump(servers, f, indent=4)
@@ -572,7 +577,7 @@ async def sublist(ctx):
         servers = json.load(f)
     
     try:
-        len(servers[str(ctx.guild.id)][str(ctx.channel.id)]["subbed"])
+        len(servers[str(ctx.guild.id)][str(ctx.channel.id)]["livestream"])
     except:
         await ctx.send("There are no subscriptions on this channel.")
         return
@@ -580,8 +585,8 @@ async def sublist(ctx):
     multi = False
     sublist = []
     templist = []
-    if len(servers[str(ctx.guild.id)][str(ctx.channel.id)]["subbed"]) > 10:
-        for sub in servers[str(ctx.guild.id)][str(ctx.channel.id)]["subbed"]:
+    if len(servers[str(ctx.guild.id)][str(ctx.channel.id)]["livestream"]) > 10:
+        for sub in servers[str(ctx.guild.id)][str(ctx.channel.id)]["livestream"]:
             if len(templist) < 10:
                 templist.append(sub)
             else:
@@ -589,8 +594,8 @@ async def sublist(ctx):
                 templist = [sub]
         sublist.append(templist)
         multi = True
-    elif len(servers[str(ctx.guild.id)][str(ctx.channel.id)]["subbed"]) > 0 and len(servers[str(ctx.guild.id)][str(ctx.channel.id)]["subbed"]) < 11:
-        for sub in servers[str(ctx.guild.id)][str(ctx.channel.id)]["subbed"]:
+    elif len(servers[str(ctx.guild.id)][str(ctx.channel.id)]["livestream"]) > 0 and len(servers[str(ctx.guild.id)][str(ctx.channel.id)]["livestream"]) < 11:
+        for sub in servers[str(ctx.guild.id)][str(ctx.channel.id)]["livestream"]:
             sublist.append(sub)
     else:
         await ctx.send("There are no subscriptions on this channel.")
@@ -605,7 +610,7 @@ async def sublist(ctx):
         if multi:
             subProc = sublist[pagepos]
             for sub in subProc:
-                ytch = await channelInfo(channels[sub]["channel"])
+                ytch = channels[sub]
                 dispstring += f'{realnum}. {ytch["name"]}\n'
                 realnum += 1
             if pagepos == 0:
@@ -617,7 +622,7 @@ async def sublist(ctx):
         else:
             subProc = sublist
             for sub in sublist:
-                ytch = await channelInfo(channels[sub]["channel"])
+                ytch = channels[sub]
                 dispstring += f'{realnum}. {ytch["name"]}\n'
                 realnum += 1
             dispstring += f'\nX. Remove this message'
