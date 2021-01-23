@@ -345,11 +345,11 @@ async def subscribe(ctx):
         picklist.append(split)
         picknum += 1
     if pagepos == 0:
-        pickstr += f'A. Subscribe to all channels\nN. Go to next page\nX. Cancel'
+        pickstr += f'\nA. Subscribe to all channels\nN. Go to next page\nX. Cancel'
     elif pagepos == len(csplit) - 1:
-        pickstr += f'A. Subscribe to all channels\nB. Go to previous page\nX. Cancel'
+        pickstr += f'\nA. Subscribe to all channels\nB. Go to previous page\nX. Cancel'
     else:
-        pickstr += f'A. Subscribe to all channels\nN. Go to next page\nB. Go to previous page\nX. Cancel'
+        pickstr += f'\nA. Subscribe to all channels\nN. Go to next page\nB. Go to previous page\nX. Cancel'
 
     listembed = discord.Embed(title="Subscribe to channel:", description=pickstr)
     await listmsg.edit(content=None, embed=listembed)
@@ -365,11 +365,11 @@ async def subscribe(ctx):
                 picklist.append(split)
                 picknum += 1
             if pagepos == 0:
-                pickstr += f'A. Subscribe to all channels\nN. Go to next page\nX. Cancel'
+                pickstr += f'\nA. Subscribe to all channels\nN. Go to next page\nX. Cancel'
             elif pagepos == len(csplit) - 1:
-                pickstr += f'A. Subscribe to all channels\nB. Go to previous page\nX. Cancel'
+                pickstr += f'\nA. Subscribe to all channels\nB. Go to previous page\nX. Cancel'
             else:
-                pickstr += f'A. Subscribe to all channels\nN. Go to next page\nB. Go to previous page\nX. Cancel'
+                pickstr += f'\nA. Subscribe to all channels\nN. Go to next page\nB. Go to previous page\nX. Cancel'
 
             listembed = discord.Embed(title="Subscribe to channel:", description=pickstr)
             await listmsg.edit(embed=listembed)
@@ -488,11 +488,11 @@ async def unsubscribe(ctx):
                 dispstring += f'{dispnum}. {ytch["name"]}\n'
                 dispnum += 1
             if pagepos == 0:
-                dispstring += f'A. Unsubscribe to all channels\nN. Go to next page\nX. Cancel'
+                dispstring += f'\nA. Unsubscribe to all channels\nN. Go to next page\nX. Cancel'
             elif pagepos == len(sublist) - 1:
-                dispstring += f'A. Unsubscribe to all channels\nB. Go to previous page\nX. Cancel'
+                dispstring += f'\nA. Unsubscribe to all channels\nB. Go to previous page\nX. Cancel'
             else:
-                dispstring += f'A. Unsubscribe to all channels\nN. Go to next page\nB. Go to previous page\nX. Cancel'
+                dispstring += f'\nA. Unsubscribe to all channels\nN. Go to next page\nB. Go to previous page\nX. Cancel'
         else:
             subProc = sublist
             for sub in sublist:
