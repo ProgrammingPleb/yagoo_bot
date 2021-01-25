@@ -308,6 +308,7 @@ async def milestoneCheck():
         for x in range(2):
             try:
                 ytch = await channelInfo(channel)
+                logging.debug(f'Milestone - Checking channel: {ytch["name"]}')
                 if ytch["roundSubs"] > channels[channel]["milestone"]:
                     noWrite = False
                     if ytch["roundSubs"] < 1000000:
@@ -327,10 +328,10 @@ async def milestoneCheck():
                     break
             except:
                 if x == 2:
-                    logging.error(f'Unable to get info for {channel}!')
+                    logging.error(f'Milestone - Unable to get info for {channel}!')
                     break
                 else:
-                    logging.warning(f'Failed to get info for {channel}. Retrying...')
+                    logging.warning(f'Milestone - Failed to get info for {channel}. Retrying...')
     
     if not noWrite:
         with open("data/channels.json", "w") as f:
@@ -339,6 +340,7 @@ async def milestoneCheck():
     return milestone
 
 async def milestoneNotify(msDict):
+    logging.debug(f'Milestone Data: {msDict}')
     with open("data/servers.json") as f:
         servers = json.load(f)
     for channel in msDict:
@@ -356,7 +358,10 @@ async def milestoneNotify(msDict):
         os.remove("milestone/msTemp.html")
         for server in servers:
             for dch in servers[server]:
+                logging.debug(f'Milestone - Channel Data: {servers[server][dch]["milestone"]}')
+                logging.debug(f'Milestone - Channel Check Pass: {channel in servers[server][dch]["milestone"]}')
                 if channel in servers[server][dch]["milestone"]:
+                    logging.debug(f'Posting to {dch}...')
                     await bot.get_channel(int(dch)).send(f'{msDict[channel]["name"]} has reached {msDict[channel]["msText"].replace("Subscribers", "subscribers")}!', file=discord.File(f'milestone/generated/{channel}.png'))
                     await bot.get_channel(int(dch)).send("おめでとう！")
 
