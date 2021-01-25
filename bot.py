@@ -877,7 +877,7 @@ async def mscheck(ctx, vtuber):
     with open("data/channels.json") as f:
         channels = json.load(f)
 
-    ytch = await channelInfo(channels[vtuber]["channel"])
+    ytch = await channelInfo(vtuber)
     if ytch["roundSubs"] < 1000000:
         subtext = f'{int(ytch["roundSubs"] / 1000)}K Subscribers'
     else:
