@@ -344,6 +344,7 @@ async def milestoneNotify(msDict):
     with open("data/servers.json") as f:
         servers = json.load(f)
     for channel in msDict:
+        logging.debug(f'Generating milestone image for id {channel}')
         with open("milestone/milestone.html") as f:
             msHTML = f.read()
         options = {
@@ -352,11 +353,15 @@ async def milestoneNotify(msDict):
             "quiet": ""
         }
         msHTML = msHTML.replace('[msBanner]', msDict[channel]["banner"]).replace('[msImage]', msDict[channel]["image"]).replace('[msName]', msDict[channel]["name"]).replace('[msSubs]', msDict[channel]["msText"])
+        logging.debug(f'Replaced HTML code')
         with open("milestone/msTemp.html", "w", encoding="utf-8") as f:
             f.write(msHTML)
+        logging.debug(f'Generating image for milestone')
         imgkit.from_file("milestone/msTemp.html", f'milestone/generated/{channel}.png', options=options)
+        logging.debug(f'Removed temporary HTML file')
         os.remove("milestone/msTemp.html")
         for server in servers:
+            logging.debug(f'Accessing server id {server}')
             for dch in servers[server]:
                 logging.debug(f'Milestone - Channel Data: {servers[server][dch]["milestone"]}')
                 logging.debug(f'Milestone - Channel Check Pass: {channel in servers[server][dch]["milestone"]}')
