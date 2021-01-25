@@ -717,7 +717,7 @@ async def unsubscribe(ctx):
                     with open("data/servers.json") as f:
                         servers = json.load(f)
                     if "subDefault" not in servers[str(ctx.guild.id)][str(ctx.channel.id)]:
-                        uInput = await subCheck(ctx, unsubmsg, 2, channels[subProc[int(msg.content) - 1]]["name"])
+                        uInput = await subCheck(ctx, unsubmsg, 2, "Unsubscribing from all channels.")
                     else:
                         uInput = {
                             "success": True,
