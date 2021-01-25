@@ -716,13 +716,6 @@ async def unsubscribe(ctx):
                     await getwebhook(servers, ctx.guild, ctx.channel)
                     with open("data/servers.json") as f:
                         servers = json.load(f)
-                    if "subDefault" not in servers[str(ctx.guild.id)][str(ctx.channel.id)]:
-                        uInput = await subCheck(ctx, unsubmsg, 2, "Unsubscribing from all channels.")
-                    else:
-                        uInput = {
-                            "success": True,
-                            "subType": servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"]
-                        }
                     for subType in uInput["subType"]:
                         servers[str(ctx.guild.id)][str(ctx.channel.id)][subType] = []
                     servers[str(ctx.guild.id)][str(ctx.channel.id)]["notified"] = {}
