@@ -125,7 +125,7 @@ async def getSubType(ctx, mode, prompt = None):
                     try:
                         servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"] = subType
                     except:
-                        servers = await genServer(servers, str(ctx.guild.id), str(ctx.channel.id))
+                        servers = await genServer(servers, ctx.guild, ctx.channel)
                         servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"] = subType
                     with open("data/servers.json", "w") as f:
                         json.dump(servers, f, indent=4)
