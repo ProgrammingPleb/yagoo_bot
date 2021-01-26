@@ -357,6 +357,8 @@ async def milestoneNotify(msDict):
         with open("milestone/msTemp.html", "w", encoding="utf-8") as f:
             f.write(msHTML)
         logging.debug(f'Generating image for milestone')
+        if not os.path.exists("milestone/generated"):
+            os.mkdir("milestone/generated")
         imgkit.from_file("milestone/msTemp.html", f'milestone/generated/{channel}.png', options=options)
         logging.debug(f'Removed temporary HTML file')
         os.remove("milestone/msTemp.html")
