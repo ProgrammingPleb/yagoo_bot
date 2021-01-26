@@ -549,21 +549,22 @@ async def subscribe(ctx):
                         }
                     lastSubbed = False
 
-                    if uInput["success"]:
-                        for subType in uInput["subType"]:
-                            if picklist[int(msg.content) - 1] not in servers[str(ctx.guild.id)][str(ctx.channel.id)][subType]:
-                                servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].append(picklist[int(msg.content) - 1])
+                    if not uInput["success"]:
+                        await listmsg.delete()
+                        await ctx.message.delete()
+                        return
+
+                    for subType in uInput["subType"]:
+                        if picklist[int(msg.content) - 1] not in servers[str(ctx.guild.id)][str(ctx.channel.id)][subType]:
+                            servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].append(picklist[int(msg.content) - 1])
+                        else:
+                            if len(uInput["subType"]) > 1 and not lastSubbed:
+                                lastSubbed = True
                             else:
-                                if len(uInput["subType"]) > 1 and not lastSubbed:
-                                    lastSubbed = True
-                                else:
-                                    ytch = csplit[pagepos][picklist[int(msg.content) - 1]]
-                                    await listmsg.edit(content=f'This channel is already subscribed to {ytch["name"]}.', embed=None)
-                                    await ctx.message.delete()
-                                    return
-                    else:
-                        # TODO: Do a custom error here
-                        continue
+                                ytch = csplit[pagepos][picklist[int(msg.content) - 1]]
+                                await listmsg.edit(content=f'This channel is already subscribed to {ytch["name"]}.', embed=None)
+                                await ctx.message.delete()
+                                return
                     with open("data/servers.json", "w") as f:
                         json.dump(servers, f, indent=4)
                     ytch = csplit[pagepos][picklist[int(msg.content) - 1]]
@@ -584,6 +585,10 @@ async def subscribe(ctx):
                             "success": True,
                             "subType": servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"]
                         }
+                    if not uInput["success"]:
+                        await listmsg.delete()
+                        await ctx.message.delete()
+                        return
                     for subType in uInput["subType"]:
                         for ytch in channels:
                             if ytch not in servers[str(ctx.guild.id)][str(ctx.channel.id)][subType]:
