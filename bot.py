@@ -485,18 +485,18 @@ async def help(ctx):
     hembed = discord.Embed(title="Yagoo Bot Commands")
     hembed.description = "Currently the bot only has a small number of commands, as it is still in development!\n" \
                          "New stream notifications will be posted on a 3 minute interval, thus any new notifications " \
-                         "will not come immediately after subscribing."
+                         "will not come immediately after subscribing.\n" \
+                         "Currently all the commands require the user to have either the `Administrator` or `Manage Webhook` permission in the channel or server."
     
     hembed.add_field(name="Commands",
                      value="**y!sub** (Alias: subscribe)\n"
-                           "Brings up a list of channels to subscribe to.\n"
-                           "[Requires user to have `Administrator` or `Manage Webhook` perms]\n\n"
+                           "Brings up a list of channels to subscribe to.\n\n"
                            "**y!unsub** (Alias: unsubscribe)\n"
-                           "Brings up a list of channels to unsubscribe to.\n"
-                           "[Requires user to have `Administrator` or `Manage Webhook` perms]\n\n"
+                           "Brings up a list of channels to unsubscribe to.\n\n"
                            "**y!sublist** (Alias: subs, subslist)\n"
-                           "Brings up a list of channels that the current chat channel has subscribed to.\n"
-                           "[Requires user to have `Administrator` or `Manage Webhook` perms]\n\n")
+                           "Brings up a list of channels that the current chat channel has subscribed to.\n\n"
+                           "**y!subdefault** (Alias: subDefault)\n"
+                           "Set's the default subscription type for the channel.")
 
     await ctx.send(embed=hembed)
 
