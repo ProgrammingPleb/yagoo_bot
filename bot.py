@@ -179,7 +179,7 @@ async def botError(ctx, error):
         return errEmbed
     elif isinstance(error, commands.CheckFailure):
         errEmbed.description = "You are missing permissions to use this bot.\n" \
-                               "Ensure that either you have these permissions for the channel/server:\n" \
+                               "Ensure that you have one of these permissions for the channel/server:\n\n" \
                                " - `Administrator (Server)`\n - `Manage Webhooks (Channel/Server)`"
         
         return errEmbed
