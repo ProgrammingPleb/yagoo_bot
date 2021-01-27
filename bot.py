@@ -152,6 +152,32 @@ async def getSubType(ctx, mode, prompt = None):
             else:
                 await msg.delete()
 
+async def botError(ctx, error):
+    errEmbed = discord.Embed(title="An error has occurred!")
+    if "403 Forbidden" in str(error):
+        permData = [{
+            "formatName": "Manage Webhooks",
+            "dataName": "manage_webhooks"
+        }, {
+            "formatName": "Manage Messages",
+            "dataName": "manage_messages"
+        }]
+        permOutput = []
+        for perm in iter(ctx.guild.me.permissions_in(ctx.channel)):
+            for pCheck in permData:
+                if perm[0] == pCheck["dataName"]:
+                    if not perm[1]:
+                        permOutput.append(pCheck["formatName"])
+        plural = "this permission"
+        if len(permOutput) > 1:
+            plural = "these permissions"
+        errEmbed.description = "This bot has insufficient permissions for this channel.\n" \
+                               f"Please allow the bot {plural}:\n"
+        for perm in permOutput:
+            errEmbed.description += f'\n - `{perm}`'
+        
+        return errEmbed
+
 async def genServer(servers, cserver, cchannel):
     if str(cserver.id) not in servers:
         logging.debug("New server! Adding to database.")
