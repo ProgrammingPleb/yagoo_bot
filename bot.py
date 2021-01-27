@@ -1,4 +1,4 @@
-import aiohttp, discord, asyncio, json, yaml, logging, sys, imgkit, os, pytz
+import aiohttp, discord, asyncio, json, yaml, logging, sys, imgkit, os, pytz, traceback
 from datetime import datetime
 from discord.ext.commands.core import command
 from itertools import islice
@@ -177,6 +177,10 @@ async def botError(ctx, error):
             errEmbed.description += f'\n - `{perm}`'
         
         return errEmbed
+    else:
+        print("An unknown error has occurred.")
+        traceback.print_tb(error.__traceback__)
+        print(error)
 
 async def genServer(servers, cserver, cchannel):
     if str(cserver.id) not in servers:
