@@ -640,6 +640,12 @@ async def subscribe(ctx):
                 else:
                     await msg.delete()
 
+@subscribe.error
+async def sub_error(ctx, error):
+    errEmbed = await botError(ctx, error)
+    if errEmbed:
+        await ctx.send(embed=errEmbed)
+
 # TODO: Error on missing perms (Manage Webhooks and Manage Messages) here
 @bot.command(aliases=["unsub"])
 @commands.check(subPerms)
@@ -785,6 +791,12 @@ async def unsubscribe(ctx):
                 else:
                     await msg.delete()
 
+@unsubscribe.error
+async def unsub_error(ctx, error):
+    errEmbed = await botError(ctx, error)
+    if errEmbed:
+        await ctx.send(embed=errEmbed)
+
 # TODO: Error on missing perms (Manage Messages) here
 @bot.command(aliases=["subs", "subslist", "subscriptions", "subscribed"])
 @commands.check(subPerms)
@@ -891,6 +903,12 @@ async def sublist(ctx):
                         break
                 else:
                     await msg.delete()
+
+@sublist.error
+async def sublist_error(ctx, error):
+    errEmbed = await botError(ctx, error)
+    if errEmbed:
+        await ctx.send(embed=errEmbed)
 
 @bot.command()
 @commands.check(creatorCheck)
