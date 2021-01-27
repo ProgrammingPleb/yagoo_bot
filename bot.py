@@ -153,7 +153,7 @@ async def getSubType(ctx, mode, prompt = None):
                 await msg.delete()
 
 async def botError(ctx, error):
-    errEmbed = discord.Embed(title="An error has occurred!")
+    errEmbed = discord.Embed(title="An error has occurred!", color=discord.Colour.red())
     if "403 Forbidden" in str(error):
         permData = [{
             "formatName": "Manage Webhooks",
