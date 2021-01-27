@@ -505,6 +505,12 @@ async def help(ctx):
 async def subDefault(ctx):
     await getSubType(ctx, 1)
 
+@subDefault.error
+async def subdef_error(ctx, error):
+    errEmbed = await botError(ctx, error)
+    if errEmbed:
+        await ctx.send(embed=errEmbed)
+
 # TODO: Error on missing perms (Manage Webhooks and Manage Messages) here
 @bot.command(aliases=['sub'])
 @commands.check(subPerms)
