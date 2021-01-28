@@ -1,4 +1,4 @@
-import aiohttp, discord, asyncio, json, yaml, logging, sys, imgkit, os, pytz
+import aiohttp, discord, asyncio, json, yaml, logging, sys, imgkit, os, pytz, traceback
 from datetime import datetime
 from discord.ext.commands.core import command
 from itertools import islice
@@ -151,6 +151,42 @@ async def getSubType(ctx, mode, prompt = None):
                 }
             else:
                 await msg.delete()
+
+async def botError(ctx, error):
+    errEmbed = discord.Embed(title="An error has occurred!", color=discord.Colour.red())
+    if "403 Forbidden" in str(error):
+        permData = [{
+            "formatName": "Manage Webhooks",
+            "dataName": "manage_webhooks"
+        }, {
+            "formatName": "Manage Messages",
+            "dataName": "manage_messages"
+        }]
+        permOutput = []
+        for perm in iter(ctx.guild.me.permissions_in(ctx.channel)):
+            for pCheck in permData:
+                if perm[0] == pCheck["dataName"]:
+                    if not perm[1]:
+                        permOutput.append(pCheck["formatName"])
+        plural = "this permission"
+        if len(permOutput) > 1:
+            plural = "these permissions"
+        errEmbed.description = "This bot has insufficient permissions for this channel.\n" \
+                               f"Please allow the bot {plural}:\n"
+        for perm in permOutput:
+            errEmbed.description += f'\n - `{perm}`'
+        
+        return errEmbed
+    elif isinstance(error, commands.CheckFailure):
+        errEmbed.description = "You are missing permissions to use this bot.\n" \
+                               "Ensure that you have one of these permissions for the channel/server:\n\n" \
+                               " - `Administrator (Server)`\n - `Manage Webhooks (Channel/Server)`"
+        
+        return errEmbed
+    else:
+        print("An unknown error has occurred.")
+        traceback.print_tb(error.__traceback__)
+        print(error)
 
 async def genServer(servers, cserver, cchannel):
     if str(cserver.id) not in servers:
@@ -449,18 +485,18 @@ async def help(ctx):
     hembed = discord.Embed(title="Yagoo Bot Commands")
     hembed.description = "Currently the bot only has a small number of commands, as it is still in development!\n" \
                          "New stream notifications will be posted on a 3 minute interval, thus any new notifications " \
-                         "will not come immediately after subscribing."
+                         "will not come immediately after subscribing.\n" \
+                         "Currently all the commands require the user to have either the `Administrator` or `Manage Webhook` permission in the channel or server."
     
     hembed.add_field(name="Commands",
                      value="**y!sub** (Alias: subscribe)\n"
-                           "Brings up a list of channels to subscribe to.\n"
-                           "[Requires user to have `Administrator` or `Manage Webhook` perms]\n\n"
+                           "Brings up a list of channels to subscribe to.\n\n"
                            "**y!unsub** (Alias: unsubscribe)\n"
-                           "Brings up a list of channels to unsubscribe to.\n"
-                           "[Requires user to have `Administrator` or `Manage Webhook` perms]\n\n"
+                           "Brings up a list of channels to unsubscribe to.\n\n"
                            "**y!sublist** (Alias: subs, subslist)\n"
-                           "Brings up a list of channels that the current chat channel has subscribed to.\n"
-                           "[Requires user to have `Administrator` or `Manage Webhook` perms]\n\n")
+                           "Brings up a list of channels that the current chat channel has subscribed to.\n\n"
+                           "**y!subdefault** (Alias: subDefault)\n"
+                           "Set's the default subscription type for the channel.")
 
     await ctx.send(embed=hembed)
 
@@ -468,6 +504,12 @@ async def help(ctx):
 @commands.check(subPerms)
 async def subDefault(ctx):
     await getSubType(ctx, 1)
+
+@subDefault.error
+async def subdef_error(ctx, error):
+    errEmbed = await botError(ctx, error)
+    if errEmbed:
+        await ctx.send(embed=errEmbed)
 
 # TODO: Error on missing perms (Manage Webhooks and Manage Messages) here
 @bot.command(aliases=['sub'])
@@ -614,6 +656,12 @@ async def subscribe(ctx):
                 else:
                     await msg.delete()
 
+@subscribe.error
+async def sub_error(ctx, error):
+    errEmbed = await botError(ctx, error)
+    if errEmbed:
+        await ctx.send(embed=errEmbed)
+
 # TODO: Error on missing perms (Manage Webhooks and Manage Messages) here
 @bot.command(aliases=["unsub"])
 @commands.check(subPerms)
@@ -759,6 +807,12 @@ async def unsubscribe(ctx):
                 else:
                     await msg.delete()
 
+@unsubscribe.error
+async def unsub_error(ctx, error):
+    errEmbed = await botError(ctx, error)
+    if errEmbed:
+        await ctx.send(embed=errEmbed)
+
 # TODO: Error on missing perms (Manage Messages) here
 @bot.command(aliases=["subs", "subslist", "subscriptions", "subscribed"])
 @commands.check(subPerms)
@@ -865,6 +919,12 @@ async def sublist(ctx):
                         break
                 else:
                     await msg.delete()
+
+@sublist.error
+async def sublist_error(ctx, error):
+    errEmbed = await botError(ctx, error)
+    if errEmbed:
+        await ctx.send(embed=errEmbed)
 
 @bot.command()
 @commands.check(creatorCheck)
