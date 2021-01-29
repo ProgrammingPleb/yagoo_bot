@@ -25,9 +25,9 @@ async def on_ready():
     print("Yagoo Bot now streaming!")
     await bot.change_presence(status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.watching, name='other Hololive members'))
     if settings["notify"]:
-        bot.add_cog(StreamCycle())
+        bot.add_cog(StreamCycle(bot))
     if settings["milestone"]:
-        bot.add_cog(msCycle())
+        bot.add_cog(msCycle(bot))
 
 @bot.event
 async def on_guild_remove(server):
