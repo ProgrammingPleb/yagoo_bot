@@ -1,12 +1,17 @@
-import json, aiohttp, discord, logging
+import json, aiohttp, discord, logging, rpyc, yaml, asyncio
 from discord import Webhook, AsyncWebhookAdapter
 from discord.ext import commands, tasks
 from ..infoscraper import streamInfo, channelInfo
 from ..share.dataGrab import getwebhook
+from ..share.prompts import botError
 
 async def streamcheck(ctx = None, test: bool = False, loop: bool = False):
     with open("data/channels.json", encoding="utf-8") as f:
         channels = json.load(f)
+    with open("data/settings.yaml") as f:
+        settings = yaml.load(f, Loader=yaml.SafeLoader)
+    extServer = rpyc.connect(settings["thumbnailIP"], int(settings["thumbnailPort"]))
+    asyncUpl = rpyc.async_(extServer.root.thumbGrab)
     if not test:
         cstreams = {}
         for channel in channels:
@@ -14,19 +19,45 @@ async def streamcheck(ctx = None, test: bool = False, loop: bool = False):
                 try:
                     # print(f'Checking {cshrt["name"]}...')
                     if channel != "":
+                        logging.debug(f'Stream - Checking stream data for channel ID: {channel}')
                         status = await streamInfo(channel)
                         ytchannel = await channelInfo(channel)
+                        logging.debug(f'Stream - Variable data for: status\n{status}')
+                        logging.debug(f'Stream - Variable data for: ytchannel\n{ytchannel}')
                         if status["isLive"]:
+                            logging.debug(f'Stream - {ytchannel["name"]} is live!')
+                            logging.debug("Stream - Preparing for upload...")
+                            
+                            logging.debug("Stream - Sending upload command to thumbnail server...")
+                            upload = asyncUpl(channel, f'https://img.youtube.com/vi/{status["videoId"]}/maxresdefault_live.jpg')
+                            uplSuccess = False
+
+                            while True:
+                                if upload.ready and not upload.error:
+                                    logging.debug("Uploaded thumbnail!")
+                                    uplSuccess = True
+                                    break
+                                elif upload.error:
+                                    break
+
+                                await asyncio.sleep(0.5)
+
+                            if not uplSuccess:
+                                logging.error("Couldn't upload thumbnail!")
+                                return
+                            
                             cstreams[channel] = {
                                 "name": ytchannel["name"],
                                 "image": ytchannel["image"],
                                 "videoId": status["videoId"],
                                 "videoTitle": status["videoTitle"],
-                                "timeText": status["timeText"]
+                                "timeText": status["timeText"],
+                                "thumbURL": upload.value
                             }
                     break
                 except:
                     continue
+        logging.debug(f'Stream - Current livestream data:\n{cstreams}')
         return cstreams
     else:
         stext = ""
@@ -73,7 +104,7 @@ async def streamNotify(bot, cData):
                     async with aiohttp.ClientSession() as session:
                         embed = discord.Embed(title=f'{cData[ytch]["videoTitle"]}', url=f'https://youtube.com/watch?v={cData[ytch]["videoId"]}')
                         embed.description = f'Started streaming {cData[ytch]["timeText"]}'
-                        embed.set_image(url=f'https://img.youtube.com/vi/{cData[ytch]["videoId"]}/maxresdefault.jpg')
+                        embed.set_image(url=cData[ytch]["thumbURL"])
                         webhook = Webhook.from_url(whurl, adapter=AsyncWebhookAdapter(session))
                         await webhook.send(f'New livestream from {cData[ytch]["name"]}!', embed=embed, username=cData[ytch]["name"], avatar_url=cData[ytch]["image"])
                         servers[server][channel]["notified"][ytch]["videoId"] = cData[ytch]["videoId"]
