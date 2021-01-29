@@ -14,6 +14,7 @@ async def streamInfo(channelId: Union[str, int]):
             scripts = soup.find_all("script")
             for script in scripts:
                 if ("var ytInitialData" in script.getText()) or ('window["ytInitialData"]' in script.getText()):
+                    logging.debug("Got ytInitialData!")
                     ytdata = json.loads(script.getText().replace(';', '').replace('var ytInitialData = ', '').replace('window["ytInitialData"]', ''))
                     isVideo = False
                     for cat in ytdata:
