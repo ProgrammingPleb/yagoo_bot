@@ -1,4 +1,4 @@
-import rpyc, requests, os, pytz
+import rpyc, requests, os, pytz, json
 from datetime import datetime
 from rpyc.utils.server import ThreadedServer
 
@@ -11,16 +11,34 @@ class Runner(rpyc.Service):
     
     def exposed_thumbGrab(self, cid, url):
         print(f'Getting thumbnail for {cid}: {url}')
-        timeStr = datetime.now(pytz.timezone("Asia/Tokyo")).strftime("%m%d%y-%H%M")
-        if not os.path.exists(f'/ezzmoe/yagoo/images/{cid}'):
-            os.mkdir(f'/ezzmoe/yagoo/images/{cid}')
-        with open(f'/ezzmoe/yagoo/images/{cid}/{timeStr}.png', 'wb') as f:
-            with requests.get(url) as r:
-                f.write(r.content)
-        
-        thumbnailURL = f'https://yagoo.ezz.moe/thumbnail/{cid}/{timeStr}.png'
+        print("Checking in database if thumbnail already exists.")
+        if not os.path.exists("data"):
+            os.mkdir("data")
+        with open("data/imagehost.json") as f:
+            try:
+                channels = json.load(f)
+            except json.decoder.JSONDecodeError:
+                channels = {}
+        if cid not in channels:
+            channels[cid] = {
+                "ytURL": "",
+                "uploadURL": ""
+            }
+        if url != channels[cid]["ytURL"]:
+            print("Downloading and uploading thumbnail...")
+            timeStr = datetime.now(pytz.timezone("Asia/Tokyo")).strftime("%m%d%y-%H%M")
+            if not os.path.exists(f'/ezzmoe/yagoo/images/{cid}'):
+                os.mkdir(f'/ezzmoe/yagoo/images/{cid}')
+            with open(f'/ezzmoe/yagoo/images/{cid}/{timeStr}.png', 'wb') as f:
+                with requests.get(url) as r:
+                    f.write(r.content)
+            
+            thumbnailURL = f'https://yagoo.ezz.moe/thumbnail/{cid}/{timeStr}.png'
 
-        print(f'Uploaded thumbnail to: {thumbnailURL}')
+            print(f'Uploaded thumbnail to: {thumbnailURL}')
+        else:
+            print("Thumbnail is already downloaded! Returning existing URL.")
+            thumbnailURL = channels[cid]["uploadURL"]
         return thumbnailURL
 
     def exposed_srvstop(self):
