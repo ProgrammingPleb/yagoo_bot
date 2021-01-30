@@ -10,7 +10,7 @@ from ext.share.dataWrite import *
 from ext.share.prompts import *
 
 with open("data/settings.yaml") as f:
-    settings = yaml.load(f, Loader=yaml.FullLoader)
+    settings = yaml.load(f, Loader=yaml.SafeLoader)
 
 if settings["logging"] == "info":
     logging.basicConfig(level=logging.INFO, filename='status.log', filemode='w', format='[%(asctime)s] %(name)s - %(levelname)s - %(message)s')
@@ -331,7 +331,7 @@ async def unsubscribe(ctx):
                         json.dump(servers, f, indent=4)
                     await ctx.message.delete()
                     return
-                elif msg.content.lower() == 'a':
+                if msg.content.lower() == 'a':
                     with open("data/servers.json") as f:
                         servers = json.load(f)
                     await getwebhook(bot, servers, ctx.guild, ctx.channel)
@@ -346,7 +346,7 @@ async def unsubscribe(ctx):
                     await msg.delete()
                     await ctx.message.delete()
                     return
-                elif multi:
+                if multi:
                     if msg.content.lower() == 'n' and pagepos < len(sublist) - 1:
                         await msg.delete()
                         pagepos += 1
@@ -462,7 +462,7 @@ async def sublist(ctx):
                     await subsmsg.delete()
                     await ctx.message.delete()
                     return
-                elif multi:
+                if multi:
                     if msg.content.lower() == 'n' and pagepos < len(sublist) - 1:
                         await msg.delete()
                         pagepos += 1
