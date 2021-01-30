@@ -1,4 +1,5 @@
-import json, pytz
+import json
+import pytz
 from datetime import datetime
 
 async def bdayCheck():
@@ -34,7 +35,7 @@ async def bdayCheck():
             "occurToday": update,
             "bdayData": bdayCurrent
         }
-    else:
-        return {
-            "occurToday": update
-        }
+
+    return {
+        "occurToday": update
+    }

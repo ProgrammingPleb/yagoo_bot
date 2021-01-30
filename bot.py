@@ -1,16 +1,22 @@
-import aiohttp, discord, asyncio, json, yaml, logging, sys
+from typing import KeysView
+import aiohttp
+import discord
+import asyncio
+import json
+import yaml
+import logging
+import sys
 from discord import Webhook, AsyncWebhookAdapter
 from discord.ext import commands
 from ext.infoscraper import channelInfo
 from ext.cogs.subCycle import StreamCycle, streamcheck
 from ext.cogs.msCycle import msCycle, milestoneNotify
-from ext.share.botUtils import *
-from ext.share.dataGrab import *
-from ext.share.dataWrite import *
-from ext.share.prompts import *
+from ext.share.botUtils import subPerms, chunks, creatorCheck
+from ext.share.dataGrab import getSubType, getwebhook
+from ext.share.prompts import botError, subCheck
 
 with open("data/settings.yaml") as f:
-    settings = yaml.load(f, Loader=yaml.FullLoader)
+    settings = yaml.load(f, Loader=yaml.SafeLoader)
 
 if settings["logging"] == "info":
     logging.basicConfig(level=logging.INFO, filename='status.log', filemode='w', format='[%(asctime)s] %(name)s - %(levelname)s - %(message)s')
@@ -39,7 +45,7 @@ async def on_guild_remove(server):
         json.dump(servers, f, indent=4)
 
 @bot.command(alias=['h'])
-async def help(ctx):
+async def help(ctx): # pylint: disable=redefined-builtin
     hembed = discord.Embed(title="Yagoo Bot Commands")
     hembed.description = "Currently the bot only has a small number of commands, as it is still in development!\n" \
                          "New stream notifications will be posted on a 3 minute interval, thus any new notifications " \
@@ -249,7 +255,7 @@ async def unsubscribe(ctx):
     
     try:
         len(servers[str(ctx.guild.id)][str(ctx.channel.id)][subDisp])
-    except:
+    except KeyError:
         await unsubmsg.edit(content="There are no subscriptions on this channel.", embed=None)
         return
 
@@ -320,7 +326,7 @@ async def unsubscribe(ctx):
                     for subType in uInput["subType"]:
                         try:
                             servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].remove(subProc[int(msg.content) - 1])
-                        except:
+                        except ValueError:
                             ytch = channels[subProc[int(msg.content) - 1]]
                             await unsubmsg.edit(content=f'Couldn\'t unsubscribe {subType} notifications from: {ytch["name"]}!', embed=None)
                         else:
@@ -331,7 +337,7 @@ async def unsubscribe(ctx):
                         json.dump(servers, f, indent=4)
                     await ctx.message.delete()
                     return
-                elif msg.content.lower() == 'a':
+                if msg.content.lower() == 'a':
                     with open("data/servers.json") as f:
                         servers = json.load(f)
                     await getwebhook(bot, servers, ctx.guild, ctx.channel)
@@ -346,7 +352,7 @@ async def unsubscribe(ctx):
                     await msg.delete()
                     await ctx.message.delete()
                     return
-                elif multi:
+                if multi:
                     if msg.content.lower() == 'n' and pagepos < len(sublist) - 1:
                         await msg.delete()
                         pagepos += 1
@@ -398,7 +404,7 @@ async def sublist(ctx):
     
     try:
         len(servers[str(ctx.guild.id)][str(ctx.channel.id)][uInput["subType"]])
-    except:
+    except KeyError:
         await subsmsg.edit(content="There are no subscriptions on this channel.", embed=None)
         return
 
@@ -462,7 +468,7 @@ async def sublist(ctx):
                     await subsmsg.delete()
                     await ctx.message.delete()
                     return
-                elif multi:
+                if multi:
                     if msg.content.lower() == 'n' and pagepos < len(sublist) - 1:
                         await msg.delete()
                         pagepos += 1

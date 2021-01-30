@@ -1,4 +1,9 @@
-import json, aiohttp, asyncio, re, sys, logging
+import json
+import aiohttp
+import asyncio
+import re
+import sys
+import logging
 from bs4 import BeautifulSoup
 from typing import Union
 
@@ -14,6 +19,7 @@ async def streamInfo(channelId: Union[str, int]):
             scripts = soup.find_all("script")
             for script in scripts:
                 if ("var ytInitialData" in script.getText()) or ('window["ytInitialData"]' in script.getText()):
+                    logging.debug("Got ytInitialData!")
                     ytdata = json.loads(script.getText().replace(';', '').replace('var ytInitialData = ', '').replace('window["ytInitialData"]', ''))
                     isVideo = False
                     for cat in ytdata:
@@ -80,7 +86,7 @@ async def channelInfo(channelId: Union[str, int]):
                         "success": True
                     }
     
-    if channelData == None:
+    if channelData is None:
         channelData = {
             "success": False
         }
@@ -92,83 +98,77 @@ async def channelScrape(query: str):
         query = query.split("/")[-1]
     
     chInfo = await channelInfo(query)
-    if chInfo["success"] == False:
+
+    if not chInfo["success"]:
         return {
             "success": False
         }
-    else:
-        chNSplit = chInfo["name"].split()
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'
-        }
-        async with aiohttp.ClientSession(headers=headers) as session:
-            async with session.get(f'https://virtualyoutuber.fandom.com/api.php?action=opensearch&format=json&search={chInfo["name"]}') as r:
-                """soup = BeautifulSoup(await r.text(), "html5lib")
-                sArticles = soup.find("ul", {"class": "unified-search__results"}).find_all("article")
-                chLink = None
-                for article in sArticles:
-                    for name in chNSplit:
-                        if name in article.text:
-                            chLink = article.find("a")["href"]"""
-                resp = await r.json()
-                chLink = None
-                x = 0
-                for title in resp[1]:
-                    for name in chNSplit:
-                        if name in title:
-                            chLink = title
-                    x += 1
-                if chLink == None:
-                    logging.debug("Not found! Returning to first entry.")
-                    chLink = resp[1][0]
-            async with session.get(f'https://virtualyoutuber.fandom.com/api.php?action=parse&format=json&page={chLink.split("/")[0]}') as r:
-                resp = await r.json()
-                for prop in resp["parse"]["properties"]:
-                    if prop["name"] == "infoboxes":
-                        infobox = prop["*"]
-                        break
-                    x += 1
-                infobox = json.loads(infobox)
-                dataSource = infobox[0]["data"][4]["data"]["value"]
-        
-        result = {
-            "success": True,
-            "youtube": chInfo
-        }
 
-        infoGrab = {
-            "1": {
-                "dict": "gender",
-                "source": "gender"
-            },
-            "2": {
-                "dict": "height",
-                "source": "height"
-            },
-            "3": {
-                "dict": "age",
-                "source": "age"
-            },
-            "4": {
-                "dict": "birthday",
-                "source": "birthday"
-            }
+    chNSplit = chInfo["name"].split()
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'
+    }
+    async with aiohttp.ClientSession(headers=headers) as session:
+        async with session.get(f'https://virtualyoutuber.fandom.com/api.php?action=opensearch&format=json&search={chInfo["name"]}') as r:
+            resp = await r.json()
+            chLink = None
+            x = 0
+            for title in resp[1]:
+                for name in chNSplit:
+                    if name in title:
+                        chLink = title
+                x += 1
+            if chLink is None:
+                logging.debug("Not found! Returning to first entry.")
+                chLink = resp[1][0]
+        async with session.get(f'https://virtualyoutuber.fandom.com/api.php?action=parse&format=json&page={chLink.split("/")[0]}') as r:
+            resp = await r.json()
+            for prop in resp["parse"]["properties"]:
+                if prop["name"] == "infoboxes":
+                    infobox = prop["*"]
+                    break
+                x += 1
+            infobox = json.loads(infobox)
+            dataSource = infobox[0]["data"][4]["data"]["value"]
+    
+    result = {
+        "success": True,
+        "youtube": chInfo
+    }
+
+    infoGrab = {
+        "1": {
+            "dict": "gender",
+            "source": "gender"
+        },
+        "2": {
+            "dict": "height",
+            "source": "height"
+        },
+        "3": {
+            "dict": "age",
+            "source": "age"
+        },
+        "4": {
+            "dict": "birthday",
+            "source": "birthday"
         }
+    }
 
-        for entry in infoGrab:
-            infoPresent = False
-            for data in dataSource:
-                if data["type"] == "data":
-                    if data["data"]["source"] == infoGrab[entry]["source"]:
-                        result[infoGrab[entry]["dict"]] = re.sub('\[\d+\]', '', BeautifulSoup(data["data"]["value"], "html5lib").text.replace('\n', ''))
-                        infoPresent = True
-            if not infoPresent:
-                result[infoGrab[entry]["dict"]] = None
-        
-        return result
+    for entry in infoGrab:
+        infoPresent = False
+        for data in dataSource:
+            if data["type"] == "data":
+                if data["data"]["source"] == infoGrab[entry]["source"]:
+                    result[infoGrab[entry]["dict"]] = re.sub('\[\d+\]', '', BeautifulSoup(data["data"]["value"], "html5lib").text.replace('\n', ''))
+                    infoPresent = True
+        if not infoPresent:
+            result[infoGrab[entry]["dict"]] = None
+    
+    return result
 
-def sInfoAdapter(id):
-    cData = asyncio.run(channelScrape(id))
+def sInfoAdapter(cid):
+    cData = asyncio.run(channelScrape(cid))
     print(cData)
 
 if __name__ == "__main__":
