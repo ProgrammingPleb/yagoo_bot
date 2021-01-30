@@ -74,6 +74,7 @@ def bdayInsert():
                 x += 1
         except Exception as e:
             print(f"Couldn't get birthday for {chInfo['youtube']['name']}!")
+            print("An error has occurred.")
             traceback.print_tb(e)
             continue
     

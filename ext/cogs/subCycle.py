@@ -1,4 +1,11 @@
-import json, aiohttp, discord, logging, rpyc, yaml, asyncio
+import json
+import aiohttp
+import discord
+import logging
+import rpyc
+import yaml
+import asyncio
+import traceback
 from discord import Webhook, AsyncWebhookAdapter
 from discord.ext import commands, tasks
 from ..infoscraper import streamInfo, channelInfo
@@ -56,39 +63,45 @@ async def streamcheck(ctx = None, test: bool = False, loop: bool = False):
                                 "thumbURL": upload.value
                             }
                     break
-                except:
+                except Exception as e:
+                    logging.error("An error has occurred!", exc_info=True)
+                    print("An error has occurred.")
+                    traceback.print_tb(e)
                     continue
         logging.debug(f'Stream - Current livestream data:\n{cstreams}')
         return cstreams
-    else:
-        stext = ""
-        stext2 = ""
-        for channel in channels:
-            for x in range(2):
-                try:
-                    # print(f'Checking {cshrt["name"]}...')
-                    if channel != "":
-                        status = await streamInfo(channel)
-                        ytchan = await channelInfo(channel)
-                        if len(stext) + len(f'{ytchan["name"]}: <:green_circle:786380003306111018>\n') <= 2000:
-                            if status["isLive"]:
-                                stext += f'{ytchan["name"]}: <:green_circle:786380003306111018>\n'
-                            else:
-                                stext += f'{ytchan["name"]}: <:red_circle:786380003306111018>\n'
+
+    stext = ""
+    stext2 = ""
+    for channel in channels:
+        for x in range(2):
+            try:
+                # print(f'Checking {cshrt["name"]}...')
+                if channel != "":
+                    status = await streamInfo(channel)
+                    ytchan = await channelInfo(channel)
+                    if len(stext) + len(f'{ytchan["name"]}: <:green_circle:786380003306111018>\n') <= 2000:
+                        if status["isLive"]:
+                            stext += f'{ytchan["name"]}: <:green_circle:786380003306111018>\n'
                         else:
-                            if status["isLive"]:
-                                stext2 += f'{ytchan["name"]}: <:green_circle:786380003306111018>\n'
-                            else:
-                                stext2 += f'{ytchan["name"]}: <:red_circle:786380003306111018>\n'
-                    break
-                except:
-                    if x == 2:
-                        if len(stext) + len(f'{channel}: <:warning:786380003306111018>\n') <= 2000:
-                            stext += f'{channel}: <:warning:786380003306111018>\n'
+                            stext += f'{ytchan["name"]}: <:red_circle:786380003306111018>\n'
+                    else:
+                        if status["isLive"]:
+                            stext2 += f'{ytchan["name"]}: <:green_circle:786380003306111018>\n'
                         else:
-                            stext2 += f'{channel}: <:warning:786380003306111018>\n'
-        await ctx.send(stext.strip())
-        await ctx.send(stext2.strip())
+                            stext2 += f'{ytchan["name"]}: <:red_circle:786380003306111018>\n'
+                break
+            except Exception as e:
+                if x == 2:
+                    logging.error("An error has occured!", exc_info=True)
+                    print("An error has occurred.")
+                    traceback.print_tb(e)
+                    if len(stext) + len(f'{channel}: <:warning:786380003306111018>\n') <= 2000:
+                        stext += f'{channel}: <:warning:786380003306111018>\n'
+                    else:
+                        stext2 += f'{channel}: <:warning:786380003306111018>\n'
+    await ctx.send(stext.strip())
+    await ctx.send(stext2.strip())
 
 async def streamNotify(bot, cData):
     with open("data/servers.json", encoding="utf-8") as f:

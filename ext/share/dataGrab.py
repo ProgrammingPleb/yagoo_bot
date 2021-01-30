@@ -1,4 +1,7 @@
-import json, asyncio, logging, discord
+import json
+import asyncio
+import logging
+import discord
 from .dataWrite import genServer
 
 async def getSubType(ctx, mode, bot, prompt = None):
@@ -43,7 +46,7 @@ async def getSubType(ctx, mode, bot, prompt = None):
                         subText = "both"
                     try:
                         servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"] = subType
-                    except:
+                    except KeyError:
                         servers = await genServer(servers, ctx.guild, ctx.channel)
                         servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"] = subType
                     with open("data/servers.json", "w") as f:
@@ -88,5 +91,3 @@ async def getwebhook(bot, servers, cserver, cchannel):
         with open("data/servers.json", "w") as f:
             json.dump(servers, f, indent=4)
     return whurl
-
-

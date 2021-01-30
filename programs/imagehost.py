@@ -1,4 +1,8 @@
-import rpyc, requests, os, pytz, json
+import rpyc
+import requests
+import os
+import pytz
+import json
 from datetime import datetime
 from rpyc.utils.server import ThreadedServer
 
@@ -18,7 +22,7 @@ class Runner(rpyc.Service):
         try:
             with open("data/imagehost.json") as f:
                 channels = json.load(f)
-        except:
+        except (json.decoder.JSONDecodeError, FileNotFoundError):
             channels = {}
         if cid not in channels:
             channels[cid] = {
