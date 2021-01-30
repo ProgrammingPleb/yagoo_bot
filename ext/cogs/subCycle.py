@@ -34,7 +34,7 @@ async def streamcheck(ctx = None, test: bool = False, loop: bool = False):
 
                             while True:
                                 if upload.ready and not upload.error:
-                                    logging.debug("Uploaded thumbnail!")
+                                    logging.debug("Stream - Uploaded thumbnail!")
                                     uplSuccess = True
                                     break
                                 elif upload.error:
@@ -43,7 +43,8 @@ async def streamcheck(ctx = None, test: bool = False, loop: bool = False):
                                 await asyncio.sleep(0.5)
 
                             if not uplSuccess:
-                                logging.error("Couldn't upload thumbnail!")
+                                logging.error("Stream - Couldn't upload thumbnail!")
+                                logging.error(upload.value)
                                 return
                             
                             cstreams[channel] = {
