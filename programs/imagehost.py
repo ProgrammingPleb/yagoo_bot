@@ -11,14 +11,15 @@ class Runner(rpyc.Service):
     
     def exposed_thumbGrab(self, cid, url):
         print(f'Getting thumbnail for {cid}: {url}')
-        print("Checking in database if thumbnail already exists.")
         if not os.path.exists("data"):
+            print("Creating data directory...")
             os.mkdir("data")
-        with open("data/imagehost.json") as f:
-            try:
+        print("Checking in database if thumbnail already exists.")
+        try:
+            with open("data/imagehost.json") as f:
                 channels = json.load(f)
-            except json.decoder.JSONDecodeError:
-                channels = {}
+        except:
+            channels = {}
         if cid not in channels:
             channels[cid] = {
                 "ytURL": "",
@@ -34,6 +35,12 @@ class Runner(rpyc.Service):
                     f.write(r.content)
             
             thumbnailURL = f'https://yagoo.ezz.moe/thumbnail/{cid}/{timeStr}.png'
+
+            channels[cid]["ytURL"] = url
+            channels[cid]["uploadURL"] = thumbnailURL
+
+            with open("data/imagehost.json", "w") as f:
+                json.dump(channels, f, indent=4)
 
             print(f'Uploaded thumbnail to: {thumbnailURL}')
         else:
