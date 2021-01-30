@@ -1,7 +1,13 @@
-import json, requests, sys, asyncio, logging, imgkit, os, shutil, yaml
-from imgkit.api import config
-from bs4 import BeautifulSoup
-from infoscraper import channelInfo, channelScrape
+import json
+import sys
+import asyncio
+import logging
+import imgkit
+import os
+import shutil
+import yaml
+import traceback
+from ext.infoscraper import channelInfo, channelScrape
 
 logging.basicConfig(level=logging.INFO, filename='status.log', filemode='w', format='[%(asctime)s] %(name)s - %(levelname)s - %(message)s')
 
@@ -66,8 +72,9 @@ def bdayInsert():
                         bdayData[str(x)][chDay].append(channel)
                         break
                 x += 1
-        except:
+        except Exception as e:
             print(f"Couldn't get birthday for {chInfo['youtube']['name']}!")
+            traceback.print_tb(e)
             continue
     
     with open("data/birthdays.json", "w") as f:
@@ -89,8 +96,8 @@ def initBot():
     if not os.path.exists("data/settings.yaml"):
         shutil.copy("setup/settings.yaml", "data/settings.yaml")
     with open("data/settings.yaml") as f:
-        settings = yaml.load(f, Loader=yaml.FullLoader)
-    if settings["token"] != None:
+        settings = yaml.load(f, Loader=yaml.SafeLoader)
+    if settings["token"] is not None:
         print("This bot is already setup!")
         return
     print("To get a bot token, go to https://discord.com/developers/ and make a new application.\n"
@@ -152,10 +159,10 @@ def migrateData():
         json.dump(newCh, f, indent=4)
 
 # To be used in programs only, not the CLI
-async def debugFile(output, type, filename):
+async def debugFile(output, filetype, filename):
     print("Writing to file...")
-    with open(f'test/{filename}.{type}', "w", encoding="utf-8") as f:
-        if type == "json":
+    with open(f'test/{filename}.{filetype}', "w", encoding="utf-8") as f:
+        if filetype == "json":
             json.dump(output, f, indent=4)
         else:
             f.write(output)
