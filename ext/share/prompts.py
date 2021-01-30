@@ -1,4 +1,6 @@
-import asyncio, traceback, discord
+import asyncio
+import traceback
+import discord
 from discord.ext import commands
 
 async def subCheck(ctx, bot, subMsg, mode, chName):
@@ -79,13 +81,12 @@ async def botError(ctx, error):
             errEmbed.description += f'\n - `{perm}`'
         
         return errEmbed
-    elif isinstance(error, commands.CheckFailure):
+    if isinstance(error, commands.CheckFailure):
         errEmbed.description = "You are missing permissions to use this bot.\n" \
                                "Ensure that you have one of these permissions for the channel/server:\n\n" \
                                " - `Administrator (Server)`\n - `Manage Webhooks (Channel/Server)`"
         
         return errEmbed
-    else:
-        print("An unknown error has occurred.")
-        traceback.print_tb(error.__traceback__)
-        print(error)
+    print("An unknown error has occurred.")
+    traceback.print_tb(error.__traceback__)
+    print(error)

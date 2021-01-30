@@ -1,4 +1,9 @@
-import json, logging, os, imgkit, discord
+import json
+import logging
+import os
+import imgkit
+import discord
+import traceback
 from ..infoscraper import channelInfo
 from discord.ext import commands, tasks
 
@@ -31,9 +36,11 @@ async def milestoneCheck():
                     }
                     channels[channel]["milestone"] = ytch["roundSubs"]
                     break
-            except:
+            except Exception as e:
                 if x == 2:
                     logging.error(f'Milestone - Unable to get info for {channel}!')
+                    print("An error has occurred.")
+                    traceback.print_tb(e)
                     break
                 else:
                     logging.warning(f'Milestone - Failed to get info for {channel}. Retrying...')
