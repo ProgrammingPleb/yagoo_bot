@@ -92,6 +92,81 @@ async def channelInfo(channelId: Union[str, int]):
         }
     return channelData
 
+class FandomScrape():
+
+    async def searchChannel(chName, silent = False):
+        chNSplit = chName.split()
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f'https://virtualyoutuber.fandom.com/api.php?action=opensearch&format=json&search={chName}') as r:
+                resp = await r.json()
+                chLink = None
+                nameList = []
+                x = 0
+                for title in resp[1]:
+                    for name in chNSplit:
+                        if name in title and len(title.split("/")) < 2:
+                            chLink = {
+                                "status": "Success",
+                                "name": title
+                            }
+                    if len(title.split("/")) < 2:
+                        nameList.append(title)
+                    x += 1
+                if chLink is None:
+                    if silent:
+                        logging.debug("Not found! Returning to first entry.")
+                        chLink = {
+                                "status": "Success",
+                                "name": resp[1][0]
+                            }
+                    else:
+                        chLink = {
+                            "status": "Cannot Match",
+                            "results": nameList
+                        }
+        
+        print(chLink)
+        return chLink
+    
+    async def getChannel(chLink, dataKey = "infobox"):
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f'https://virtualyoutuber.fandom.com/api.php?action=parse&format=json&page={chLink.split("/")[0]}') as r:
+                resp = await r.json()
+                if dataKey == "text":
+                    dataSource = (resp["parse"]["text"]["*"])
+                elif dataKey == "infobox":
+                    for prop in resp["parse"]["properties"]:
+                        if prop["name"] == "infoboxes":
+                            infobox = prop["*"]
+                            break
+                    infobox = json.loads(infobox)
+                    dataSource = infobox[0]["data"][4]["data"]["value"]
+                else:
+                    dataSource = None
+        
+        return dataSource
+    
+    async def parseChannelText(dataText, scrapeList: list = None):
+        if scrapeList is None:
+            scrapeList = ["Profile", "Personality"]
+        
+        outputData = []
+
+        soup = BeautifulSoup(dataText, "html5lib")
+        for webObj in scrapeList:
+            try:
+                header = soup.find("span", {"id": webObj}).parent
+                headData = re.sub('\[\d+\]', '', header.find_next_sibling('p').get_text().strip())
+            except AttributeError:
+                headData = None
+            outputData.append({
+                "name": webObj,
+                "text": headData
+            })
+        
+        return outputData
+
 async def channelScrape(query: str):
 
     if "/channel/" in query:
@@ -103,34 +178,9 @@ async def channelScrape(query: str):
         return {
             "success": False
         }
-
-    chNSplit = chInfo["name"].split()
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'
-    }
-    async with aiohttp.ClientSession(headers=headers) as session:
-        async with session.get(f'https://virtualyoutuber.fandom.com/api.php?action=opensearch&format=json&search={chInfo["name"]}') as r:
-            resp = await r.json()
-            chLink = None
-            x = 0
-            for title in resp[1]:
-                for name in chNSplit:
-                    if name in title:
-                        chLink = title
-                x += 1
-            if chLink is None:
-                logging.debug("Not found! Returning to first entry.")
-                chLink = resp[1][0]
-        async with session.get(f'https://virtualyoutuber.fandom.com/api.php?action=parse&format=json&page={chLink.split("/")[0]}') as r:
-            resp = await r.json()
-            for prop in resp["parse"]["properties"]:
-                if prop["name"] == "infoboxes":
-                    infobox = prop["*"]
-                    break
-                x += 1
-            infobox = json.loads(infobox)
-            dataSource = infobox[0]["data"][4]["data"]["value"]
     
+    dataSource = await FandomScrape.getChannel(await FandomScrape.searchChannel(chInfo["name"], True))
+
     result = {
         "success": True,
         "youtube": chInfo
@@ -168,7 +218,7 @@ async def channelScrape(query: str):
     return result
 
 def sInfoAdapter(cid):
-    cData = asyncio.run(channelScrape(cid))
+    cData = asyncio.run(FandomScrape.parseChannelText(asyncio.run(FandomScrape.getChannel(asyncio.run(FandomScrape.searchChannel("", False))["name"], "text"))))
     print(cData)
 
 if __name__ == "__main__":
