@@ -85,47 +85,26 @@ async def subscribe(ctx):
     csplit = []
     for split in chunks(channels, 9):
         csplit.append(split)
-    first = True
     pagepos = 0
-    picknum = 1
-    pickstr = ""
-    picklist = []
-    for split in csplit[pagepos]:
-        ytch = csplit[pagepos][split]
-        pickstr += f'{picknum}. {ytch["name"]}\n'
-        picklist.append(split)
-        picknum += 1
-    if pagepos == 0:
-        pickstr += f'\nA. Subscribe to all channels\nN. Go to next page\nX. Cancel'
-    elif pagepos == len(csplit) - 1:
-        pickstr += f'\nA. Subscribe to all channels\nB. Go to previous page\nX. Cancel'
-    else:
-        pickstr += f'\nA. Subscribe to all channels\nN. Go to next page\nB. Go to previous page\nX. Cancel'
-
-    listembed = discord.Embed(title="Subscribe to channel:", description=pickstr)
-    await listmsg.edit(content=None, embed=listembed)
-
+    
     while True:
-        if not first:
-            picknum = 1
-            pickstr = ""
-            picklist = []
-            for split in csplit[pagepos]:
-                ytch = csplit[pagepos][split]
-                pickstr += f'{picknum}. {ytch["name"]}\n'
-                picklist.append(split)
-                picknum += 1
-            if pagepos == 0:
-                pickstr += f'\nA. Subscribe to all channels\nN. Go to next page\nX. Cancel'
-            elif pagepos == len(csplit) - 1:
-                pickstr += f'\nA. Subscribe to all channels\nB. Go to previous page\nX. Cancel'
-            else:
-                pickstr += f'\nA. Subscribe to all channels\nN. Go to next page\nB. Go to previous page\nX. Cancel'
-
-            listembed = discord.Embed(title="Subscribe to channel:", description=pickstr)
-            await listmsg.edit(embed=listembed)
+        picknum = 1
+        pickstr = ""
+        picklist = []
+        for split in csplit[pagepos]:
+            ytch = csplit[pagepos][split]
+            pickstr += f'{picknum}. {ytch["name"]}\n'
+            picklist.append(split)
+            picknum += 1
+        if pagepos == 0:
+            pickstr += f'\nA. Subscribe to all channels\nN. Go to next page\nX. Cancel'
+        elif pagepos == len(csplit) - 1:
+            pickstr += f'\nA. Subscribe to all channels\nB. Go to previous page\nX. Cancel'
         else:
-            first = False
+            pickstr += f'\nA. Subscribe to all channels\nN. Go to next page\nB. Go to previous page\nX. Cancel'
+
+        listembed = discord.Embed(title="Subscribe to channel:", description=pickstr)
+        await listmsg.edit(embed=listembed)
 
         def check(m):
             return m.content.lower() in ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'n', 'b', 'x'] and m.author == ctx.author
@@ -137,87 +116,86 @@ async def subscribe(ctx):
                 await listmsg.delete()
                 await ctx.message.delete()
                 return
-            else:
-                if msg.content in ['1', '2', '3', '4', '5', '6', '7', '8', '9']:
-                    with open("data/servers.json") as f:
-                        servers = json.load(f)
-                    await getwebhook(bot, servers, ctx.guild, ctx.channel)
-                    with open("data/servers.json") as f:
-                        servers = json.load(f)
-                    await msg.delete()
-                    if "subDefault" not in servers[str(ctx.guild.id)][str(ctx.channel.id)]:
-                        uInput = await subCheck(ctx, bot, listmsg, 1, csplit[pagepos][picklist[int(msg.content) - 1]]["name"])
-                    else:
-                        uInput = {
-                            "success": True,
-                            "subType": servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"]
-                        }
-                    lastSubbed = False
+            if msg.content in ['1', '2', '3', '4', '5', '6', '7', '8', '9']:
+                with open("data/servers.json") as f:
+                    servers = json.load(f)
+                await getwebhook(bot, servers, ctx.guild, ctx.channel)
+                with open("data/servers.json") as f:
+                    servers = json.load(f)
+                await msg.delete()
+                if "subDefault" not in servers[str(ctx.guild.id)][str(ctx.channel.id)]:
+                    uInput = await subCheck(ctx, bot, listmsg, 1, csplit[pagepos][picklist[int(msg.content) - 1]]["name"])
+                else:
+                    uInput = {
+                        "success": True,
+                        "subType": servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"]
+                    }
+                lastSubbed = False
 
-                    if not uInput["success"]:
-                        await listmsg.delete()
-                        await ctx.message.delete()
-                        return
-
-                    for subType in uInput["subType"]:
-                        if picklist[int(msg.content) - 1] not in servers[str(ctx.guild.id)][str(ctx.channel.id)][subType]:
-                            servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].append(picklist[int(msg.content) - 1])
-                        else:
-                            if len(uInput["subType"]) > 1 and not lastSubbed:
-                                lastSubbed = True
-                            else:
-                                ytch = csplit[pagepos][picklist[int(msg.content) - 1]]
-                                await listmsg.edit(content=f'This channel is already subscribed to {ytch["name"]}.', embed=None)
-                                await ctx.message.delete()
-                                return
-                    with open("data/servers.json", "w") as f:
-                        json.dump(servers, f, indent=4)
-                    ytch = csplit[pagepos][picklist[int(msg.content) - 1]]
-                    await listmsg.edit(content=f'This channel is now subscribed to: {ytch["name"]}.', embed=None)
-                    await ctx.message.delete()
-                    return
-                elif msg.content.lower() == 'a':
-                    with open("data/servers.json") as f:
-                        servers = json.load(f)
-                    await getwebhook(bot, servers, ctx.guild, ctx.channel)
-                    with open("data/servers.json") as f:
-                        servers = json.load(f)
-                    await msg.delete()
-                    if "subDefault" not in servers[str(ctx.guild.id)][str(ctx.channel.id)]:
-                        uInput = await subCheck(ctx, bot, listmsg, 1, "Subscribing to all channels.")
-                    else:
-                        uInput = {
-                            "success": True,
-                            "subType": servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"]
-                        }
-                    if not uInput["success"]:
-                        await listmsg.delete()
-                        await ctx.message.delete()
-                        return
-                    for subType in uInput["subType"]:
-                        for ytch in channels:
-                            if ytch not in servers[str(ctx.guild.id)][str(ctx.channel.id)][subType]:
-                                servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].append(ytch)
-                    with open("data/servers.json", "w") as f:
-                        json.dump(servers, f, indent=4)
-                    await listmsg.edit(content=f'This channel is now subscribed to all Hololive YouTube channels.', embed=None)
-                    await ctx.message.delete()
-                    return
-                elif msg.content.lower() == 'n' and pagepos < len(csplit) - 1:
-                    await msg.delete()
-                    pagepos += 1
-                    break
-                elif msg.content.lower() == 'b' and pagepos > 0:
-                    await msg.delete()
-                    pagepos -= 1
-                    break
-                elif msg.content.lower() == 'x':
-                    await msg.delete()
+                if not uInput["success"]:
                     await listmsg.delete()
                     await ctx.message.delete()
                     return
+
+                for subType in uInput["subType"]:
+                    if picklist[int(msg.content) - 1] not in servers[str(ctx.guild.id)][str(ctx.channel.id)][subType]:
+                        servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].append(picklist[int(msg.content) - 1])
+                    else:
+                        if len(uInput["subType"]) > 1 and not lastSubbed:
+                            lastSubbed = True
+                        else:
+                            ytch = csplit[pagepos][picklist[int(msg.content) - 1]]
+                            await listmsg.edit(content=f'This channel is already subscribed to {ytch["name"]}.', embed=None)
+                            await ctx.message.delete()
+                            return
+                with open("data/servers.json", "w") as f:
+                    json.dump(servers, f, indent=4)
+                ytch = csplit[pagepos][picklist[int(msg.content) - 1]]
+                await listmsg.edit(content=f'This channel is now subscribed to: {ytch["name"]}.', embed=None)
+                await ctx.message.delete()
+                return
+            elif msg.content.lower() == 'a':
+                with open("data/servers.json") as f:
+                    servers = json.load(f)
+                await getwebhook(bot, servers, ctx.guild, ctx.channel)
+                with open("data/servers.json") as f:
+                    servers = json.load(f)
+                await msg.delete()
+                if "subDefault" not in servers[str(ctx.guild.id)][str(ctx.channel.id)]:
+                    uInput = await subCheck(ctx, bot, listmsg, 1, "Subscribing to all channels.")
                 else:
-                    await msg.delete()
+                    uInput = {
+                        "success": True,
+                        "subType": servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"]
+                    }
+                if not uInput["success"]:
+                    await listmsg.delete()
+                    await ctx.message.delete()
+                    return
+                for subType in uInput["subType"]:
+                    for ytch in channels:
+                        if ytch not in servers[str(ctx.guild.id)][str(ctx.channel.id)][subType]:
+                            servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].append(ytch)
+                with open("data/servers.json", "w") as f:
+                    json.dump(servers, f, indent=4)
+                await listmsg.edit(content=f'This channel is now subscribed to all Hololive YouTube channels.', embed=None)
+                await ctx.message.delete()
+                return
+            elif msg.content.lower() == 'n' and pagepos < len(csplit) - 1:
+                await msg.delete()
+                pagepos += 1
+                break
+            elif msg.content.lower() == 'b' and pagepos > 0:
+                await msg.delete()
+                pagepos -= 1
+                break
+            elif msg.content.lower() == 'x':
+                await msg.delete()
+                await listmsg.delete()
+                await ctx.message.delete()
+                return
+            else:
+                await msg.delete()
 
 @subscribe.error
 async def sub_error(ctx, error):
