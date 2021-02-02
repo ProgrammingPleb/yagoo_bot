@@ -38,21 +38,26 @@ async def streamcheck(ctx = None, test: bool = False, loop: bool = False):
                             logging.debug("Stream - Sending upload command to thumbnail server...")
                             upload = asyncUpl(channel, f'https://img.youtube.com/vi/{status["videoId"]}/maxresdefault_live.jpg')
                             uplSuccess = False
-
+                            
+                            timeout = 0
                             while True:
                                 if upload.ready and not upload.error:
                                     logging.debug("Stream - Uploaded thumbnail!")
                                     uplSuccess = True
                                     break
-                                elif upload.error:
+                                elif upload.error or timeout > 9:
                                     break
-
+                                
+                                timeout += 1
                                 await asyncio.sleep(0.5)
 
                             if not uplSuccess:
-                                logging.error("Stream - Couldn't upload thumbnail!")
+                                if timeout > 9:
+                                    logging.error("Stream - Server didn't return a thumbnail in time! Retrying in next cycle.")
+                                else:
+                                    logging.error("Stream - Couldn't upload thumbnail!")
                                 logging.error(upload.value)
-                                return
+                                break
                             
                             cstreams[channel] = {
                                 "name": ytchannel["name"],
