@@ -28,29 +28,30 @@ async def streamInfo(channelId: Union[str, int]):
                         with open(f"test/channels/{channelId}.json", "w", encoding="utf-8") as f:
                             json.dump(ytdata, f, indent=4)
                     if "contents" in ytdata:
-                        morevInfo = ytdata["contents"]["twoColumnWatchNextResults"]["results"]["results"]["contents"][0]["videoPrimaryInfoRenderer"]
-                        if "viewCount" in morevInfo:
-                            videoInfo = morevInfo["viewCount"]["videoViewCountRenderer"]
-                            vcText = ""
-                            for text in videoInfo["viewCount"]["runs"]:
-                                vcText += text["text"]
-                            if videoInfo["isLive"] and ("watching now" in vcText):
-                                title = ""
-                                if len(morevInfo["title"]["runs"]) > 1:
-                                    for subrun in morevInfo["title"]["runs"]:
-                                        title += subrun["text"]
+                        if "twoColumnWatchNextResults" in ytdata["contents"]:
+                            morevInfo = ytdata["contents"]["twoColumnWatchNextResults"]["results"]["results"]["contents"][0]["videoPrimaryInfoRenderer"]
+                            if "viewCount" in morevInfo:
+                                videoInfo = morevInfo["viewCount"]["videoViewCountRenderer"]
+                                vcText = ""
+                                for text in videoInfo["viewCount"]["runs"]:
+                                    vcText += text["text"]
+                                if videoInfo["isLive"] and ("watching now" in vcText):
+                                    title = ""
+                                    if len(morevInfo["title"]["runs"]) > 1:
+                                        for subrun in morevInfo["title"]["runs"]:
+                                            title += subrun["text"]
+                                    else:
+                                        title = morevInfo["title"]["runs"][0]["text"]
+                                    output = {
+                                        "isLive": True,
+                                        "videoId": morevInfo["updatedMetadataEndpoint"]["updatedMetadataEndpoint"]["videoId"],
+                                        "videoTitle": title,
+                                        "timeText": morevInfo["dateText"]["simpleText"].replace('Started streaming ', '')
+                                    }
                                 else:
-                                    title = morevInfo["title"]["runs"][0]["text"]
-                                output = {
-                                    "isLive": True,
-                                    "videoId": morevInfo["updatedMetadataEndpoint"]["updatedMetadataEndpoint"]["videoId"],
-                                    "videoTitle": title,
-                                    "timeText": morevInfo["dateText"]["simpleText"].replace('Started streaming ', '')
-                                }
-                            else:
-                                output = {
-                                    "isLive": False
-                                }
+                                    output = {
+                                        "isLive": False
+                                    }
     if not output:
         output = {
             "isLive": False
