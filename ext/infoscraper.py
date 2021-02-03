@@ -4,6 +4,7 @@ import asyncio
 import re
 import sys
 import logging
+import os
 from bs4 import BeautifulSoup
 from typing import Union
 
@@ -21,15 +22,19 @@ async def streamInfo(channelId: Union[str, int]):
                 if ("var ytInitialData" in script.getText()) or ('window["ytInitialData"]' in script.getText()):
                     logging.debug("Got ytInitialData!")
                     ytdata = json.loads(script.getText().replace(';', '').replace('var ytInitialData = ', '').replace('window["ytInitialData"]', ''))
-                    isVideo = False
-                    for cat in ytdata:
-                        if cat == "playerOverlays":
-                            isVideo = True
-                    if isVideo:
+                    if not logging.DEBUG >= logging.root.level:
+                        if not os.path.exists("test/channels/"):
+                            os.makedirs("test/channels/")
+                        with open(f"test/channels/{channelId}.json", "w", encoding="utf-8") as f:
+                            json.dump(ytdata, f, indent=4)
+                    if "contents" in ytdata:
                         morevInfo = ytdata["contents"]["twoColumnWatchNextResults"]["results"]["results"]["contents"][0]["videoPrimaryInfoRenderer"]
                         if "viewCount" in morevInfo:
                             videoInfo = morevInfo["viewCount"]["videoViewCountRenderer"]
-                            if videoInfo["isLive"] and ("watching now" in videoInfo["viewCount"]["runs"][0]["text"]):
+                            vcText = ""
+                            for text in videoInfo["viewCount"]["runs"]:
+                                vcText += text["text"]
+                            if videoInfo["isLive"] and ("watching now" in vcText):
                                 title = ""
                                 if len(morevInfo["title"]["runs"]) > 1:
                                     for subrun in morevInfo["title"]["runs"]:
@@ -168,7 +173,7 @@ async def channelScrape(query: str):
     return result
 
 def sInfoAdapter(cid):
-    cData = asyncio.run(channelScrape(cid))
+    cData = asyncio.run(streamInfo(cid))
     print(cData)
 
 if __name__ == "__main__":
