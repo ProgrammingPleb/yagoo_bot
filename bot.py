@@ -29,7 +29,10 @@ bot.remove_command('help')
 
 @bot.event
 async def on_ready():
-    print("Yagoo Bot now streaming!")
+    guildCount = 0
+    for guilds in bot.guilds:
+        guildCount += 1
+    print(f"Yagoo Bot now streaming in {guildCount} servers!")
     await bot.change_presence(status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.watching, name='other Hololive members'))
     if settings["notify"]:
         bot.add_cog(StreamCycle(bot))
