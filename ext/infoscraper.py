@@ -14,8 +14,12 @@ def round_down(num, divisor):
 
 async def streamInfo(channelId: Union[str, int]):
     output = None
+    checked = False
 
     for retryCount in range(3):
+        if checked:
+            break
+
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(f'https://www.youtube.com/channel/{channelId}/live?hl=en-US') as r:
@@ -51,10 +55,12 @@ async def streamInfo(channelId: Union[str, int]):
                                                 "videoTitle": title,
                                                 "timeText": morevInfo["dateText"]["simpleText"].replace('Started streaming ', '')
                                             }
+                                            checked = True
                                         else:
                                             output = {
                                                 "isLive": False
                                             }
+                                            checked = True
         except Exception as e:
             if retryCount > 1:
                 logging.error("Stream - An error has occured while getting stream info!", exc_info=True)
