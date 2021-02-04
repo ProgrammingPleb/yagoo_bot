@@ -73,37 +73,47 @@ async def streamInfo(channelId: Union[str, int]):
 
 async def channelInfo(channelId: Union[str, int]):
     channelData = None
+    checked = False
     
-    async with aiohttp.ClientSession() as session:
-        async with session.get(f'https://www.youtube.com/channel/{channelId}?hl=en-US') as r:
-            soup = BeautifulSoup(await r.text(), "html5lib")
-            scripts = soup.find_all("script")
-            for script in scripts:
-                if ("var ytInitialData" in script.getText()) or ('window["ytInitialData"]' in script.getText()):
-                    ytdata = json.loads(script.getText().replace(';', '').replace('var ytInitialData = ', '').replace('window["ytInitialData"]', ''))
+    for retryCount in range(2):
+        if checked:
+            break
 
-                    cSubsText = ytdata["header"]["c4TabbedHeaderRenderer"]["subscriberCountText"]["simpleText"]
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f'https://www.youtube.com/channel/{channelId}?hl=en-US') as r:
+                    soup = BeautifulSoup(await r.text(), "html5lib")
+                    scripts = soup.find_all("script")
+                    for script in scripts:
+                        if ("var ytInitialData" in script.getText()) or ('window["ytInitialData"]' in script.getText()):
+                            ytdata = json.loads(script.getText().replace(';', '').replace('var ytInitialData = ', '').replace('window["ytInitialData"]', ''))
 
-                    if "M" in cSubsText:
-                        cSubsA = int(float(cSubsText.replace("M subscribers", "")) * 1000000)
-                        cSubsR = round_down(cSubsA, 500000)
-                    elif "K" in cSubsText:
-                        cSubsA = int(float(cSubsText.replace("K subscribers", "")) * 1000)
-                        cSubsR = round_down(cSubsA, 100000)
-                    else:
-                        cSubsA = None
-                        cSubsR = None
+                            cSubsText = ytdata["header"]["c4TabbedHeaderRenderer"]["subscriberCountText"]["simpleText"]
 
-                    channelData = {
-                        "name": ytdata["metadata"]["channelMetadataRenderer"]["title"],
-                        "formattedName": re.split(r'([a-zA-Z\xC0-\xFF]+)', ytdata["metadata"]["channelMetadataRenderer"]["title"]),
-                        "image": ytdata["metadata"]["channelMetadataRenderer"]["avatar"]["thumbnails"][0]["url"],
-                        "banner": ytdata["header"]["c4TabbedHeaderRenderer"]["banner"]["thumbnails"][3]["url"],
-                        "mbanner": ytdata["header"]["c4TabbedHeaderRenderer"]["banner"]["thumbnails"][1]["url"],
-                        "realSubs": cSubsA,
-                        "roundSubs": cSubsR,
-                        "success": True
-                    }
+                            if "M" in cSubsText:
+                                cSubsA = int(float(cSubsText.replace("M subscribers", "")) * 1000000)
+                                cSubsR = round_down(cSubsA, 500000)
+                            elif "K" in cSubsText:
+                                cSubsA = int(float(cSubsText.replace("K subscribers", "")) * 1000)
+                                cSubsR = round_down(cSubsA, 100000)
+                            else:
+                                cSubsA = None
+                                cSubsR = None
+
+                            channelData = {
+                                "name": ytdata["metadata"]["channelMetadataRenderer"]["title"],
+                                "formattedName": re.split(r'([a-zA-Z\xC0-\xFF]+)', ytdata["metadata"]["channelMetadataRenderer"]["title"]),
+                                "image": ytdata["metadata"]["channelMetadataRenderer"]["avatar"]["thumbnails"][0]["url"],
+                                "banner": ytdata["header"]["c4TabbedHeaderRenderer"]["banner"]["thumbnails"][3]["url"],
+                                "mbanner": ytdata["header"]["c4TabbedHeaderRenderer"]["banner"]["thumbnails"][1]["url"],
+                                "realSubs": cSubsA,
+                                "roundSubs": cSubsR,
+                                "success": True
+                            }
+                            checked = True
+        except Exception as e:
+            if retryCount > 1:
+                logging.error("Channel - An error has occured while getting channel info!", exc_info=True)
     
     if channelData is None:
         channelData = {
