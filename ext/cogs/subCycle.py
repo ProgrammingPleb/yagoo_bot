@@ -17,9 +17,9 @@ async def streamcheck(ctx = None, test: bool = False, loop: bool = False):
         channels = json.load(f)
     with open("data/settings.yaml") as f:
         settings = yaml.load(f, Loader=yaml.SafeLoader)
-    extServer = rpyc.connect(settings["thumbnailIP"], int(settings["thumbnailPort"]))
-    asyncUpl = rpyc.async_(extServer.root.thumbGrab)
     if not test:
+        extServer = rpyc.connect(settings["thumbnailIP"], int(settings["thumbnailPort"]))
+        asyncUpl = rpyc.async_(extServer.root.thumbGrab)
         cstreams = {}
         for channel in channels:
             for x in range(2):
@@ -98,7 +98,7 @@ async def streamcheck(ctx = None, test: bool = False, loop: bool = False):
                 break
             except Exception as e:
                 if x == 2:
-                    logging.error("An error has occured!", exc_info=True)
+                    logging.error("An error has occurred!", exc_info=True)
                     print("An error has occurred.")
                     traceback.print_tb(e.__traceback__)
                     if len(stext) + len(f'{channel}: <:warning:786380003306111018>\n') <= 2000:
