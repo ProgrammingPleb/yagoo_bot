@@ -39,10 +39,7 @@ async def streamInfo(channelId: Union[str, int]):
                                     morevInfo = ytdata["contents"]["twoColumnWatchNextResults"]["results"]["results"]["contents"][0]["videoPrimaryInfoRenderer"]
                                     if "viewCount" in morevInfo:
                                         videoInfo = morevInfo["viewCount"]["videoViewCountRenderer"]
-                                        vcText = ""
-                                        for text in videoInfo["viewCount"]["runs"]:
-                                            vcText += text["text"]
-                                        if videoInfo["isLive"] and ("watching now" in vcText):
+                                        if videoInfo["isLive"] and ("Started streaming" in morevInfo["dateText"]["simpleText"]):
                                             title = ""
                                             if len(morevInfo["title"]["runs"]) > 1:
                                                 for subrun in morevInfo["title"]["runs"]:
