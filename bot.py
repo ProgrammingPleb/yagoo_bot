@@ -582,4 +582,13 @@ async def maintenance(ctx):
     logging.info("Logged out.")
     sys.exit()
 
+@bot.command(aliases=["gCount", "gcount", "guildcount"])
+@commands.check(creatorCheck)
+async def guildCount(ctx):
+    totalGuilds = 0
+    for x in bot.guilds:
+        totalGuilds += 1
+    
+    await ctx.send(f"Yagoo bot is now live in {totalGuilds} servers!")
+
 bot.run(settings["token"])
