@@ -1,4 +1,3 @@
-from typing import KeysView
 import aiohttp
 import discord
 import asyncio
