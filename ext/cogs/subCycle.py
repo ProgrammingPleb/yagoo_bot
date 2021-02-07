@@ -17,9 +17,9 @@ async def streamcheck(ctx = None, test: bool = False, loop: bool = False):
         channels = json.load(f)
     with open("data/settings.yaml") as f:
         settings = yaml.load(f, Loader=yaml.SafeLoader)
-    extServer = rpyc.connect(settings["thumbnailIP"], int(settings["thumbnailPort"]))
-    asyncUpl = rpyc.async_(extServer.root.thumbGrab)
     if not test:
+        extServer = rpyc.connect(settings["thumbnailIP"], int(settings["thumbnailPort"]))
+        asyncUpl = rpyc.async_(extServer.root.thumbGrab)
         cstreams = {}
         for channel in channels:
             for x in range(2):
@@ -38,21 +38,26 @@ async def streamcheck(ctx = None, test: bool = False, loop: bool = False):
                             logging.debug("Stream - Sending upload command to thumbnail server...")
                             upload = asyncUpl(channel, f'https://img.youtube.com/vi/{status["videoId"]}/maxresdefault_live.jpg')
                             uplSuccess = False
-
+                            
+                            timeout = 0
                             while True:
                                 if upload.ready and not upload.error:
                                     logging.debug("Stream - Uploaded thumbnail!")
                                     uplSuccess = True
                                     break
-                                elif upload.error:
+                                elif upload.error or timeout > 9:
                                     break
-
+                                
+                                timeout += 1
                                 await asyncio.sleep(0.5)
 
                             if not uplSuccess:
-                                logging.error("Stream - Couldn't upload thumbnail!")
+                                if timeout > 9:
+                                    logging.error("Stream - Server didn't return a thumbnail in time! Retrying in next cycle.")
+                                else:
+                                    logging.error("Stream - Couldn't upload thumbnail!")
                                 logging.error(upload.value)
-                                return
+                                break
                             
                             cstreams[channel] = {
                                 "name": ytchannel["name"],
@@ -93,9 +98,9 @@ async def streamcheck(ctx = None, test: bool = False, loop: bool = False):
                 break
             except Exception as e:
                 if x == 2:
-                    logging.error("An error has occured!", exc_info=True)
+                    logging.error("An error has occurred!", exc_info=True)
                     print("An error has occurred.")
-                    traceback.print_tb(e)
+                    traceback.print_tb(e.__traceback__)
                     if len(stext) + len(f'{channel}: <:warning:786380003306111018>\n') <= 2000:
                         stext += f'{channel}: <:warning:786380003306111018>\n'
                     else:
@@ -114,14 +119,18 @@ async def streamNotify(bot, cData):
                         "videoId": ""
                     }
                 if ytch in servers[server][channel]["livestream"] and cData[ytch]["videoId"] != servers[server][channel]["notified"][ytch]["videoId"]:
-                    whurl = await getwebhook(bot, servers, server, channel)
-                    async with aiohttp.ClientSession() as session:
-                        embed = discord.Embed(title=f'{cData[ytch]["videoTitle"]}', url=f'https://youtube.com/watch?v={cData[ytch]["videoId"]}')
-                        embed.description = f'Started streaming {cData[ytch]["timeText"]}'
-                        embed.set_image(url=cData[ytch]["thumbURL"])
-                        webhook = Webhook.from_url(whurl, adapter=AsyncWebhookAdapter(session))
-                        await webhook.send(f'New livestream from {cData[ytch]["name"]}!', embed=embed, username=cData[ytch]["name"], avatar_url=cData[ytch]["image"])
-                        servers[server][channel]["notified"][ytch]["videoId"] = cData[ytch]["videoId"]
+                    try:
+                        whurl = await getwebhook(bot, servers, server, channel)
+                        async with aiohttp.ClientSession() as session:
+                            embed = discord.Embed(title=f'{cData[ytch]["videoTitle"]}', url=f'https://youtube.com/watch?v={cData[ytch]["videoId"]}')
+                            embed.description = f'Started streaming {cData[ytch]["timeText"]}'
+                            embed.set_image(url=cData[ytch]["thumbURL"])
+                            webhook = Webhook.from_url(whurl, adapter=AsyncWebhookAdapter(session))
+                            await webhook.send(f'New livestream from {cData[ytch]["name"]}!', embed=embed, username=cData[ytch]["name"], avatar_url=cData[ytch]["image"])
+                    except Exception as e:
+                        logging.error(f"Stream - An error has occurred while publishing stream notification to {channel}!", exc_info=True)
+                        break
+                    servers[server][channel]["notified"][ytch]["videoId"] = cData[ytch]["videoId"]
     with open("data/servers.json", "w", encoding="utf-8") as f:
         servers = json.dump(servers, f, indent=4)
 

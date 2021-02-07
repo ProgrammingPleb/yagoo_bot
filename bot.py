@@ -1,4 +1,3 @@
-from typing import KeysView
 import aiohttp
 import discord
 import asyncio
@@ -11,6 +10,7 @@ from discord.ext import commands
 from ext.infoscraper import channelInfo
 from ext.cogs.subCycle import StreamCycle, streamcheck
 from ext.cogs.msCycle import msCycle, milestoneNotify
+from ext.cogs.dblUpdate import guildUpdate
 from ext.share.botUtils import subPerms, chunks, creatorCheck
 from ext.share.dataGrab import getSubType, getwebhook
 from ext.share.prompts import botError, subCheck
@@ -28,12 +28,17 @@ bot.remove_command('help')
 
 @bot.event
 async def on_ready():
-    print("Yagoo Bot now streaming!")
+    guildCount = 0
+    for guilds in bot.guilds:
+        guildCount += 1
+    print(f"Yagoo Bot now streaming in {guildCount} servers!")
     await bot.change_presence(status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.watching, name='other Hololive members'))
     if settings["notify"]:
         bot.add_cog(StreamCycle(bot))
     if settings["milestone"]:
         bot.add_cog(msCycle(bot))
+    if settings["dblPublish"]:
+        bot.add_cog(guildUpdate(bot, settings["dblToken"]))
 
 @bot.event
 async def on_guild_remove(server):
@@ -576,5 +581,14 @@ async def maintenance(ctx):
     await bot.close()
     logging.info("Logged out.")
     sys.exit()
+
+@bot.command(aliases=["gCount", "gcount", "guildcount"])
+@commands.check(creatorCheck)
+async def guildCount(ctx):
+    totalGuilds = 0
+    for x in bot.guilds:
+        totalGuilds += 1
+    
+    await ctx.send(f"Yagoo bot is now live in {totalGuilds} servers!")
 
 bot.run(settings["token"])
