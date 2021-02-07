@@ -20,7 +20,8 @@ def channelscrape():
         channels[channel] = {
             "name": chData["name"],
             "image": chData["image"],
-            "milestone": chData["roundSubs"]
+            "milestone": chData["roundSubs"],
+            "category": "Hololive"
         }
     with open("data/channels.json", "w", encoding="utf-8") as f:
         json.dump(channels, f, indent=4)
