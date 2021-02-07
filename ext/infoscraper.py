@@ -105,7 +105,7 @@ class FandomScrape():
                 x = 0
                 for title in resp[1]:
                     for name in chNSplit:
-                        if name in title and len(title.split("/")) < 2:
+                        if name.lower() in title.lower() and len(title.split("/")) < 2:
                             chLink = {
                                 "status": "Success",
                                 "name": title,
