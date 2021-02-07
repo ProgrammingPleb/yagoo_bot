@@ -206,6 +206,8 @@ async def subCustom(ctx: commands.Context, bot: commands.Bot, search: str):
     with open("data/servers.json") as f:
         servers = json.load(f)
     
+    await getwebhook(bot, servers, ctx.guild, ctx.channel)
+    
     if "subDefault" not in servers[str(ctx.guild.id)][str(ctx.channel.id)]:
         uInput = await subCheck(ctx, bot, searchMsg, 1, cInfo["name"])
     else:
