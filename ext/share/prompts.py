@@ -96,6 +96,7 @@ async def searchPrompt(ctx, bot, sResults: list, smsg, embedDesc):
     sDesc = ""
     checkNum = []
     picked = False
+    pickName = None
 
     x = 1
     for entry in sResults:
