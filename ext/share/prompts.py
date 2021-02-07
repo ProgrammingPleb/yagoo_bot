@@ -149,7 +149,7 @@ async def searchConfirm(ctx, bot, sName: str, smsg, embedDesc, accept, decline):
     while True:
         try:
             msg = await bot.wait_for('message', timeout=60.0, check=check)
-        except:
+        except asyncio.TimeoutError:
             return {
                 "success": False,
                 "declined": False
