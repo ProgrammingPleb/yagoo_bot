@@ -119,7 +119,7 @@ async def searchPrompt(ctx, bot, sResults: list, smsg, embedDesc):
             break
         if msg.content in checkNum:
             await msg.delete()
-            pickName = sResults[int(msg) - 1]
+            pickName = sResults[int(msg.content) - 1]
             picked = True
             break
         elif msg.content.lower() == 'x':
