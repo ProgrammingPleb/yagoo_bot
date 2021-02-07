@@ -108,7 +108,8 @@ class FandomScrape():
                         if name in title and len(title.split("/")) < 2:
                             chLink = {
                                 "status": "Success",
-                                "name": title
+                                "name": title,
+                                "results": nameList
                             }
                     if len(title.split("/")) < 2:
                         nameList.append(title)
@@ -126,7 +127,6 @@ class FandomScrape():
                             "results": nameList
                         }
         
-        print(chLink)
         return chLink
     
     async def getChannel(chLink, dataKey = "infobox"):
@@ -157,7 +157,10 @@ class FandomScrape():
         for webObj in scrapeList:
             try:
                 header = soup.find("span", {"id": webObj}).parent
-                headData = re.sub('\[\d+\]', '', header.find_next_sibling('p').get_text().strip())
+                headData = header.find_next_sibling(['p', 'h2'])
+                if headData.name == "h2":
+                    raise AttributeError
+                headData = re.sub('\[\d+\]', '', headData.get_text().strip())
             except AttributeError:
                 headData = None
             outputData.append({
@@ -166,6 +169,26 @@ class FandomScrape():
             })
         
         return outputData
+    
+    async def getChannelURL(chLink):
+        channelID = None
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f'https://virtualyoutuber.fandom.com/api.php?action=parse&format=json&page={chLink.split("/")[0]}') as r:
+                resp = await r.json()
+                for url in resp["parse"]["externallinks"]:
+                    if "https://www.youtube.com/channel/" in url and channelID is None:
+                        channelID = url.replace("https://www.youtube.com/channel/", "")
+        
+        if channelID is None:
+            return {
+                "success": False
+            }
+        
+        return {
+            "success": True,
+            "channelID": channelID
+        }
 
 async def channelScrape(query: str):
 
@@ -218,7 +241,7 @@ async def channelScrape(query: str):
     return result
 
 def sInfoAdapter(cid):
-    cData = asyncio.run(FandomScrape.parseChannelText(asyncio.run(FandomScrape.getChannel(asyncio.run(FandomScrape.searchChannel("", False))["name"], "text"))))
+    cData = asyncio.run(FandomScrape.parseChannelText(asyncio.run(FandomScrape.getChannel(asyncio.run(FandomScrape.searchChannel(cid, False))["name"], "text"))))
     print(cData)
 
 if __name__ == "__main__":
