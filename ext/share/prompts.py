@@ -101,6 +101,7 @@ async def searchPrompt(ctx, bot, sResults: list, smsg, embedDesc):
     for entry in sResults:
         sDesc += f'{x}. {entry}\n'
         checkNum.append(str(x))
+        x += 1
         
     sEmbed.add_field(name="Search Results", value=sDesc.strip(), inline=False)
     sEmbed.add_field(name="Other Actions", value="X. Cancel", inline=False)
