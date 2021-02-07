@@ -51,11 +51,13 @@ async def help(ctx): # pylint: disable=redefined-builtin
     hembed.description = "Currently the bot only has a small number of commands, as it is still in development!\n" \
                          "New stream notifications will be posted on a 3 minute interval, thus any new notifications " \
                          "will not come immediately after subscribing.\n" \
-                         "Currently all the commands require the user to have either the `Administrator` or `Manage Webhook` permission in the channel or server."
+                         "Currently all the commands (except for `y!help`) require the user to have either the `Administrator` or `Manage Webhook` permission in the channel or server.\n" \
+                         "Anything in square brackets `[]` are optional, so leaving them will also make the command work."
     
     hembed.add_field(name="Commands",
-                     value="**y!sub** (Alias: subscribe)\n"
-                           "Brings up a list of channels to subscribe to.\n\n"
+                     value="**y!sub** [Custom VTuber Name] (Alias: subscribe)\n"
+                           "Brings up a list of channels to subscribe to.\n"
+                           "Add a non-Hololive VTuber's name to the command to opt in to their notifications.\n\n"
                            "**y!unsub** (Alias: unsubscribe)\n"
                            "Brings up a list of channels to unsubscribe to.\n\n"
                            "**y!sublist** (Alias: subs, subslist)\n"
