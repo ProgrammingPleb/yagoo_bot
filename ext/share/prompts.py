@@ -88,5 +88,88 @@ async def botError(ctx, error):
         
         return errEmbed
     print("An unknown error has occurred.")
-    traceback.print_tb(error.__traceback__)
+    traceback.print_exception(type(error), error, error.__traceback__)
     print(error)
+
+async def searchPrompt(ctx, bot, sResults: list, smsg, embedDesc):
+    sEmbed = discord.Embed(title="VTuber Search", description=embedDesc)
+    sDesc = ""
+    checkNum = []
+    picked = False
+
+    x = 1
+    for entry in sResults:
+        sDesc += f'{x}. {entry}\n'
+        checkNum.append(str(x))
+        
+    sEmbed.add_field(name="Search Results", value=sDesc.strip(), inline=False)
+    sEmbed.add_field(name="Other Actions", value="X. Cancel", inline=False)
+
+    await smsg.edit(content=None, embed=sEmbed)
+
+    def check(m):
+        return m.content.lower() in checkNum + ['x'] and m.author == ctx.author
+    
+    while True:
+        try:
+            msg = await bot.wait_for('message', timeout=60.0, check=check)
+        except asyncio.TimeoutError:
+            await smsg.delete()
+            break
+        if msg.content in checkNum:
+            await msg.delete()
+            pickName = sResults[int(msg) - 1]
+            picked = True
+            break
+        elif msg.content.lower() == 'x':
+            await msg.delete()
+            break
+        else:
+            await msg.delete()
+    
+    if not picked:
+        return {
+            "success": False
+        }
+    
+    return {
+        "success": True,
+        "name": pickName
+    }
+
+async def searchConfirm(ctx, bot, sName: str, smsg, embedDesc, accept, decline):
+    sEmbed = discord.Embed(title="VTuber Search", description=embedDesc)
+    sEmbed.add_field(name="Actions", value=f"Y. {accept}\nN. {decline}\nX. Cancel", inline=False)
+
+    await smsg.edit(content=None, embed=sEmbed)
+
+    def check(m):
+        return m.content.lower() in ["y", "x"] and m.author == ctx.author
+    
+    while True:
+        try:
+            msg = await bot.wait_for('message', timeout=60.0, check=check)
+        except:
+            return {
+                "success": False,
+                "declined": False
+            }
+        if msg.content.lower() == "y":
+            await msg.delete()
+            return {
+                "success": True,
+                "declined": False
+            }
+        if msg.content.lower() == "n":
+            await msg.delete()
+            return {
+                "success": False,
+                "declined": True
+            }
+        if msg.content.lower() == "x":
+            await msg.delete()
+            return {
+                "success": False,
+                "declined": False
+            }
+        await msg.delete()
