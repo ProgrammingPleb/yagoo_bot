@@ -129,7 +129,7 @@ class FandomScrape():
         
         return chLink
     
-    async def getChannel(chLink, dataKey = "infobox"):
+    async def getChannel(chLink, dataKey = "infobox", scope = 4):
         async with aiohttp.ClientSession() as session:
             async with session.get(f'https://virtualyoutuber.fandom.com/api.php?action=parse&format=json&page={chLink.split("/")[0]}') as r:
                 resp = await r.json()
@@ -141,7 +141,9 @@ class FandomScrape():
                             infobox = prop["*"]
                             break
                     infobox = json.loads(infobox)
-                    dataSource = infobox[0]["data"][4]["data"]["value"]
+                    dataSource = infobox[0]["data"][scope]["data"]["value"]
+                elif dataKey == "full":
+                    dataSource = resp
                 else:
                     dataSource = None
         
@@ -178,7 +180,10 @@ class FandomScrape():
                 resp = await r.json()
                 for url in resp["parse"]["externallinks"]:
                     if "https://www.youtube.com/channel/" in url and channelID is None:
-                        channelID = url.replace("https://www.youtube.com/channel/", "")
+                        for part in url.split("/"):
+                            if 23 <= len(part) <= 25:
+                                if part[0] == "U":
+                                    channelID = part
         
         if channelID is None:
             return {
@@ -189,6 +194,16 @@ class FandomScrape():
             "success": True,
             "channelID": channelID
         }
+    
+    async def getAffiliate(chName):
+        fandomName = (await FandomScrape.searchChannel(chName, True))["name"]
+        fullPage = await FandomScrape.getChannel(fandomName, dataKey="text")
+        infoPresent = False
+        affiliate = BeautifulSoup(fullPage, "html5lib").find("div", {"data-source": "affiliation"}).find("a").getText()
+        infoPresent = True
+        if not infoPresent:
+            affiliate = "Others/Independent"
+        return affiliate
 
 async def channelScrape(query: str):
 
@@ -241,7 +256,7 @@ async def channelScrape(query: str):
     return result
 
 def sInfoAdapter(cid):
-    cData = asyncio.run(FandomScrape.parseChannelText(asyncio.run(FandomScrape.getChannel(asyncio.run(FandomScrape.searchChannel(cid, False))["name"], "text"))))
+    cData = asyncio.run(FandomScrape.getAffiliate("temma"))
     print(cData)
 
 if __name__ == "__main__":
