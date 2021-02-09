@@ -10,6 +10,7 @@ from discord.ext import commands
 from ext.infoscraper import channelInfo
 from ext.cogs.subCycle import StreamCycle, streamcheck
 from ext.cogs.msCycle import msCycle, milestoneNotify
+from ext.cogs.dblUpdate import guildUpdate
 from ext.share.botUtils import subPerms, creatorCheck
 from ext.share.dataGrab import getSubType, getwebhook
 from ext.share.prompts import botError, subCheck
