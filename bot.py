@@ -14,7 +14,7 @@ from ext.cogs.msCycle import msCycle, milestoneNotify
 from ext.share.botUtils import subPerms, creatorCheck
 from ext.share.dataGrab import getSubType, getwebhook
 from ext.share.prompts import botError, subCheck
-from ext.commands.subscribe import subCategory, subCustom, subHolo
+from ext.commands.subscribe import subCategory, subCustom
 
 with open("data/settings.yaml") as f:
     settings = yaml.load(f, Loader=yaml.SafeLoader)
