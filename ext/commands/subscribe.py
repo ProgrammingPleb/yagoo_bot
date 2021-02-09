@@ -8,130 +8,6 @@ from ..share.botUtils import chunks
 from ..share.dataGrab import getwebhook
 from ..share.prompts import ctgPicker, subCheck, searchConfirm, searchPrompt
 
-async def subHolo(ctx: commands.Context, bot: commands.Bot):
-    listmsg = await ctx.send("Loading channels list...")
-
-    with open("data/channels.json", encoding="utf-8") as f:
-        channels = json.load(f)
-    csplit = []
-    for split in chunks(channels, 9):
-        csplit.append(split)
-    pagepos = 0
-    
-    while True:
-        listembed = discord.Embed(title="Subscribing to a Channel", description="Pick a number/letter corresponding to the channel/action.\n"
-                                                                                "Add a non-Hololive Vtuber's name to the `y!sub` command to subscribe to them.")
-
-        picknum = 1
-        pickstr = ""
-        picklist = []
-        for split in csplit[pagepos]:
-            ytch = csplit[pagepos][split]
-            if ytch["category"] == "Hololive":
-                pickstr += f'{picknum}. {ytch["name"]}\n'
-                picklist.append(split)
-                picknum += 1
-        listembed.add_field(name="Channels", value=pickstr.strip())
-        if pagepos == 0:
-            listembed.add_field(name="Actions", value=f'A. Subscribe to all channels\nN. Go to next page\nX. Cancel')
-        elif pagepos == len(csplit) - 1:
-            listembed.add_field(name="Actions", value=f'A. Subscribe to all channels\nB. Go to previous page\nX. Cancel')
-        else:
-            listembed.add_field(name="Actions", value=f'A. Subscribe to all channels\nN. Go to next page\nB. Go to previous page\nX. Cancel')
-        
-        await listmsg.edit(content=None, embed=listembed)
-
-        def check(m):
-            return m.content.lower() in ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'n', 'b', 'x'] and m.author == ctx.author
-
-        while True:
-            try:
-                msg = await bot.wait_for('message', timeout=60.0, check=check)
-            except asyncio.TimeoutError:
-                await listmsg.delete()
-                await ctx.message.delete()
-                return
-            if msg.content in ['1', '2', '3', '4', '5', '6', '7', '8', '9']:
-                with open("data/servers.json") as f:
-                    servers = json.load(f)
-                await getwebhook(bot, servers, ctx.guild, ctx.channel)
-                with open("data/servers.json") as f:
-                    servers = json.load(f)
-                await msg.delete()
-                if "subDefault" not in servers[str(ctx.guild.id)][str(ctx.channel.id)]:
-                    uInput = await subCheck(ctx, bot, listmsg, 1, csplit[pagepos][picklist[int(msg.content) - 1]]["name"])
-                else:
-                    uInput = {
-                        "success": True,
-                        "subType": servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"]
-                    }
-                lastSubbed = False
-
-                if not uInput["success"]:
-                    await listmsg.delete()
-                    await ctx.message.delete()
-                    return
-
-                for subType in uInput["subType"]:
-                    if picklist[int(msg.content) - 1] not in servers[str(ctx.guild.id)][str(ctx.channel.id)][subType]:
-                        servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].append(picklist[int(msg.content) - 1])
-                    else:
-                        if len(uInput["subType"]) > 1 and not lastSubbed:
-                            lastSubbed = True
-                        else:
-                            ytch = csplit[pagepos][picklist[int(msg.content) - 1]]
-                            await listmsg.edit(content=f'This channel is already subscribed to {ytch["name"]}.', embed=None)
-                            await ctx.message.delete()
-                            return
-                with open("data/servers.json", "w") as f:
-                    json.dump(servers, f, indent=4)
-                ytch = csplit[pagepos][picklist[int(msg.content) - 1]]
-                await listmsg.edit(content=f'This channel is now subscribed to: {ytch["name"]}.', embed=None)
-                await ctx.message.delete()
-                return
-            elif msg.content.lower() == 'a':
-                with open("data/servers.json") as f:
-                    servers = json.load(f)
-                await getwebhook(bot, servers, ctx.guild, ctx.channel)
-                with open("data/servers.json") as f:
-                    servers = json.load(f)
-                await msg.delete()
-                if "subDefault" not in servers[str(ctx.guild.id)][str(ctx.channel.id)]:
-                    uInput = await subCheck(ctx, bot, listmsg, 1, "Subscribing to all channels.")
-                else:
-                    uInput = {
-                        "success": True,
-                        "subType": servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"]
-                    }
-                if not uInput["success"]:
-                    await listmsg.delete()
-                    await ctx.message.delete()
-                    return
-                for subType in uInput["subType"]:
-                    for ytch in channels:
-                        if ytch not in servers[str(ctx.guild.id)][str(ctx.channel.id)][subType]:
-                            servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].append(ytch)
-                with open("data/servers.json", "w") as f:
-                    json.dump(servers, f, indent=4)
-                await listmsg.edit(content=f'This channel is now subscribed to all Hololive YouTube channels.', embed=None)
-                await ctx.message.delete()
-                return
-            elif msg.content.lower() == 'n' and pagepos < len(csplit) - 1:
-                await msg.delete()
-                pagepos += 1
-                break
-            elif msg.content.lower() == 'b' and pagepos > 0:
-                await msg.delete()
-                pagepos -= 1
-                break
-            elif msg.content.lower() == 'x':
-                await msg.delete()
-                await listmsg.delete()
-                await ctx.message.delete()
-                return
-            else:
-                await msg.delete()
-
 async def subCategory(ctx: commands.Context, bot: commands.Bot):
     listmsg = await ctx.send("Loading channels list...")
 
@@ -164,30 +40,33 @@ async def subCategory(ctx: commands.Context, bot: commands.Bot):
     pagepos = 0
     
     while True:
-        listembed = discord.Embed(title="Subscribing to a Channel", description="Pick a number/letter corresponding to the channel/action.")
+        listembed = discord.Embed(title="Subscribing to a Channel", description="Pick a number/letter corresponding to the channel/action.\n"
+                                                                                "If the VTuber is not in this list, search the VTuber to add it to the bot's database.")
 
         picknum = 1
         pickstr = ""
         picklist = []
+        pNumList = []
         for split in csplit[pagepos]:
             ytch = csplit[pagepos][split]
             pickstr += f'{picknum}. {ytch["name"]}\n'
             picklist.append(split)
+            pNumList.append(str(picknum))
             picknum += 1
         listembed.add_field(name="Channels", value=pickstr.strip())
         if len(csplit) == 1:
-            listembed.add_field(name="Actions", value=f'A. Subscribe to all channels\nX. Cancel')
+            listembed.add_field(name="Actions", value=f'A. Subscribe to all channels\nS. Search for a VTuber\nX. Cancel')
         elif pagepos == 0:
-            listembed.add_field(name="Actions", value=f'A. Subscribe to all channels\nN. Go to next page\nX. Cancel')
+            listembed.add_field(name="Actions", value=f'A. Subscribe to all channels\nN. Go to next page\nS. Search for a VTuber\nX. Cancel')
         elif pagepos == len(csplit) - 1:
-            listembed.add_field(name="Actions", value=f'A. Subscribe to all channels\nB. Go to previous page\nX. Cancel')
+            listembed.add_field(name="Actions", value=f'A. Subscribe to all channels\nB. Go to previous page\nS. Search for a VTuber\nX. Cancel')
         else:
-            listembed.add_field(name="Actions", value=f'A. Subscribe to all channels\nN. Go to next page\nB. Go to previous page\nX. Cancel')
+            listembed.add_field(name="Actions", value=f'A. Subscribe to all channels\nN. Go to next page\nB. Go to previous page\nS. Search for a VTuber\nX. Cancel')
         
         await listmsg.edit(content=None, embed=listembed)
 
         def check(m):
-            return m.content.lower() in ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'n', 'b', 'x'] and m.author == ctx.author
+            return m.content.lower() in pNumList + ['a', 'n', 'b', 's', 'x'] and m.author == ctx.author
 
         while True:
             try:
@@ -196,7 +75,7 @@ async def subCategory(ctx: commands.Context, bot: commands.Bot):
                 await listmsg.delete()
                 await ctx.message.delete()
                 return
-            if msg.content in ['1', '2', '3', '4', '5', '6', '7', '8', '9']:
+            if msg.content in pNumList:
                 with open("data/servers.json") as f:
                     servers = json.load(f)
                 await getwebhook(bot, servers, ctx.guild, ctx.channel)
@@ -269,6 +148,15 @@ async def subCategory(ctx: commands.Context, bot: commands.Bot):
                 await msg.delete()
                 pagepos -= 1
                 break
+            elif msg.content.lower() == 's':
+                await msg.delete()
+                srch = await searchPrompt(ctx, bot, listmsg)
+                await listmsg.delete()
+                if not srch["success"]:
+                    await ctx.message.delete()
+                    return
+                await subCustom(ctx, bot, srch["search"])
+                return
             elif msg.content.lower() == 'x':
                 await msg.delete()
                 await listmsg.delete()
