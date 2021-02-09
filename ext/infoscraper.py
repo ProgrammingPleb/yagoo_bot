@@ -198,10 +198,10 @@ class FandomScrape():
     async def getAffiliate(chName):
         fandomName = (await FandomScrape.searchChannel(chName, True))["name"]
         fullPage = await FandomScrape.getChannel(fandomName, dataKey="text")
-        infoPresent = False
-        affiliate = BeautifulSoup(fullPage, "html5lib").find("div", {"data-source": "affiliation"}).find("a").getText()
-        infoPresent = True
-        if not infoPresent:
+        try:
+            affiliate = BeautifulSoup(fullPage, "html5lib").find("div", {"data-source": "affiliation"}).find("a").getText()
+        except Exception as e:
+            logging.warn(f'Failed getting affliate data for {fandomName}! Registering as "Other/Independent".', exc_info=True)
             affiliate = "Others/Independent"
         return affiliate
 
