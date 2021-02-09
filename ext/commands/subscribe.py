@@ -53,18 +53,18 @@ async def subCategory(ctx: commands.Context, bot: commands.Bot):
             picknum += 1
         listembed.add_field(name="Channels", value=pickstr.strip())
         if len(csplit) == 1:
-            listembed.add_field(name="Actions", value=f'A. Subscribe to all channels\nX. Cancel')
+            listembed.add_field(name="Actions", value=f'A. Subscribe to all channels\nS. Search for a VTuber\nX. Cancel')
         elif pagepos == 0:
-            listembed.add_field(name="Actions", value=f'A. Subscribe to all channels\nN. Go to next page\nX. Cancel')
+            listembed.add_field(name="Actions", value=f'A. Subscribe to all channels\nN. Go to next page\nS. Search for a VTuber\nX. Cancel')
         elif pagepos == len(csplit) - 1:
-            listembed.add_field(name="Actions", value=f'A. Subscribe to all channels\nB. Go to previous page\nX. Cancel')
+            listembed.add_field(name="Actions", value=f'A. Subscribe to all channels\nB. Go to previous page\nS. Search for a VTuber\nX. Cancel')
         else:
-            listembed.add_field(name="Actions", value=f'A. Subscribe to all channels\nN. Go to next page\nB. Go to previous page\nX. Cancel')
+            listembed.add_field(name="Actions", value=f'A. Subscribe to all channels\nN. Go to next page\nB. Go to previous page\nS. Search for a VTuber\nX. Cancel')
         
         await listmsg.edit(content=None, embed=listembed)
 
         def check(m):
-            return m.content.lower() in ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'n', 'b', 'x'] and m.author == ctx.author
+            return m.content.lower() in ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'n', 'b', 's', 'x'] and m.author == ctx.author
 
         while True:
             try:
@@ -146,6 +146,15 @@ async def subCategory(ctx: commands.Context, bot: commands.Bot):
                 await msg.delete()
                 pagepos -= 1
                 break
+            elif msg.content.lower() == 's':
+                await msg.delete()
+                srch = await searchPrompt(ctx, bot, listmsg)
+                await listmsg.delete()
+                if not srch["success"]:
+                    await ctx.message.delete()
+                    return
+                await subCustom(ctx, bot, srch["search"])
+                return
             elif msg.content.lower() == 'x':
                 await msg.delete()
                 await listmsg.delete()
