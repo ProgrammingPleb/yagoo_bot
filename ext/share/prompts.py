@@ -146,7 +146,7 @@ async def searchConfirm(ctx, bot, sName: str, smsg, embedDesc, accept, decline):
     await smsg.edit(content=None, embed=sEmbed)
 
     def check(m):
-        return m.content.lower() in ["y", "x"] and m.author == ctx.author
+        return m.content.lower() in ["y", "n", "x"] and m.author == ctx.author
     
     while True:
         try:
@@ -227,7 +227,7 @@ async def ctgPicker(ctx, bot, channels, ctgMsg):
             }
         await msg.delete()
 
-async def searchPrompt(ctx, bot, srchMsg):
+async def searchMessage(ctx, bot, srchMsg):
     searchEmbed = discord.Embed(title="VTuber Search")
     searchEmbed.description = "Enter a VTuber name:\n" \
                               "[Enter `cancel` to cancel searching.]"
