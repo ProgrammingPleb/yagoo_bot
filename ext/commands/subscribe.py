@@ -40,7 +40,8 @@ async def subCategory(ctx: commands.Context, bot: commands.Bot):
     pagepos = 0
     
     while True:
-        listembed = discord.Embed(title="Subscribing to a Channel", description="Pick a number/letter corresponding to the channel/action.")
+        listembed = discord.Embed(title="Subscribing to a Channel", description="Pick a number/letter corresponding to the channel/action.\n"
+                                                                                "If the VTuber is not in this list, search the VTuber to add it to the bot's database.")
 
         picknum = 1
         pickstr = ""
