@@ -175,3 +175,84 @@ async def searchConfirm(ctx, bot, sName: str, smsg, embedDesc, accept, decline):
                 "declined": False
             }
         await msg.delete()
+
+async def ctgPicker(ctx, bot, channels, ctgMsg):
+    catStr = ""
+    categories = []
+    catNum = []
+    x = 1
+    for channel in channels:
+        if channels[channel]["category"] not in categories:
+            catStr += f'{x}. {channels[channel]["category"]}\n'
+            categories.append(channels[channel]["category"])
+            catNum.append(str(x))
+            x += 1
+        
+    catEmbed = discord.Embed(title="Channel Search", description="Choose the affiliation corresponding to the VTuber:\n"
+                                                                 "")
+    catEmbed.add_field(name="Affiliation", value=catStr.strip())
+    catEmbed.add_field(name="Other Actions", value="S. Search for a VTuber\nX. Cancel")
+
+    await ctgMsg.edit(content=None, embed=catEmbed)
+
+    def check(m):
+        return m.content.lower() in catNum + ["s", "x"] and m.author == ctx.author
+    
+    while True:
+        try:
+            msg = await bot.wait_for('message', timeout=60.0, check=check)
+        except asyncio.TimeoutError:
+            return {
+                "success": False,
+                "search": False
+            }
+        if msg.content in catNum:
+            await msg.delete()
+            return {
+                "success": True,
+                "search": False,
+                "category": categories[int(msg.content) - 1]
+            }
+        if msg.content.lower() == "s":
+            await msg.delete()
+            return {
+                "success": False,
+                "search": True
+            }
+        if msg.content.lower() == "x":
+            await msg.delete()
+            return {
+                "success": False,
+                "search": False
+            }
+        await msg.delete()
+
+async def searchPrompt(ctx, bot, srchMsg):
+    searchEmbed = discord.Embed(title="VTuber Search")
+    searchEmbed.description = "Enter a VTuber name:\n" \
+                              "[Enter `cancel` to cancel searching.]"
+    
+    await srchMsg.edit(content=None, embed=searchEmbed)
+
+    def check(m):
+        return m.author == ctx.author
+    
+    while True:
+        try:
+            msg = await bot.wait_for('message', timeout=60.0, check=check)
+        except asyncio.TimeoutError:
+            return {
+                "success": False,
+                "search": None
+            }
+        if msg.content.lower() == "cancel":
+            await msg.delete()
+            return {
+                "success": False,
+                "search": None
+            }
+        await msg.delete()
+        return {
+            "success": True,
+            "search": msg.content
+        }

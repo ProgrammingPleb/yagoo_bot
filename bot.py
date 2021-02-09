@@ -14,7 +14,7 @@ from ext.cogs.msCycle import msCycle, milestoneNotify
 from ext.share.botUtils import subPerms, creatorCheck
 from ext.share.dataGrab import getSubType, getwebhook
 from ext.share.prompts import botError, subCheck
-from ext.commands.subscribe import subCustom, subHolo
+from ext.commands.subscribe import subCategory, subCustom, subHolo
 
 with open("data/settings.yaml") as f:
     settings = yaml.load(f, Loader=yaml.SafeLoader)
@@ -82,7 +82,7 @@ async def subdef_error(ctx, error):
 @commands.check(subPerms)
 async def subscribe(ctx, *, customUser = None):
     if customUser is None:
-        await subHolo(ctx, bot)
+        await subCategory(ctx, bot)
     else:
         await subCustom(ctx, bot, customUser)
 
@@ -215,7 +215,7 @@ async def unsubscribe(ctx):
                     servers[str(ctx.guild.id)][str(ctx.channel.id)]["notified"] = {}
                     with open("data/servers.json", "w") as f:
                         json.dump(servers, f, indent=4)
-                    await unsubmsg.edit(content=f'This channel is now unsubscribed from any Hololive YouTube channels.', embed=None)
+                    await unsubmsg.edit(content=f'This channel is now unsubscribed from any YouTube channels.', embed=None)
                     await msg.delete()
                     await ctx.message.delete()
                     return
