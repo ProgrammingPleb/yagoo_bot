@@ -101,13 +101,20 @@ async def channelInfo(channelId: Union[str, int]):
                                 "name": ytdata["metadata"]["channelMetadataRenderer"]["title"],
                                 "formattedName": re.split(r'([a-zA-Z\xC0-\xFF]+)', ytdata["metadata"]["channelMetadataRenderer"]["title"]),
                                 "image": ytdata["metadata"]["channelMetadataRenderer"]["avatar"]["thumbnails"][0]["url"],
-                                "banner": ytdata["header"]["c4TabbedHeaderRenderer"]["banner"]["thumbnails"][3]["url"],
-                                "mbanner": ytdata["header"]["c4TabbedHeaderRenderer"]["banner"]["thumbnails"][1]["url"],
                                 "realSubs": cSubsA,
                                 "roundSubs": cSubsR,
                                 "success": True
                             }
-                            checked = True
+                            
+                            try:
+                                channelData["banner"] = ytdata["header"]["c4TabbedHeaderRenderer"]["banner"]["thumbnails"][3]["url"]
+                            except Exception as e:
+                                channelData["banner"] = None
+                        
+                            try:
+                                channelData["mbanner"] = ytdata["header"]["c4TabbedHeaderRenderer"]["banner"]["thumbnails"][1]["url"]
+                            except Exception as e:
+                                channelData["mbanner"] = None
         except Exception as e:
             if retryCount > 1:
                 logging.error("Channel - An error has occured while getting channel info!", exc_info=True)
@@ -129,18 +136,16 @@ class FandomScrape():
                 chLink = None
                 nameList = []
                 x = 0
+                matched = False
                 for title in resp[1]:
                     for name in chNSplit:
-                        if name.lower() in title.lower() and len(title.split("/")) < 2:
-                            chLink = {
-                                "status": "Success",
-                                "name": title,
-                                "results": nameList
-                            }
-                    if len(title.split("/")) < 2:
+                        if name.lower() in title.lower() and ('(disambiguation)') not in title.lower() and len(title.split("/")) < 2 and not matched:
+                            chRName = title
+                            matched = True
+                    if len(title.split("/")) < 2 and ('(disambiguation)') not in title.lower():
                         nameList.append(title)
                     x += 1
-                if chLink is None:
+                if not matched:
                     if silent:
                         logging.debug("Not found! Returning to first entry.")
                         chLink = {
@@ -152,6 +157,12 @@ class FandomScrape():
                             "status": "Cannot Match",
                             "results": nameList
                         }
+                else:
+                    chLink = {
+                        "status": "Success",
+                        "name": chRName,
+                        "results": nameList
+                    }
         
         return chLink
     
@@ -282,7 +293,7 @@ async def channelScrape(query: str):
     return result
 
 def sInfoAdapter(cid):
-    cData = asyncio.run(FandomScrape.getAffiliate("temma"))
+    cData = asyncio.run(channelInfo(cid))
     print(cData)
 
 if __name__ == "__main__":
