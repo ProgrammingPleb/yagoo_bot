@@ -46,10 +46,12 @@ async def subCategory(ctx: commands.Context, bot: commands.Bot):
         picknum = 1
         pickstr = ""
         picklist = []
+        pNumList = []
         for split in csplit[pagepos]:
             ytch = csplit[pagepos][split]
             pickstr += f'{picknum}. {ytch["name"]}\n'
             picklist.append(split)
+            pNumList.append(str(picknum))
             picknum += 1
         listembed.add_field(name="Channels", value=pickstr.strip())
         if len(csplit) == 1:
@@ -64,7 +66,7 @@ async def subCategory(ctx: commands.Context, bot: commands.Bot):
         await listmsg.edit(content=None, embed=listembed)
 
         def check(m):
-            return m.content.lower() in ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'n', 'b', 's', 'x'] and m.author == ctx.author
+            return m.content.lower() in pNumList + ['a', 'n', 'b', 's', 'x'] and m.author == ctx.author
 
         while True:
             try:
@@ -73,7 +75,7 @@ async def subCategory(ctx: commands.Context, bot: commands.Bot):
                 await listmsg.delete()
                 await ctx.message.delete()
                 return
-            if msg.content in ['1', '2', '3', '4', '5', '6', '7', '8', '9']:
+            if msg.content in pNumList:
                 with open("data/servers.json") as f:
                     servers = json.load(f)
                 await getwebhook(bot, servers, ctx.guild, ctx.channel)
