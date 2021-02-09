@@ -6,7 +6,7 @@ from discord.ext import commands
 from ..infoscraper import FandomScrape, channelInfo
 from ..share.botUtils import chunks
 from ..share.dataGrab import getwebhook
-from ..share.prompts import ctgPicker, subCheck, searchConfirm, searchPrompt
+from ..share.prompts import ctgPicker, subCheck, searchConfirm, searchPrompt, searchMessage
 
 async def subCategory(ctx: commands.Context, bot: commands.Bot):
     listmsg = await ctx.send("Loading channels list...")
@@ -17,7 +17,7 @@ async def subCategory(ctx: commands.Context, bot: commands.Bot):
     ctgPick = await ctgPicker(ctx, bot, channels, listmsg)
 
     if ctgPick["search"]:
-        srch = await searchPrompt(ctx, bot, listmsg)
+        srch = await searchMessage(ctx, bot, listmsg)
         await listmsg.delete()
         if not srch["success"]:
             await ctx.message.delete()
@@ -150,7 +150,7 @@ async def subCategory(ctx: commands.Context, bot: commands.Bot):
                 break
             elif msg.content.lower() == 's':
                 await msg.delete()
-                srch = await searchPrompt(ctx, bot, listmsg)
+                srch = await searchMessage(ctx, bot, listmsg)
                 await listmsg.delete()
                 if not srch["success"]:
                     await ctx.message.delete()

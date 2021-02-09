@@ -129,18 +129,16 @@ class FandomScrape():
                 chLink = None
                 nameList = []
                 x = 0
+                matched = False
                 for title in resp[1]:
                     for name in chNSplit:
-                        if name.lower() in title.lower() and len(title.split("/")) < 2:
-                            chLink = {
-                                "status": "Success",
-                                "name": title,
-                                "results": nameList
-                            }
-                    if len(title.split("/")) < 2:
+                        if name.lower() in title.lower() and ('(disambiguation)') not in title.lower() and len(title.split("/")) < 2 and not matched:
+                            chRName = title
+                            matched = True
+                    if len(title.split("/")) < 2 and ('(disambiguation)') not in title.lower():
                         nameList.append(title)
                     x += 1
-                if chLink is None:
+                if not matched:
                     if silent:
                         logging.debug("Not found! Returning to first entry.")
                         chLink = {
@@ -152,6 +150,12 @@ class FandomScrape():
                             "status": "Cannot Match",
                             "results": nameList
                         }
+                else:
+                    chLink = {
+                        "status": "Success",
+                        "name": chRName,
+                        "results": nameList
+                    }
         
         return chLink
     
