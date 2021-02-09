@@ -7,7 +7,9 @@ import os
 import shutil
 import yaml
 import traceback
-from ext.infoscraper import channelInfo, channelScrape
+import re
+from bs4 import BeautifulSoup
+from ext.infoscraper import FandomScrape, channelInfo, channelScrape
 
 logging.basicConfig(level=logging.INFO, filename='status.log', filemode='w', format='[%(asctime)s] %(name)s - %(levelname)s - %(message)s')
 
@@ -169,6 +171,18 @@ def migrateData(version: str):
         print("Converting channel data...")
         for channel in channels:
             channels[channel]["category"] = "Hololive"
+        
+        with open("data/channels.json", "w", encoding="utf-8") as f:
+            json.dump(channels, f, indent=4)
+    if version == "3":
+        shutil.copy("data/channels.json", "data_backup/channels.json")
+
+        with open("data/channels.json") as f:
+            channels = json.load(f)
+        
+        print("Converting channel data...")
+        for channel in channels:
+            channels[channel]["category"] = asyncio.run(FandomScrape.getAffiliate(channels[channel]["name"]))
         
         with open("data/channels.json", "w", encoding="utf-8") as f:
             json.dump(channels, f, indent=4)
