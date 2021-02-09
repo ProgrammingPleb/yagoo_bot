@@ -189,7 +189,7 @@ async def ctgPicker(ctx, bot, channels, ctgMsg):
             x += 1
         
     catEmbed = discord.Embed(title="Channel Search", description="Choose the affiliation corresponding to the VTuber:\n"
-                                                                 "")
+                                                                 "If the affiliation is not in this list,search the VTuber to add it to the bot's database.")
     catEmbed.add_field(name="Affiliation", value=catStr.strip())
     catEmbed.add_field(name="Other Actions", value="S. Search for a VTuber\nX. Cancel")
 
