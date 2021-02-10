@@ -11,6 +11,7 @@ from ext.infoscraper import channelInfo
 from ext.cogs.subCycle import StreamCycle, streamcheck
 from ext.cogs.msCycle import msCycle, milestoneNotify
 from ext.cogs.dblUpdate import guildUpdate
+from ext.cogs.chUpdater import chCycle
 from ext.share.botUtils import subPerms, creatorCheck
 from ext.share.dataGrab import getSubType, getwebhook
 from ext.share.prompts import botError, subCheck
@@ -40,6 +41,7 @@ async def on_ready():
         bot.add_cog(msCycle(bot))
     if settings["dblPublish"]:
         bot.add_cog(guildUpdate(bot, settings["dblToken"]))
+    bot.add_cog(chCycle(bot))
 
 @bot.event
 async def on_guild_remove(server):
