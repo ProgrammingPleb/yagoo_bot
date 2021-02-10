@@ -11,6 +11,7 @@ from discord.ext import commands
 from ext.infoscraper import channelInfo
 from ext.cogs.subCycle import StreamCycle, streamcheck
 from ext.cogs.msCycle import msCycle, milestoneNotify
+from ext.cogs.chUpdater import chCycle
 from ext.share.botUtils import subPerms, creatorCheck
 from ext.share.dataGrab import getSubType, getwebhook
 from ext.share.prompts import botError, subCheck
@@ -35,6 +36,7 @@ async def on_ready():
         bot.add_cog(StreamCycle(bot))
     if settings["milestone"]:
         bot.add_cog(msCycle(bot))
+    bot.add_cog(chCycle(bot))
 
 @bot.event
 async def on_guild_remove(server):
