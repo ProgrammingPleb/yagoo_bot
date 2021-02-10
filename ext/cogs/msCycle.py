@@ -57,8 +57,12 @@ async def milestoneNotify(msDict, bot):
         servers = json.load(f)
     for channel in msDict:
         logging.debug(f'Generating milestone image for id {channel}')
-        with open("milestone/milestone.html") as f:
-            msHTML = f.read()
+        if msDict[channel]["banner"] is not None:
+            with open("milestone/milestone.html") as f:
+                msHTML = f.read()
+        else:
+            with open("milestone/milestone-nobanner.html") as f:
+                msHTML = f.read()
         options = {
             "enable-local-file-access": "",
             "encoding": "UTF-8",

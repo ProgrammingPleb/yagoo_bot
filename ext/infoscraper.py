@@ -101,17 +101,25 @@ async def channelInfo(channelId: Union[str, int]):
                                 "name": ytdata["metadata"]["channelMetadataRenderer"]["title"],
                                 "formattedName": re.split(r'([a-zA-Z\xC0-\xFF]+)', ytdata["metadata"]["channelMetadataRenderer"]["title"]),
                                 "image": ytdata["metadata"]["channelMetadataRenderer"]["avatar"]["thumbnails"][0]["url"],
-                                "banner": ytdata["header"]["c4TabbedHeaderRenderer"]["banner"]["thumbnails"][3]["url"],
-                                "mbanner": ytdata["header"]["c4TabbedHeaderRenderer"]["banner"]["thumbnails"][1]["url"],
                                 "realSubs": cSubsA,
                                 "roundSubs": cSubsR,
                                 "success": True
                             }
+
+                            try:
+                                channelData["banner"] = ytdata["header"]["c4TabbedHeaderRenderer"]["banner"]["thumbnails"][3]["url"]
+                            except Exception as e:
+                                channelData["banner"] = None
+                        
+                            try:
+                                channelData["mbanner"] = ytdata["header"]["c4TabbedHeaderRenderer"]["banner"]["thumbnails"][1]["url"]
+                            except Exception as e:
+                                channelData["mbanner"] = None
                             checked = True
         except Exception as e:
             if retryCount > 1:
                 logging.error("Channel - An error has occured while getting channel info!", exc_info=True)
-    
+                    
     if channelData is None:
         channelData = {
             "success": False
@@ -286,7 +294,7 @@ async def channelScrape(query: str):
     return result
 
 def sInfoAdapter(cid):
-    cData = asyncio.run(FandomScrape.getAffiliate("temma"))
+    cData = asyncio.run(channelInfo(cid))
     print(cData)
 
 if __name__ == "__main__":
