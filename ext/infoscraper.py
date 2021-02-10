@@ -63,6 +63,9 @@ async def channelInfo(channelId: Union[str, int]):
                 if ("var ytInitialData" in script.getText()) or ('window["ytInitialData"]' in script.getText()):
                     ytdata = json.loads(script.getText().replace(';', '').replace('var ytInitialData = ', '').replace('window["ytInitialData"]', ''))
 
+                    with open("test/akaihaato.json", "w", encoding="utf-8") as f:
+                        json.dump(ytdata, f, indent=4)
+
                     cSubsText = ytdata["header"]["c4TabbedHeaderRenderer"]["subscriberCountText"]["simpleText"]
 
                     if "M" in cSubsText:
@@ -73,18 +76,26 @@ async def channelInfo(channelId: Union[str, int]):
                         cSubsR = round_down(cSubsA, 100000)
                     else:
                         cSubsA = None
-                        cSubsR = None
+                        cSubsR = None 
 
                     channelData = {
                         "name": ytdata["metadata"]["channelMetadataRenderer"]["title"],
                         "formattedName": re.split(r'([a-zA-Z\xC0-\xFF]+)', ytdata["metadata"]["channelMetadataRenderer"]["title"]),
                         "image": ytdata["metadata"]["channelMetadataRenderer"]["avatar"]["thumbnails"][0]["url"],
-                        "banner": ytdata["header"]["c4TabbedHeaderRenderer"]["banner"]["thumbnails"][3]["url"],
-                        "mbanner": ytdata["header"]["c4TabbedHeaderRenderer"]["banner"]["thumbnails"][1]["url"],
                         "realSubs": cSubsA,
                         "roundSubs": cSubsR,
                         "success": True
                     }
+
+                    try:
+                        channelData["banner"] = ytdata["header"]["c4TabbedHeaderRenderer"]["banner"]["thumbnails"][3]["url"]
+                    except Exception as e:
+                        channelData["banner"] = None
+                
+                    try:
+                        channelData["mbanner"] = ytdata["header"]["c4TabbedHeaderRenderer"]["banner"]["thumbnails"][1]["url"]
+                    except Exception as e:
+                        channelData["mbanner"] = None
     
     if channelData is None:
         channelData = {
@@ -260,7 +271,7 @@ async def channelScrape(query: str):
     return result
 
 def sInfoAdapter(cid):
-    cData = asyncio.run(FandomScrape.getAffiliate("temma"))
+    cData = asyncio.run(channelInfo(cid))
     print(cData)
 
 if __name__ == "__main__":
