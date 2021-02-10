@@ -395,7 +395,7 @@ async def mscheck(ctx, vtuber):
             "msText": subtext
         }
     }
-    await milestoneNotify(msDict, bot)
+    await milestoneNotify(msDict, bot, True)
     await ctx.send(file=discord.File(f'milestone/generated/{vtuber}.png'))
 
 @bot.command()
