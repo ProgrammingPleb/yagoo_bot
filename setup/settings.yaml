@@ -5,3 +5,8 @@ notify: True
 milestone: True
 thumbnailIP:
 thumbnailPort:
+proxy: True
+proxyIP:
+proxyPort: 80
+proxyUsername:
+proxyPassword:

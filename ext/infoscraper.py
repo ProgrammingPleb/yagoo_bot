@@ -4,6 +4,7 @@ import asyncio
 import re
 import sys
 import logging
+import yaml
 from bs4 import BeautifulSoup
 from typing import Union
 
@@ -14,7 +15,16 @@ async def streamInfo(channelId: Union[str, int]):
     output = None
 
     async with aiohttp.ClientSession() as session:
-        async with session.get(f'https://www.youtube.com/channel/{channelId}/live?hl=en-US') as r:
+        with open("data/settings.yaml") as f:
+            settings = yaml.load(f)
+        
+        if settings["proxy"]:
+            proxy = f"http://{settings['proxyIP']}:{settings['proxyPort']}"
+            proxyauth = aiohttp.BasicAuth(settings["proxyUsername"], settings["proxyPassword"])
+        else:
+            proxy = None
+            proxyauth = None
+        async with session.get(f'https://www.youtube.com/channel/{channelId}/live?hl=en-US', proxy=proxy, proxy_auth=proxyauth) as r:
             soup = BeautifulSoup(await r.text(), "html5lib")
             scripts = soup.find_all("script")
             for script in scripts:
@@ -29,7 +39,7 @@ async def streamInfo(channelId: Union[str, int]):
                         morevInfo = ytdata["contents"]["twoColumnWatchNextResults"]["results"]["results"]["contents"][0]["videoPrimaryInfoRenderer"]
                         if "viewCount" in morevInfo:
                             videoInfo = morevInfo["viewCount"]["videoViewCountRenderer"]
-                            if videoInfo["isLive"] and ("watching now" in videoInfo["viewCount"]["runs"][0]["text"]):
+                            if videoInfo["isLive"] and ("watching now" in videoInfo["viewCount"]["runs"][-1]["text"]):
                                 title = ""
                                 if len(morevInfo["title"]["runs"]) > 1:
                                     for subrun in morevInfo["title"]["runs"]:
@@ -40,15 +50,21 @@ async def streamInfo(channelId: Union[str, int]):
                                     "isLive": True,
                                     "videoId": morevInfo["updatedMetadataEndpoint"]["updatedMetadataEndpoint"]["videoId"],
                                     "videoTitle": title,
-                                    "timeText": morevInfo["dateText"]["simpleText"].replace('Started streaming ', '')
+                                    "timeText": morevInfo["dateText"]["simpleText"].replace('Started streaming ', ''),
+                                    "videoInfo": videoInfo["viewCount"]["runs"]
                                 }
                             else:
                                 output = {
-                                    "isLive": False
+                                    "isLive": False,
+                                    "text": "Schedule Livestream",
+                                    "channel": channelId,
+                                    "videoInfo": videoInfo["viewCount"]["runs"],
                                 }
     if not output:
         output = {
-            "isLive": False
+            "isLive": False,
+            "text": "No Output",
+            "channel": channelId
         }
     return output
 
@@ -56,7 +72,16 @@ async def channelInfo(channelId: Union[str, int]):
     channelData = None
     
     async with aiohttp.ClientSession() as session:
-        async with session.get(f'https://www.youtube.com/channel/{channelId}?hl=en-US') as r:
+        with open("data/settings.yaml") as f:
+            settings = yaml.load(f)
+        
+        if settings["proxy"]:
+            proxy = f"http://{settings['proxyIP']}:{settings['proxyPort']}"
+            proxyauth = aiohttp.BasicAuth(settings["proxyUsername"], settings["proxyPassword"])
+        else:
+            proxy = None
+            proxyauth = None
+        async with session.get(f'https://www.youtube.com/channel/{channelId}?hl=en-US', proxy=proxy, proxy_auth=proxyauth) as r:
             soup = BeautifulSoup(await r.text(), "html5lib")
             scripts = soup.find_all("script")
             for script in scripts:
