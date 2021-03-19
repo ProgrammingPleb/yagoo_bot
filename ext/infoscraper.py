@@ -16,7 +16,7 @@ async def streamInfo(channelId: Union[str, int]):
 
     async with aiohttp.ClientSession() as session:
         with open("data/settings.yaml") as f:
-            settings = yaml.load(f)
+            settings = yaml.load(f, Loader=yaml.SafeLoader)
         
         if settings["proxy"]:
             proxy = f"http://{settings['proxyIP']}:{settings['proxyPort']}"
@@ -73,7 +73,7 @@ async def channelInfo(channelId: Union[str, int]):
     
     async with aiohttp.ClientSession() as session:
         with open("data/settings.yaml") as f:
-            settings = yaml.load(f)
+            settings = yaml.load(f, Loader=yaml.SafeLoader)
         
         if settings["proxy"]:
             proxy = f"http://{settings['proxyIP']}:{settings['proxyPort']}"

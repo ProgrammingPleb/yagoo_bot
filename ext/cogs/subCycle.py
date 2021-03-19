@@ -60,8 +60,6 @@ async def streamcheck(ctx = None, test: bool = False, loop: bool = False):
             except Exception as e:
                 if x == 1:
                     logging.error(f"Stream - An error has occured! (Channel ID: {channel})", exc_info=True)
-                    print("An error has occurred.")
-                    traceback.print_tb(e)
 
     if not test:
         try:
@@ -70,20 +68,15 @@ async def streamcheck(ctx = None, test: bool = False, loop: bool = False):
             for channel in channels:
                 chList.append(channelCheck(channel))
             liveCh = await asyncio.gather(*chList)
-            print(liveCh)
             logging.debug(f'Stream - Current livestream data:\n{liveCh}')
             for channel in liveCh:
                 if channel is not None:
-                    print(channel)
-                    print(type(channel))
-                    print(channel["id"])
                     cid = channel["id"]
                     channel.pop("id")
                     chNotify[cid] = channel
-            print(chNotify)
             return chNotify
         except Exception as e:
-            traceback.print_exception(type(e), e, e.__traceback__)
+            logging.error(f"Stream - An error has occured! (Channel ID: {channel})", exc_info=True)
 
     """stext = ""
     stext2 = ""
