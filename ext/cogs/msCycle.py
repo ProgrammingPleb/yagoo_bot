@@ -51,7 +51,7 @@ async def milestoneCheck():
     
     return milestone
 
-async def milestoneNotify(msDict, bot):
+async def milestoneNotify(msDict, bot, test=False):
     logging.debug(f'Milestone Data: {msDict}')
     with open("data/servers.json") as f:
         servers = json.load(f)
@@ -61,6 +61,7 @@ async def milestoneNotify(msDict, bot):
             with open("milestone/milestone.html") as f:
                 msHTML = f.read()
         else:
+            msDict[channel]["banner"] = ""
             with open("milestone/milestone-nobanner.html") as f:
                 msHTML = f.read()
         options = {
@@ -78,15 +79,16 @@ async def milestoneNotify(msDict, bot):
         imgkit.from_file("milestone/msTemp.html", f'milestone/generated/{channel}.png', options=options)
         logging.debug(f'Removed temporary HTML file')
         os.remove("milestone/msTemp.html")
-        for server in servers:
-            logging.debug(f'Accessing server id {server}')
-            for dch in servers[server]:
-                logging.debug(f'Milestone - Channel Data: {servers[server][dch]["milestone"]}')
-                logging.debug(f'Milestone - Channel Check Pass: {channel in servers[server][dch]["milestone"]}')
-                if channel in servers[server][dch]["milestone"]:
-                    logging.debug(f'Posting to {dch}...')
-                    await bot.get_channel(int(dch)).send(f'{msDict[channel]["name"]} has reached {msDict[channel]["msText"].replace("Subscribers", "subscribers")}!', file=discord.File(f'milestone/generated/{channel}.png'))
-                    await bot.get_channel(int(dch)).send("おめでとう！")
+        if not test:
+            for server in servers:
+                logging.debug(f'Accessing server id {server}')
+                for dch in servers[server]:
+                    logging.debug(f'Milestone - Channel Data: {servers[server][dch]["milestone"]}')
+                    logging.debug(f'Milestone - Channel Check Pass: {channel in servers[server][dch]["milestone"]}')
+                    if channel in servers[server][dch]["milestone"]:
+                        logging.debug(f'Posting to {dch}...')
+                        await bot.get_channel(int(dch)).send(f'{msDict[channel]["name"]} has reached {msDict[channel]["msText"].replace("Subscribers", "subscribers")}!', file=discord.File(f'milestone/generated/{channel}.png'))
+                        await bot.get_channel(int(dch)).send("おめでとう！")
 
 class msCycle(commands.Cog):
     def __init__(self, bot):
