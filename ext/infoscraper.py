@@ -4,8 +4,7 @@ import asyncio
 import re
 import sys
 import logging
-import os
-import traceback
+import yaml
 from bs4 import BeautifulSoup
 from typing import Union
 
@@ -14,111 +13,111 @@ def round_down(num, divisor):
 
 async def streamInfo(channelId: Union[str, int]):
     output = None
-    checked = False
 
-    for retryCount in range(3):
-        if checked:
-            break
-
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(f'https://www.youtube.com/channel/{channelId}/live?hl=en-US') as r:
-                    soup = BeautifulSoup(await r.text(), "html5lib")
-                    scripts = soup.find_all("script")
-                    for script in scripts:
-                        if ("var ytInitialData" in script.getText()) or ('window["ytInitialData"]' in script.getText()):
-                            logging.debug("Got ytInitialData!")
-                            ytdata = json.loads(script.getText().replace(';', '').replace('var ytInitialData = ', '').replace('window["ytInitialData"]', ''))
-                            if logging.DEBUG >= logging.root.level:
-                                if not os.path.exists("test/channels/"):
-                                    os.makedirs("test/channels/")
-                                with open(f"test/channels/{channelId}.json", "w", encoding="utf-8") as f:
-                                    json.dump(ytdata, f, indent=4)
-                            if "contents" in ytdata:
-                                if "twoColumnWatchNextResults" in ytdata["contents"]:
-                                    morevInfo = ytdata["contents"]["twoColumnWatchNextResults"]["results"]["results"]["contents"][0]["videoPrimaryInfoRenderer"]
-                                    if "viewCount" in morevInfo:
-                                        videoInfo = morevInfo["viewCount"]["videoViewCountRenderer"]
-                                        if videoInfo["isLive"] and ("Started streaming" in morevInfo["dateText"]["simpleText"]):
-                                            title = ""
-                                            if len(morevInfo["title"]["runs"]) > 1:
-                                                for subrun in morevInfo["title"]["runs"]:
-                                                    title += subrun["text"]
-                                            else:
-                                                title = morevInfo["title"]["runs"][0]["text"]
-                                            output = {
-                                                "isLive": True,
-                                                "videoId": morevInfo["updatedMetadataEndpoint"]["updatedMetadataEndpoint"]["videoId"],
-                                                "videoTitle": title,
-                                                "timeText": morevInfo["dateText"]["simpleText"].replace('Started streaming ', '')
-                                            }
-                                            checked = True
-                                        else:
-                                            output = {
-                                                "isLive": False
-                                            }
-                                            checked = True
-        except Exception as e:
-            if retryCount > 1:
-                logging.error("Stream - An error has occured while getting stream info!", exc_info=True)
-
+    async with aiohttp.ClientSession() as session:
+        with open("data/settings.yaml") as f:
+            settings = yaml.load(f, Loader=yaml.SafeLoader)
+        
+        if settings["proxy"]:
+            proxy = f"http://{settings['proxyIP']}:{settings['proxyPort']}"
+            proxyauth = aiohttp.BasicAuth(settings["proxyUsername"], settings["proxyPassword"])
+        else:
+            proxy = None
+            proxyauth = None
+        async with session.get(f'https://www.youtube.com/channel/{channelId}/live?hl=en-US', proxy=proxy, proxy_auth=proxyauth) as r:
+            soup = BeautifulSoup(await r.text(), "html5lib")
+            scripts = soup.find_all("script")
+            for script in scripts:
+                if ("var ytInitialData" in script.getText()) or ('window["ytInitialData"]' in script.getText()):
+                    logging.debug("Got ytInitialData!")
+                    ytdata = json.loads(script.getText().replace(';', '').replace('var ytInitialData = ', '').replace('window["ytInitialData"]', ''))
+                    isVideo = False
+                    for cat in ytdata:
+                        if cat == "playerOverlays":
+                            isVideo = True
+                    if isVideo:
+                        morevInfo = ytdata["contents"]["twoColumnWatchNextResults"]["results"]["results"]["contents"][0]["videoPrimaryInfoRenderer"]
+                        if "viewCount" in morevInfo:
+                            videoInfo = morevInfo["viewCount"]["videoViewCountRenderer"]
+                            if videoInfo["isLive"] and ("watching now" in videoInfo["viewCount"]["runs"][-1]["text"]):
+                                title = ""
+                                if len(morevInfo["title"]["runs"]) > 1:
+                                    for subrun in morevInfo["title"]["runs"]:
+                                        title += subrun["text"]
+                                else:
+                                    title = morevInfo["title"]["runs"][0]["text"]
+                                output = {
+                                    "isLive": True,
+                                    "videoId": morevInfo["updatedMetadataEndpoint"]["updatedMetadataEndpoint"]["videoId"],
+                                    "videoTitle": title,
+                                    "timeText": morevInfo["dateText"]["simpleText"].replace('Started streaming ', ''),
+                                    "videoInfo": videoInfo["viewCount"]["runs"]
+                                }
+                            else:
+                                output = {
+                                    "isLive": False,
+                                    "text": "Schedule Livestream",
+                                    "channel": channelId,
+                                    "videoInfo": videoInfo["viewCount"]["runs"],
+                                }
     if not output:
         output = {
-            "isLive": False
+            "isLive": False,
+            "text": "No Output",
+            "channel": channelId
         }
     return output
 
 async def channelInfo(channelId: Union[str, int]):
     channelData = None
-    checked = False
     
-    for retryCount in range(2):
-        if checked:
-            break
+    async with aiohttp.ClientSession() as session:
+        with open("data/settings.yaml") as f:
+            settings = yaml.load(f, Loader=yaml.SafeLoader)
+        
+        if settings["proxy"]:
+            proxy = f"http://{settings['proxyIP']}:{settings['proxyPort']}"
+            proxyauth = aiohttp.BasicAuth(settings["proxyUsername"], settings["proxyPassword"])
+        else:
+            proxy = None
+            proxyauth = None
+        async with session.get(f'https://www.youtube.com/channel/{channelId}?hl=en-US', proxy=proxy, proxy_auth=proxyauth) as r:
+            soup = BeautifulSoup(await r.text(), "html5lib")
+            scripts = soup.find_all("script")
+            for script in scripts:
+                if ("var ytInitialData" in script.getText()) or ('window["ytInitialData"]' in script.getText()):
+                    ytdata = json.loads(script.getText().replace(';', '').replace('var ytInitialData = ', '').replace('window["ytInitialData"]', ''))
 
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(f'https://www.youtube.com/channel/{channelId}?hl=en-US') as r:
-                    soup = BeautifulSoup(await r.text(), "html5lib")
-                    scripts = soup.find_all("script")
-                    for script in scripts:
-                        if ("var ytInitialData" in script.getText()) or ('window["ytInitialData"]' in script.getText()):
-                            ytdata = json.loads(script.getText().replace(';', '').replace('var ytInitialData = ', '').replace('window["ytInitialData"]', ''))
+                    cSubsText = ytdata["header"]["c4TabbedHeaderRenderer"]["subscriberCountText"]["simpleText"]
 
-                            cSubsText = ytdata["header"]["c4TabbedHeaderRenderer"]["subscriberCountText"]["simpleText"]
+                    if "M" in cSubsText:
+                        cSubsA = int(float(cSubsText.replace("M subscribers", "")) * 1000000)
+                        cSubsR = round_down(cSubsA, 500000)
+                    elif "K" in cSubsText:
+                        cSubsA = int(float(cSubsText.replace("K subscribers", "")) * 1000)
+                        cSubsR = round_down(cSubsA, 100000)
+                    else:
+                        cSubsA = None
+                        cSubsR = None
 
-                            if "M" in cSubsText:
-                                cSubsA = int(float(cSubsText.replace("M subscribers", "")) * 1000000)
-                                cSubsR = round_down(cSubsA, 500000)
-                            elif "K" in cSubsText:
-                                cSubsA = int(float(cSubsText.replace("K subscribers", "")) * 1000)
-                                cSubsR = round_down(cSubsA, 100000)
-                            else:
-                                cSubsA = None
-                                cSubsR = None
+                    channelData = {
+                        "name": ytdata["metadata"]["channelMetadataRenderer"]["title"],
+                        "formattedName": re.split(r'([a-zA-Z\xC0-\xFF]+)', ytdata["metadata"]["channelMetadataRenderer"]["title"]),
+                        "image": ytdata["metadata"]["channelMetadataRenderer"]["avatar"]["thumbnails"][0]["url"],
+                        "realSubs": cSubsA,
+                        "roundSubs": cSubsR,
+                        "success": True
+                    }
 
-                            channelData = {
-                                "name": ytdata["metadata"]["channelMetadataRenderer"]["title"],
-                                "formattedName": re.split(r'([a-zA-Z\xC0-\xFF]+)', ytdata["metadata"]["channelMetadataRenderer"]["title"]),
-                                "image": ytdata["metadata"]["channelMetadataRenderer"]["avatar"]["thumbnails"][0]["url"],
-                                "realSubs": cSubsA,
-                                "roundSubs": cSubsR,
-                                "success": True
-                            }
-
-                            try:
-                                channelData["banner"] = ytdata["header"]["c4TabbedHeaderRenderer"]["banner"]["thumbnails"][3]["url"]
-                            except Exception as e:
-                                channelData["banner"] = None
-                        
-                            try:
-                                channelData["mbanner"] = ytdata["header"]["c4TabbedHeaderRenderer"]["banner"]["thumbnails"][1]["url"]
-                            except Exception as e:
-                                channelData["mbanner"] = None
-                            checked = True
-        except Exception as e:
-            if retryCount > 1:
-                logging.error("Channel - An error has occured while getting channel info!", exc_info=True)
+                    try:
+                        channelData["banner"] = ytdata["header"]["c4TabbedHeaderRenderer"]["banner"]["thumbnails"][3]["url"]
+                    except Exception as e:
+                        channelData["banner"] = None
+                
+                    try:
+                        channelData["mbanner"] = ytdata["header"]["c4TabbedHeaderRenderer"]["banner"]["thumbnails"][1]["url"]
+                    except Exception as e:
+                        channelData["mbanner"] = None
                     
     if channelData is None:
         channelData = {

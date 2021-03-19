@@ -7,3 +7,8 @@ thumbnailIP:
 thumbnailPort:
 dblPublish: False
 dblToken:
+proxy: True
+proxyIP:
+proxyPort: 80
+proxyUsername:
+proxyPassword:
