@@ -6,6 +6,7 @@ import json
 import yaml
 import logging
 import sys
+import platform
 from discord import Webhook, AsyncWebhookAdapter
 from discord.ext import commands
 from ext.infoscraper import channelInfo
@@ -16,6 +17,9 @@ from ext.share.botUtils import subPerms, creatorCheck
 from ext.share.dataGrab import getSubType, getwebhook
 from ext.share.prompts import botError, subCheck
 from ext.commands.subscribe import subCategory, subCustom
+
+if platform.system() == "Windows":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 with open("data/settings.yaml") as f:
     settings = yaml.load(f, Loader=yaml.SafeLoader)
