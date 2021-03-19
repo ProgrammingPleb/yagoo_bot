@@ -19,59 +19,73 @@ async def streamcheck(ctx = None, test: bool = False, loop: bool = False):
         settings = yaml.load(f, Loader=yaml.SafeLoader)
     extServer = rpyc.connect(settings["thumbnailIP"], int(settings["thumbnailPort"]))
     asyncUpl = rpyc.async_(extServer.root.thumbGrab)
-    if not test:
-        cstreams = {}
-        for channel in channels:
-            for x in range(2):
-                try:
-                    # print(f'Checking {cshrt["name"]}...')
-                    if channel != "":
-                        logging.debug(f'Stream - Checking stream data for channel ID: {channel}')
-                        status = await streamInfo(channel)
-                        ytchannel = await channelInfo(channel)
-                        logging.debug(f'Stream - Variable data for: status\n{status}')
-                        logging.debug(f'Stream - Variable data for: ytchannel\n{ytchannel}')
-                        if status["isLive"]:
-                            logging.debug(f'Stream - {ytchannel["name"]} is live!')
-                            logging.debug("Stream - Preparing for upload...")
-                            
-                            logging.debug("Stream - Sending upload command to thumbnail server...")
-                            upload = asyncUpl(channel, f'https://img.youtube.com/vi/{status["videoId"]}/maxresdefault_live.jpg')
-                            uplSuccess = False
 
-                            while True:
-                                if upload.ready and not upload.error:
-                                    logging.debug("Stream - Uploaded thumbnail!")
-                                    uplSuccess = True
-                                    break
-                                elif upload.error:
-                                    break
+    async def channelCheck(channel):
+        for x in range(2):
+            try:
+                status = await streamInfo(channel)
+                ytchannel = await channelInfo(channel)
+                logging.debug(status)
+                if status["isLive"]:
+                    logging.debug(f'Stream - {ytchannel["name"]} is live!')
+                    logging.debug("Stream - Sending upload command to thumbnail server...")
 
-                                await asyncio.sleep(0.5)
+                    upload = asyncUpl(channel, f'https://img.youtube.com/vi/{status["videoId"]}/maxresdefault_live.jpg')
+                    uplSuccess = False
 
-                            if not uplSuccess:
-                                logging.error("Stream - Couldn't upload thumbnail!")
-                                logging.error(upload.value)
-                                return
-                            
-                            cstreams[channel] = {
-                                "name": ytchannel["name"],
-                                "image": ytchannel["image"],
-                                "videoId": status["videoId"],
-                                "videoTitle": status["videoTitle"],
-                                "timeText": status["timeText"],
-                                "thumbURL": upload.value
-                            }
-                    break
-                except Exception as e:
-                    logging.error("An error has occurred!", exc_info=True)
+                    while True:
+                        if upload.ready and not upload.error:
+                            logging.debug("Stream - Uploaded thumbnail!")
+                            uplSuccess = True
+                            break
+                        elif upload.error:
+                            break
+
+                        await asyncio.sleep(0.5)
+
+                    if not uplSuccess:
+                        logging.error("Stream - Couldn't upload thumbnail!")
+                        logging.error(upload.value)
+                        return
+                    
+                    return {
+                        "id": channel,
+                        "name": ytchannel["name"],
+                        "image": ytchannel["image"],
+                        "videoId": status["videoId"],
+                        "videoTitle": status["videoTitle"],
+                        "timeText": status["timeText"],
+                        "thumbURL": upload.value
+                    }
+            except Exception as e:
+                if x == 1:
+                    logging.error(f"Stream - An error has occured! (Channel ID: {channel})", exc_info=True)
                     print("An error has occurred.")
                     traceback.print_tb(e)
-                    continue
-        logging.debug(f'Stream - Current livestream data:\n{cstreams}')
-        return cstreams
 
-    stext = ""
+    if not test:
+        try:
+            chList = []
+            chNotify = {}
+            for channel in channels:
+                chList.append(channelCheck(channel))
+            liveCh = await asyncio.gather(*chList)
+            print(liveCh)
+            logging.debug(f'Stream - Current livestream data:\n{liveCh}')
+            for channel in liveCh:
+                if channel is not None:
+                    print(channel)
+                    print(type(channel))
+                    print(channel["id"])
+                    cid = channel["id"]
+                    channel.pop("id")
+                    chNotify[cid] = channel
+            print(chNotify)
+            return chNotify
+        except Exception as e:
+            traceback.print_exception(type(e), e, e.__traceback__)
+
+    """stext = ""
     stext2 = ""
     for channel in channels:
         for x in range(2):
@@ -101,7 +115,7 @@ async def streamcheck(ctx = None, test: bool = False, loop: bool = False):
                     else:
                         stext2 += f'{channel}: <:warning:786380003306111018>\n'
     await ctx.send(stext.strip())
-    await ctx.send(stext2.strip())
+    await ctx.send(stext2.strip())"""
 
 async def streamNotify(bot, cData):
     with open("data/servers.json", encoding="utf-8") as f:
