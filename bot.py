@@ -50,6 +50,9 @@ async def on_ready():
         if settings["dblPublish"]:
             bot.add_cog(guildUpdate(bot, settings["dblToken"]))
         bot.add_cog(chCycle(bot))
+        init = True
+    else:
+        print("Reconnected to Discord!")
 
 @bot.event
 async def on_guild_remove(server):
