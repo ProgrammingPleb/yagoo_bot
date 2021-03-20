@@ -5,7 +5,7 @@ import logging
 import rpyc
 import yaml
 import asyncio
-import traceback
+import concurrent.futures
 from discord import Webhook, AsyncWebhookAdapter
 from discord.ext import commands, tasks
 from ..infoscraper import streamInfo, channelInfo
@@ -149,7 +149,10 @@ async def streamClean(cData):
                     servers[server][channel]["notified"].remove(ytch)
     with open("data/servers.json", "w", encoding="utf-8") as f:
         servers = json.dump(servers, f, indent=4)
-    
+
+def scWrapper():
+    return asyncio.run(streamcheck(loop=True))
+
 class StreamCycle(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -161,7 +164,9 @@ class StreamCycle(commands.Cog):
     @tasks.loop(minutes=3.0)
     async def timecheck(self):
         logging.info("Starting stream checks.")
-        cData = await streamcheck(loop=True)
+        with concurrent.futures.ThreadPoolExecutor() as pool:
+            loop = asyncio.get_running_loop()
+            cData = await loop.run_in_executor(pool, scWrapper)
         logging.info("Notifying channels (Stream).")
         await streamNotify(self.bot, cData)
         logging.info("Stream checks done.")
