@@ -18,6 +18,8 @@ from ext.share.dataGrab import getSubType, getwebhook
 from ext.share.prompts import botError, subCheck
 from ext.commands.subscribe import subCategory, subCustom
 
+init = False
+
 if platform.system() == "Windows":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
@@ -34,18 +36,20 @@ bot.remove_command('help')
 
 @bot.event
 async def on_ready():
+    global init
     guildCount = 0
     for guilds in bot.guilds:
         guildCount += 1
     print(f"Yagoo Bot now streaming in {guildCount} servers!")
     await bot.change_presence(status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.watching, name='other Hololive members'))
-    if settings["notify"]:
-        bot.add_cog(StreamCycle(bot))
-    if settings["milestone"]:
-        bot.add_cog(msCycle(bot))
-    if settings["dblPublish"]:
-        bot.add_cog(guildUpdate(bot, settings["dblToken"]))
-    bot.add_cog(chCycle(bot))
+    if not init:
+        if settings["notify"]:
+            bot.add_cog(StreamCycle(bot))
+        if settings["milestone"]:
+            bot.add_cog(msCycle(bot))
+        if settings["dblPublish"]:
+            bot.add_cog(guildUpdate(bot, settings["dblToken"]))
+        bot.add_cog(chCycle(bot))
 
 @bot.event
 async def on_guild_remove(server):
