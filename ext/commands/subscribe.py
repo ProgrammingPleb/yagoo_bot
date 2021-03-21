@@ -233,7 +233,7 @@ async def subCustom(ctx: commands.Context, bot: commands.Bot, search: str):
             "name": cInfo["name"],
             "image": cInfo["image"],
             "milestone": cInfo["roundSubs"],
-            "category": "Others/Independent"
+            "category": await FandomScrape.getAffiliate(cInfo["name"])
         }
         newChannel = True
     else:
