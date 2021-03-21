@@ -187,6 +187,29 @@ def migrateData(version: str):
         with open("data/channels.json", "w", encoding="utf-8") as f:
             json.dump(channels, f, indent=4)
 
+async def affUpdate():
+    tasks = []
+    with open("data/channels.json") as f:
+        channels = json.load(f)
+    
+    async def channelUpdate(channel):
+        chInfo = await channelInfo(channel)
+        return {
+            "channel": channel,
+            "affiliate": await FandomScrape.getAffiliate(chInfo["name"])
+        }
+
+    for channel in channels:
+        tasks.append(channelUpdate(channel))
+
+    liveCh = await asyncio.gather(*tasks)
+
+    for channel in liveCh:
+        channels[channel["channel"]]["category"] = channel["affiliate"]
+    
+    with open("data/channels.json", "w") as f:
+        json.dump(channels, f, indent=4)
+
 # To be used in programs only, not the CLI
 async def debugFile(output, filetype, filename):
     print("Writing to file...")
@@ -223,6 +246,10 @@ if __name__ == "__main__":
     elif sys.argv[1] == "bday":
         print("Getting member birthdays...")
         bdayInsert()
+        print("Done.")
+    elif sys.argv[1] == "affiliate":
+        print("Updating channel affiliates...")
+        asyncio.run(affUpdate())
         print("Done.")
     else:
         print("No valid command was entered!\nValid commands are scrape, clean, image and sub.")

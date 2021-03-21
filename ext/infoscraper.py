@@ -260,7 +260,7 @@ async def channelScrape(query: str):
     return result
 
 def sInfoAdapter(cid):
-    cData = asyncio.run(FandomScrape.getAffiliate("temma"))
+    cData = asyncio.run(FandomScrape.getAffiliate(cid))
     print(cData)
 
 if __name__ == "__main__":
