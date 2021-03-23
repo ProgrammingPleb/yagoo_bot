@@ -81,7 +81,12 @@ async def help(ctx): # pylint: disable=redefined-builtin
                            "**y!sublist** (Alias: subs, subslist)\n"
                            "Brings up a list of channels that the current chat channel has subscribed to.\n\n"
                            "**y!subdefault** (Alias: subDefault)\n"
-                           "Set's the default subscription type for the channel.")
+                           "Set's the default subscription type for the channel.",
+                     inline=False)
+    
+    hembed.add_field(name="Issues/Suggestions?",
+                     value="If you run into any problems with/have any suggestions for the bot, then feel free to join the [support server](https://discord.gg/GJd6sdNjeQ) and drop a message there.",
+                     inline=False)
 
     await ctx.send(embed=hembed)
 

@@ -1,9 +1,11 @@
+import asyncio
 import json
 import logging
 import os
 import imgkit
 import discord
 import traceback
+import concurrent.futures
 from ..infoscraper import channelInfo
 from discord.ext import commands, tasks
 
@@ -14,13 +16,12 @@ async def milestoneCheck():
     milestone = {}
     noWrite = True
 
-    for channel in channels:
+    async def getSubs(channel):
         for x in range(2):
             try:
                 ytch = await channelInfo(channel)
                 logging.debug(f'Milestone - Checking channel: {ytch["name"]}')
                 if ytch["roundSubs"] > channels[channel]["milestone"]:
-                    noWrite = False
                     if ytch["roundSubs"] < 1000000:
                         subtext = f'{int(ytch["roundSubs"] / 1000)}K Subscribers'
                     else:
@@ -28,14 +29,15 @@ async def milestoneCheck():
                             subtext = f'{int(ytch["roundSubs"] / 1000000)}M Subscribers'
                         else:
                             subtext = f'{ytch["roundSubs"] / 1000000}M Subscribers'
-                    milestone[channel] = {
+                    return {
+                        "id": channel,
                         "name": ytch["name"],
                         "image": ytch["image"],
                         "banner": ytch["mbanner"],
-                        "msText": subtext
+                        "msText": subtext,
+                        "roundSubs": ytch["roundSubs"]
                     }
-                    channels[channel]["milestone"] = ytch["roundSubs"]
-                    break
+                break
             except Exception as e:
                 if x == 2:
                     logging.error(f'Milestone - Unable to get info for {channel}!')
@@ -45,6 +47,17 @@ async def milestoneCheck():
                 else:
                     logging.warning(f'Milestone - Failed to get info for {channel}. Retrying...')
     
+    chList = []
+    for channel in channels:
+        chList.append(getSubs(channel))
+    msData = await asyncio.gather(*chList)
+
+    for channel in msData:
+        if channel != None:
+            noWrite = False
+            milestone[channel["id"]] = channel
+            channels[channel["id"]]["milestone"] = channel["roundSubs"]
+
     if not noWrite:
         with open("data/channels.json", "w") as f:
             json.dump(channels, f, indent=4)
@@ -93,6 +106,9 @@ async def milestoneNotify(msDict, bot, test=False):
                 except Exception as e:
                     logging.error("Milestone - Failed to post on a server/channel!", exc_info=True)
 
+def mcWrapper():
+    return asyncio.run(milestoneCheck())
+
 class msCycle(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -104,7 +120,9 @@ class msCycle(commands.Cog):
     @tasks.loop(minutes=3.0)
     async def timecheck(self):
         logging.info("Starting milestone checks.")
-        msData = await milestoneCheck()
+        with concurrent.futures.ThreadPoolExecutor() as pool:
+            loop = asyncio.get_running_loop()
+            msData = await loop.run_in_executor(pool, mcWrapper)
         if msData != {}:
             logging.info("Notifying channels (Milestone).")
             await milestoneNotify(msData, self.bot)
