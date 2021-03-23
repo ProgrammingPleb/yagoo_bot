@@ -13,6 +13,7 @@ from ext.cogs.subCycle import StreamCycle, streamcheck
 from ext.cogs.msCycle import msCycle, milestoneNotify
 from ext.cogs.dblUpdate import guildUpdate
 from ext.cogs.chUpdater import chCycle
+from ext.cogs.scrapeCycle import ScrapeCycle
 from ext.share.botUtils import subPerms, creatorCheck
 from ext.share.dataGrab import getSubType, getwebhook
 from ext.share.prompts import botError, subCheck
@@ -37,19 +38,21 @@ bot.remove_command('help')
 @bot.event
 async def on_ready():
     global init
-    guildCount = 0
-    for guilds in bot.guilds:
-        guildCount += 1
-    print(f"Yagoo Bot now streaming in {guildCount} servers!")
-    await bot.change_presence(status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.watching, name='other Hololive members'))
     if not init:
+        guildCount = 0
+        for guilds in bot.guilds:
+            guildCount += 1
+        print(f"Yagoo Bot now streaming in {guildCount} servers!")
+        await bot.change_presence(status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.watching, name='other Hololive members'))
+        """if settings["dblPublish"]:
+            bot.add_cog(guildUpdate(bot, settings["dblToken"]))"""
+        bot.add_cog(ScrapeCycle(bot))
+        await asyncio.sleep(30)
         if settings["notify"]:
             bot.add_cog(StreamCycle(bot))
         if settings["milestone"]:
             bot.add_cog(msCycle(bot))
-        if settings["dblPublish"]:
-            bot.add_cog(guildUpdate(bot, settings["dblToken"]))
-        bot.add_cog(chCycle(bot))
+        #bot.add_cog(chCycle(bot))
         init = True
     else:
         print("Reconnected to Discord!")
@@ -81,7 +84,12 @@ async def help(ctx): # pylint: disable=redefined-builtin
                            "**y!sublist** (Alias: subs, subslist)\n"
                            "Brings up a list of channels that the current chat channel has subscribed to.\n\n"
                            "**y!subdefault** (Alias: subDefault)\n"
-                           "Set's the default subscription type for the channel.")
+                           "Set's the default subscription type for the channel.",
+                     inline=False)
+    
+    hembed.add_field(name="Issues/Suggestions?",
+                     value="If you run into any problems with/have any suggestions for the bot, then feel free to join the [support server](https://discord.gg/GJd6sdNjeQ) and drop a message there.",
+                     inline=False)
 
     await ctx.send(embed=hembed)
 

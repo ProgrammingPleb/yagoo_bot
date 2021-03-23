@@ -7,7 +7,7 @@ import os
 import shutil
 import yaml
 import traceback
-import re
+import platform
 from bs4 import BeautifulSoup
 from ext.infoscraper import FandomScrape, channelInfo, channelScrape
 
@@ -210,6 +210,35 @@ async def affUpdate():
     with open("data/channels.json", "w") as f:
         json.dump(channels, f, indent=4)
 
+async def msUpdate():
+    async def chMsGet(channel):
+        x = 1
+        try:
+            chInfo = await channelInfo(channel)
+            return {
+                "channel": channel,
+                "subs": chInfo["roundSubs"]
+            }
+        except Exception as e:
+            if x != 3:
+                x += 1
+            else:
+                return
+
+    with open("data/channels.json") as f:
+        channels = json.load(f)
+
+    chList = []
+    for channel in channels:
+        chList.append(chMsGet(channel))
+    allCh = await asyncio.gather(*chList)
+
+    for channel in allCh:
+        channels[channel["channel"]]["milestone"] = channel["subs"]
+
+    with open("data/channels.json", "w") as f:
+        json.dump(channels, f, indent=4)
+
 # To be used in programs only, not the CLI
 async def debugFile(output, filetype, filename):
     print("Writing to file...")
@@ -220,6 +249,9 @@ async def debugFile(output, filetype, filename):
             f.write(output)
 
 if __name__ == "__main__":
+    if platform.system() == "Windows":
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    
     if sys.argv[1] == "init":
         print("Prepping initial data for bot...")
         initBot()
@@ -242,6 +274,10 @@ if __name__ == "__main__":
     elif sys.argv[1] == "sub":
         print("Formatting subscribers count...")
         subFormat(int(sys.argv[2]))
+        print("Done.")
+    elif sys.argv[1] == "milestone":
+        print("Updating milestones....")
+        asyncio.run(msUpdate())
         print("Done.")
     elif sys.argv[1] == "bday":
         print("Getting member birthdays...")
