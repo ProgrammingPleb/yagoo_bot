@@ -68,56 +68,66 @@ async def streamInfo(channelId: Union[str, int]):
         }
     return output
 
-async def channelInfo(channelId: Union[str, int]):
+async def channelInfo(channelId: Union[str, int], scrape = False):
     channelData = None
     
-    async with aiohttp.ClientSession() as session:
-        with open("data/settings.yaml") as f:
-            settings = yaml.load(f, Loader=yaml.SafeLoader)
-        
-        if settings["proxy"]:
-            proxy = f"http://{settings['proxyIP']}:{settings['proxyPort']}"
-            proxyauth = aiohttp.BasicAuth(settings["proxyUsername"], settings["proxyPassword"])
-        else:
-            proxy = None
-            proxyauth = None
-        async with session.get(f'https://www.youtube.com/channel/{channelId}?hl=en-US', proxy=proxy, proxy_auth=proxyauth) as r:
-            soup = BeautifulSoup(await r.text(), "html5lib")
-            scripts = soup.find_all("script")
-            for script in scripts:
-                if ("var ytInitialData" in script.getText()) or ('window["ytInitialData"]' in script.getText()):
-                    ytdata = json.loads(script.getText().replace(';', '').replace('var ytInitialData = ', '').replace('window["ytInitialData"]', ''))
+    if scrape:
+        async with aiohttp.ClientSession() as session:
+            with open("data/settings.yaml") as f:
+                settings = yaml.load(f, Loader=yaml.SafeLoader)
+            
+            if settings["proxy"]:
+                proxy = f"http://{settings['proxyIP']}:{settings['proxyPort']}"
+                proxyauth = aiohttp.BasicAuth(settings["proxyUsername"], settings["proxyPassword"])
+            else:
+                proxy = None
+                proxyauth = None
+            async with session.get(f'https://www.youtube.com/channel/{channelId}?hl=en-US', proxy=proxy, proxy_auth=proxyauth) as r:
+                soup = BeautifulSoup(await r.text(), "html5lib")
+                scripts = soup.find_all("script")
+                for script in scripts:
+                    if ("var ytInitialData" in script.getText()) or ('window["ytInitialData"]' in script.getText()):
+                        ytdata = json.loads(script.getText().replace(';', '').replace('var ytInitialData = ', '').replace('window["ytInitialData"]', ''))
 
-                    cSubsText = ytdata["header"]["c4TabbedHeaderRenderer"]["subscriberCountText"]["simpleText"]
+                        cSubsText = ytdata["header"]["c4TabbedHeaderRenderer"]["subscriberCountText"]["simpleText"]
 
-                    if "M" in cSubsText:
-                        cSubsA = int(float(cSubsText.replace("M subscribers", "")) * 1000000)
-                        cSubsR = round_down(cSubsA, 500000)
-                    elif "K" in cSubsText:
-                        cSubsA = int(float(cSubsText.replace("K subscribers", "")) * 1000)
-                        cSubsR = round_down(cSubsA, 100000)
-                    else:
-                        cSubsA = None
-                        cSubsR = None
+                        if "M" in cSubsText:
+                            cSubsA = int(float(cSubsText.replace("M subscribers", "")) * 1000000)
+                            cSubsR = round_down(cSubsA, 500000)
+                        elif "K" in cSubsText:
+                            cSubsA = int(float(cSubsText.replace("K subscribers", "")) * 1000)
+                            cSubsR = round_down(cSubsA, 100000)
+                        else:
+                            cSubsA = None
+                            cSubsR = None
 
-                    channelData = {
-                        "name": ytdata["metadata"]["channelMetadataRenderer"]["title"],
-                        "formattedName": re.split(r'([a-zA-Z\xC0-\xFF]+)', ytdata["metadata"]["channelMetadataRenderer"]["title"]),
-                        "image": ytdata["metadata"]["channelMetadataRenderer"]["avatar"]["thumbnails"][0]["url"],
-                        "realSubs": cSubsA,
-                        "roundSubs": cSubsR,
-                        "success": True
-                    }
+                        channelData = {
+                            "id": channelId,
+                            "name": ytdata["metadata"]["channelMetadataRenderer"]["title"],
+                            "formattedName": re.split(r'([a-zA-Z\xC0-\xFF]+)', ytdata["metadata"]["channelMetadataRenderer"]["title"]),
+                            "image": ytdata["metadata"]["channelMetadataRenderer"]["avatar"]["thumbnails"][0]["url"],
+                            "realSubs": cSubsA,
+                            "roundSubs": cSubsR,
+                            "success": True
+                        }
 
-                    try:
-                        channelData["banner"] = ytdata["header"]["c4TabbedHeaderRenderer"]["banner"]["thumbnails"][3]["url"]
-                    except Exception as e:
-                        channelData["banner"] = None
-                
-                    try:
-                        channelData["mbanner"] = ytdata["header"]["c4TabbedHeaderRenderer"]["banner"]["thumbnails"][1]["url"]
-                    except Exception as e:
-                        channelData["mbanner"] = None
+                        try:
+                            channelData["banner"] = ytdata["header"]["c4TabbedHeaderRenderer"]["banner"]["thumbnails"][3]["url"]
+                        except Exception as e:
+                            channelData["banner"] = None
+                    
+                        try:
+                            channelData["mbanner"] = ytdata["header"]["c4TabbedHeaderRenderer"]["banner"]["thumbnails"][1]["url"]
+                        except Exception as e:
+                            channelData["mbanner"] = None
+    else:
+        try:
+            with open("data/scrape.json") as f:
+                channels = json.load(f)
+
+            channelData = channels[channelId]
+        except Exception as e:
+            logging.error("Info Scraper - An error has occurred!", exc_info=True)
                     
     if channelData is None:
         channelData = {
