@@ -88,5 +88,171 @@ async def botError(ctx, error):
         
         return errEmbed
     print("An unknown error has occurred.")
-    traceback.print_tb(error.__traceback__)
+    traceback.print_exception(type(error), error, error.__traceback__)
     print(error)
+
+async def searchPrompt(ctx, bot, sResults: list, smsg, embedDesc):
+    sEmbed = discord.Embed(title="VTuber Search", description=embedDesc)
+    sDesc = ""
+    checkNum = []
+    picked = False
+    pickName = None
+
+    x = 1
+    for entry in sResults:
+        sDesc += f'{x}. {entry}\n'
+        checkNum.append(str(x))
+        x += 1
+        
+    sEmbed.add_field(name="Search Results", value=sDesc.strip(), inline=False)
+    sEmbed.add_field(name="Other Actions", value="X. Cancel", inline=False)
+
+    await smsg.edit(content=None, embed=sEmbed)
+
+    def check(m):
+        return m.content.lower() in checkNum + ['x'] and m.author == ctx.author
+    
+    while True:
+        try:
+            msg = await bot.wait_for('message', timeout=60.0, check=check)
+        except asyncio.TimeoutError:
+            await smsg.delete()
+            break
+        if msg.content in checkNum:
+            await msg.delete()
+            pickName = sResults[int(msg.content) - 1]
+            picked = True
+            break
+        elif msg.content.lower() == 'x':
+            await msg.delete()
+            break
+        else:
+            await msg.delete()
+    
+    if not picked:
+        return {
+            "success": False
+        }
+    
+    return {
+        "success": True,
+        "name": pickName
+    }
+
+async def searchConfirm(ctx, bot, sName: str, smsg, embedDesc, accept, decline):
+    sEmbed = discord.Embed(title="VTuber Search", description=embedDesc)
+    sEmbed.add_field(name="Actions", value=f"Y. {accept}\nN. {decline}\nX. Cancel", inline=False)
+
+    await smsg.edit(content=None, embed=sEmbed)
+
+    def check(m):
+        return m.content.lower() in ["y", "n", "x"] and m.author == ctx.author
+    
+    while True:
+        try:
+            msg = await bot.wait_for('message', timeout=60.0, check=check)
+        except asyncio.TimeoutError:
+            return {
+                "success": False,
+                "declined": False
+            }
+        if msg.content.lower() == "y":
+            await msg.delete()
+            return {
+                "success": True,
+                "declined": False
+            }
+        if msg.content.lower() == "n":
+            await msg.delete()
+            return {
+                "success": False,
+                "declined": True
+            }
+        if msg.content.lower() == "x":
+            await msg.delete()
+            return {
+                "success": False,
+                "declined": False
+            }
+        await msg.delete()
+
+async def ctgPicker(ctx, bot, channels, ctgMsg):
+    catStr = ""
+    categories = []
+    catNum = []
+    x = 1
+    for channel in channels:
+        if channels[channel]["category"] not in categories:
+            catStr += f'{x}. {channels[channel]["category"]}\n'
+            categories.append(channels[channel]["category"])
+            catNum.append(str(x))
+            x += 1
+        
+    catEmbed = discord.Embed(title="Channel Search", description="Choose the affiliation corresponding to the VTuber:\n"
+                                                                 "If the affiliation is not in this list,search the VTuber to add it to the bot's database.")
+    catEmbed.add_field(name="Affiliation", value=catStr.strip())
+    catEmbed.add_field(name="Other Actions", value="S. Search for a VTuber\nX. Cancel")
+
+    await ctgMsg.edit(content=None, embed=catEmbed)
+
+    def check(m):
+        return m.content.lower() in catNum + ["s", "x"] and m.author == ctx.author
+    
+    while True:
+        try:
+            msg = await bot.wait_for('message', timeout=60.0, check=check)
+        except asyncio.TimeoutError:
+            return {
+                "success": False,
+                "search": False
+            }
+        if msg.content in catNum:
+            await msg.delete()
+            return {
+                "success": True,
+                "search": False,
+                "category": categories[int(msg.content) - 1]
+            }
+        if msg.content.lower() == "s":
+            await msg.delete()
+            return {
+                "success": False,
+                "search": True
+            }
+        if msg.content.lower() == "x":
+            await msg.delete()
+            return {
+                "success": False,
+                "search": False
+            }
+        await msg.delete()
+
+async def searchMessage(ctx, bot, srchMsg):
+    searchEmbed = discord.Embed(title="VTuber Search")
+    searchEmbed.description = "Enter a VTuber name:\n" \
+                              "[Enter `cancel` to cancel searching.]"
+    
+    await srchMsg.edit(content=None, embed=searchEmbed)
+
+    def check(m):
+        return m.author == ctx.author
+    
+    while True:
+        try:
+            msg = await bot.wait_for('message', timeout=60.0, check=check)
+        except asyncio.TimeoutError:
+            return {
+                "success": False,
+                "search": None
+            }
+        if msg.content.lower() == "cancel":
+            await msg.delete()
+            return {
+                "success": False,
+                "search": None
+            }
+        await msg.delete()
+        return {
+            "success": True,
+            "search": msg.content
+        }

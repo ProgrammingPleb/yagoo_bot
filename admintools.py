@@ -7,7 +7,9 @@ import os
 import shutil
 import yaml
 import traceback
-from ext.infoscraper import channelInfo, channelScrape
+import re
+from bs4 import BeautifulSoup
+from ext.infoscraper import FandomScrape, channelInfo, channelScrape
 
 logging.basicConfig(level=logging.INFO, filename='status.log', filemode='w', format='[%(asctime)s] %(name)s - %(levelname)s - %(message)s')
 
@@ -20,7 +22,8 @@ def channelscrape():
         channels[channel] = {
             "name": chData["name"],
             "image": chData["image"],
-            "milestone": chData["roundSubs"]
+            "milestone": chData["roundSubs"],
+            "category": "Hololive"
         }
     with open("data/channels.json", "w", encoding="utf-8") as f:
         json.dump(channels, f, indent=4)
@@ -113,51 +116,99 @@ def initBot():
     with open("data/settings.yaml", "w") as f:
         yaml.dump(settings, f)
 
-def migrateData():
+def migrateData(version: str):
     if not os.path.exists("data_backup/"):
         os.mkdir("data_backup")
-    shutil.copy("data/servers.json", "data_backup/servers.json")
-    shutil.copy("data/channels.json", "data_backup/channels.json")
-    
-    with open("data/servers.json") as f:
-        servers = json.load(f)
-    
+    if version == "1":
+        shutil.copy("data/servers.json", "data_backup/servers.json")
+        shutil.copy("data/channels.json", "data_backup/channels.json")
+        
+        with open("data/servers.json") as f:
+            servers = json.load(f)
+        
+        with open("data/channels.json") as f:
+            channels = json.load(f)
+        
+        newCh = {}
+
+        print("Converting channel data...")
+        for ytch in channels:
+            chData = asyncio.run(channelInfo(channels[ytch]["channel"]))
+            newCh[channels[ytch]["channel"]] = {
+                "name": chData["name"],
+                "image": chData["image"],
+                "milestone": channels[ytch]["milestone"]
+            }
+
+        newServ = servers
+
+        print("Converting server data...")
+        for server in servers:
+            for channel in servers[server]:
+                livestream = []
+                for sub in servers[server][channel]["subbed"]:
+                    livestream.append(channels[sub]["channel"])
+                newServ[server][channel]["livestream"] = livestream
+                newNot = {}
+                for chNot in servers[server][channel]["notified"]:
+                    chLink = channels[chNot]["channel"]
+                    newNot[chLink] = servers[server][channel]["notified"][chNot]
+                newServ[server][channel]["notified"] = newNot
+                newServ[server][channel]["milestone"] = livestream
+                newServ[server][channel].pop("subbed", None)
+        
+        with open("data/servers.json", "w") as f:
+            json.dump(servers, f, indent=4)
+        
+        with open("data/channels.json", "w", encoding="utf-8") as f:
+            json.dump(newCh, f, indent=4)
+    if version == "2":
+        shutil.copy("data/channels.json", "data_backup/channels.json")
+
+        with open("data/channels.json") as f:
+            channels = json.load(f)
+        
+        print("Converting channel data...")
+        for channel in channels:
+            channels[channel]["category"] = "Hololive"
+        
+        with open("data/channels.json", "w", encoding="utf-8") as f:
+            json.dump(channels, f, indent=4)
+    if version == "3":
+        shutil.copy("data/channels.json", "data_backup/channels.json")
+
+        with open("data/channels.json") as f:
+            channels = json.load(f)
+        
+        print("Converting channel data...")
+        for channel in channels:
+            channels[channel]["category"] = asyncio.run(FandomScrape.getAffiliate(channels[channel]["name"]))
+        
+        with open("data/channels.json", "w", encoding="utf-8") as f:
+            json.dump(channels, f, indent=4)
+
+async def affUpdate():
+    tasks = []
     with open("data/channels.json") as f:
         channels = json.load(f)
     
-    newCh = {}
-
-    print("Converting channel data...")
-    for ytch in channels:
-        chData = asyncio.run(channelInfo(channels[ytch]["channel"]))
-        newCh[channels[ytch]["channel"]] = {
-            "name": chData["name"],
-            "image": chData["image"],
-            "milestone": channels[ytch]["milestone"]
+    async def channelUpdate(channel):
+        chInfo = await channelInfo(channel)
+        return {
+            "channel": channel,
+            "affiliate": await FandomScrape.getAffiliate(chInfo["name"])
         }
 
-    newServ = servers
+    for channel in channels:
+        tasks.append(channelUpdate(channel))
 
-    print("Converting server data...")
-    for server in servers:
-        for channel in servers[server]:
-            livestream = []
-            for sub in servers[server][channel]["subbed"]:
-                livestream.append(channels[sub]["channel"])
-            newServ[server][channel]["livestream"] = livestream
-            newNot = {}
-            for chNot in servers[server][channel]["notified"]:
-                chLink = channels[chNot]["channel"]
-                newNot[chLink] = servers[server][channel]["notified"][chNot]
-            newServ[server][channel]["notified"] = newNot
-            newServ[server][channel]["milestone"] = livestream
-            newServ[server][channel].pop("subbed", None)
+    liveCh = await asyncio.gather(*tasks)
+
+    for channel in liveCh:
+        channels[channel["channel"]]["category"] = channel["affiliate"]
     
-    with open("data/servers.json", "w") as f:
-        json.dump(servers, f, indent=4)
-    
-    with open("data/channels.json", "w", encoding="utf-8") as f:
-        json.dump(newCh, f, indent=4)
+    with open("data/channels.json", "w") as f:
+        json.dump(channels, f, indent=4)
 
 # To be used in programs only, not the CLI
 async def debugFile(output, filetype, filename):
@@ -174,9 +225,12 @@ if __name__ == "__main__":
         initBot()
         print("Bot can now be started by launching the bot.py file.")
     elif sys.argv[1] == "migrate":
-        print("Migrating data files to new format...")
-        migrateData()
-        print("Data files are now converted. Backups are in the 'data_backup' folder.")
+        if len(sys.argv) == 3:
+            print("Migrating data files to new format...")
+            migrateData(sys.argv[2])
+            print("Data files are now converted. Backups are in the 'data_backup' folder.")
+        else:
+            print("Enter a data migration version. (Versions available: 1, 2)")
     elif sys.argv[1] == "scrape":
         print("Scraping channels...")
         channelscrape()
@@ -192,6 +246,10 @@ if __name__ == "__main__":
     elif sys.argv[1] == "bday":
         print("Getting member birthdays...")
         bdayInsert()
+        print("Done.")
+    elif sys.argv[1] == "affiliate":
+        print("Updating channel affiliates...")
+        asyncio.run(affUpdate())
         print("Done.")
     else:
         print("No valid command was entered!\nValid commands are scrape, clean, image and sub.")
