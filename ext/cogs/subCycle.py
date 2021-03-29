@@ -1,4 +1,5 @@
 import json
+import traceback
 import aiohttp
 import discord
 import logging
@@ -169,9 +170,14 @@ class StreamCycle(commands.Cog):
     @tasks.loop(minutes=3.0)
     async def timecheck(self):
         logging.info("Starting stream checks.")
-        with concurrent.futures.ThreadPoolExecutor() as pool:
-            loop = asyncio.get_running_loop()
-            cData = await loop.run_in_executor(pool, scWrapper)
-        logging.info("Notifying channels (Stream).")
-        await streamNotify(self.bot, cData)
-        logging.info("Stream checks done.")
+        try:
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                loop = asyncio.get_running_loop()
+                cData = await loop.run_in_executor(pool, scWrapper)
+            logging.info("Stream - Notifying channels.")
+            await streamNotify(self.bot, cData)
+        except Exception as e:
+            logging.error("Stream - An error has occurred in the cog!", exc_info=True)
+            traceback.print_exception(type(e), e, e.__traceback__)
+        else:
+            logging.info("Stream checks done.")

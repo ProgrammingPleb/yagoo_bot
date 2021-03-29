@@ -2,6 +2,7 @@ import logging
 import asyncio
 import json
 import concurrent.futures
+import traceback
 from discord.ext import commands, tasks
 from ..infoscraper import channelInfo
 
@@ -52,10 +53,15 @@ class ScrapeCycle(commands.Cog):
     @tasks.loop(minutes=3.0)
     async def timecheck(self):
         logging.info("Starting channel scrape.")
-        with concurrent.futures.ThreadPoolExecutor() as pool:
-            loop = asyncio.get_running_loop()
-            await loop.run_in_executor(pool, scrapeWrapper)
-        logging.info("Channel scrape done.")
+        try:
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                loop = asyncio.get_running_loop()
+                await loop.run_in_executor(pool, scrapeWrapper)
+        except Exception as e:
+            logging.error("Channel Scrape - An error has occurred in the cog!")
+            traceback.print_exception(type(e), e, e.__traceback__)
+        else:
+            logging.info("Channel scrape done.")
 
 if __name__ == "__main__":
     asyncio.run(channelScrape())

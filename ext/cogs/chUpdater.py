@@ -57,12 +57,14 @@ class chCycle(commands.Cog):
 
     @tasks.loop(minutes=30.0)
     async def chCheck(self):
+        logging.info("Starting channel update checks.")
         try:
-            logging.info("Starting channel update checks.")
             chData = await channelCheck()
             if chData != {}:
                 logging.info("Updating channels with new data.")
                 await channelWrite(chData)
-            logging.info("Channel update checks done.")
         except Exception as e:
+            logging.error("Channel Update - An error has occurred in the cog!", exc_info=True)
             traceback.print_exception(type(e), e, e.__traceback__)
+        else:
+            logging.info("Channel update checks done.")
