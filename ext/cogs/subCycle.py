@@ -33,20 +33,25 @@ async def streamcheck(ctx = None, test: bool = False, loop: bool = False):
                     upload = asyncUpl(channel, f'https://img.youtube.com/vi/{status["videoId"]}/maxresdefault_live.jpg')
                     uplSuccess = False
 
-                    while True:
-                        if upload.ready and not upload.error:
-                            logging.debug("Stream - Uploaded thumbnail!")
-                            uplSuccess = True
-                            break
-                        elif upload.error:
-                            break
+                    for x in range(3):
+                        upload = asyncUpl(channel, f'https://img.youtube.com/vi/{status["videoId"]}/maxresdefault_live.jpg')
+                        uplSuccess = False
 
-                        await asyncio.sleep(0.5)
+                        while True:
+                            if upload.ready and not upload.error:
+                                logging.debug("Stream - Uploaded thumbnail!")
+                                uplSuccess = True
+                                break
+                            elif upload.error:
+                                break
 
-                    if not uplSuccess:
-                        logging.error("Stream - Couldn't upload thumbnail!")
-                        logging.error(upload.value)
-                        return
+                            await asyncio.sleep(0.5)
+
+                        if not uplSuccess or "yagoo.ezz.moe" not in upload.value:
+                            logging.error("Stream - Couldn't upload thumbnail!")
+                            logging.error(upload.value)
+                        else:
+                            break
                     
                     return {
                         "id": channel,
