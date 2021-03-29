@@ -75,14 +75,17 @@ async def milestoneNotify(msDict, bot):
         logging.debug(f'Removed temporary HTML file')
         os.remove("milestone/msTemp.html")
         for server in servers:
-            logging.debug(f'Accessing server id {server}')
-            for dch in servers[server]:
-                logging.debug(f'Milestone - Channel Data: {servers[server][dch]["milestone"]}')
-                logging.debug(f'Milestone - Channel Check Pass: {channel in servers[server][dch]["milestone"]}')
-                if channel in servers[server][dch]["milestone"]:
-                    logging.debug(f'Posting to {dch}...')
-                    await bot.get_channel(int(dch)).send(f'{msDict[channel]["name"]} has reached {msDict[channel]["msText"].replace("Subscribers", "subscribers")}!', file=discord.File(f'milestone/generated/{channel}.png'))
-                    await bot.get_channel(int(dch)).send("おめでとう！")
+            try:
+                logging.debug(f'Accessing server id {server}')
+                for dch in servers[server]:
+                    logging.debug(f'Milestone - Channel Data: {servers[server][dch]["milestone"]}')
+                    logging.debug(f'Milestone - Channel Check Pass: {channel in servers[server][dch]["milestone"]}')
+                    if channel in servers[server][dch]["milestone"]:
+                        logging.debug(f'Posting to {dch}...')
+                        await bot.get_channel(int(dch)).send(f'{msDict[channel]["name"]} has reached {msDict[channel]["msText"].replace("Subscribers", "subscribers")}!', file=discord.File(f'milestone/generated/{channel}.png'))
+                        await bot.get_channel(int(dch)).send("おめでとう！")
+            except Exception as e:
+                logging.error("Milestone - Failed to post on a server/channel!", exc_info=True)
 
 class msCycle(commands.Cog):
     def __init__(self, bot):
