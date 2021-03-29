@@ -120,10 +120,15 @@ class msCycle(commands.Cog):
     @tasks.loop(minutes=3.0)
     async def timecheck(self):
         logging.info("Starting milestone checks.")
-        with concurrent.futures.ThreadPoolExecutor() as pool:
-            loop = asyncio.get_running_loop()
-            msData = await loop.run_in_executor(pool, mcWrapper)
-        if msData != {}:
-            logging.info("Notifying channels (Milestone).")
-            await milestoneNotify(msData, self.bot)
-        logging.info("Milestone checks done.")
+        try:
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                loop = asyncio.get_running_loop()
+                msData = await loop.run_in_executor(pool, mcWrapper)
+            if msData != {}:
+                logging.info("Milestone - Notifying channels.")
+                await milestoneNotify(msData, self.bot)
+        except Exception as e:
+            logging.error("Milestone - An error has occured in the cog!", exc_info=True)
+            traceback.print_exception(type(e), e, e.__traceback__)
+        else:
+            logging.info("Milestone checks done.")
