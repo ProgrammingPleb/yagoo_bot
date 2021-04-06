@@ -72,7 +72,8 @@ async def channelInfo(channelId: Union[str, int], scrape = False):
     channelData = None
     
     if scrape:
-        async with aiohttp.ClientSession() as session:
+        consent = {'CONSENT': 'YES+cb.20210328-17-p0.en+FX+162'}
+        async with aiohttp.ClientSession(cookies=consent) as session:
             with open("data/settings.yaml") as f:
                 settings = yaml.load(f, Loader=yaml.SafeLoader)
             
