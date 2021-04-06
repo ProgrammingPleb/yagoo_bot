@@ -1,4 +1,7 @@
+from discord.ext import commands
+from discord_slash.context import SlashContext
 from itertools import islice
+from typing import Union
 
 def chunks(data, SIZE=10000):
     it = iter(data)
@@ -11,3 +14,7 @@ def creatorCheck(ctx):
 def subPerms(ctx):
     userPerms = ctx.channel.permissions_for(ctx.author)
     return userPerms.administrator or userPerms.manage_webhooks or ctx.guild.owner_id == ctx.author.id
+
+async def msgDelete(ctx: Union[commands.Context, SlashContext]):
+    if type(ctx) != SlashContext:
+        await ctx.message.delete()
