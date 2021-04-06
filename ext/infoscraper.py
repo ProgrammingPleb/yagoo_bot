@@ -68,7 +68,7 @@ async def streamInfo(channelId: Union[str, int]):
         }
     return output
 
-async def channelInfo(channelId: Union[str, int], scrape = False):
+async def channelInfo(channelId: Union[str, int], scrape = False, debug: bool = False):
     channelData = None
     
     if scrape:
@@ -121,6 +121,10 @@ async def channelInfo(channelId: Union[str, int], scrape = False):
                             channelData["mbanner"] = ytdata["header"]["c4TabbedHeaderRenderer"]["banner"]["thumbnails"][1]["url"]
                         except Exception as e:
                             channelData["mbanner"] = None
+                if channelData is None:
+                    with open(f"debug/{channelId}.html", "w") as f:
+                        f.write(await r.text())
+                    logging.warn(f"Unable to get ytInitialData for {channelId}!")
     else:
         try:
             with open("data/scrape.json") as f:

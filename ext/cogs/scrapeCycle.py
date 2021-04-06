@@ -3,28 +3,31 @@ import asyncio
 import json
 import concurrent.futures
 import traceback
+import functools
 from discord.ext import commands, tasks
 from ..infoscraper import channelInfo
 
-async def channelScrape():
+async def channelScrape(debug: bool = False):
     with open("data/channels.json") as f:
         channels = json.load(f)
 
-    async def chRetry(channel):
+    async def chScrape(channel, debug):
         for x in range(3):
             try:
-                chInfo = await channelInfo(channel, True)
+                chInfo = await channelInfo(channel, True, debug)
                 if not chInfo["success"]:
-                    continue
+                    logging.warn(f"Channel Scrape - Retrying to grab channel info for: {channel}")
                 else:
                     return chInfo
+                await asyncio.sleep(1)
+                continue
             except Exception as e:
                 if x == 2:
                     logging.error("Channel Scrape - An error has occurred!", exc_info=True)
 
     chList = []
     for channel in channels:
-        chList.append(chRetry(channel))
+        chList.append(chScrape(channel, debug))
 
     chData = await asyncio.gather(*chList)
 
@@ -39,12 +42,13 @@ async def channelScrape():
     with open("data/scrape.json", "w", encoding="utf-8") as f:
         json.dump(channels, f, indent=4)
 
-def scrapeWrapper():
-    asyncio.run(channelScrape())
+def scrapeWrapper(debug):
+    asyncio.run(channelScrape(debug))
 
 class ScrapeCycle(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot, debug: bool):
         self.bot = bot
+        self.debug = debug
         self.timecheck.start()
 
     def cog_unload(self):
@@ -56,7 +60,7 @@ class ScrapeCycle(commands.Cog):
         try:
             with concurrent.futures.ThreadPoolExecutor() as pool:
                 loop = asyncio.get_running_loop()
-                await loop.run_in_executor(pool, scrapeWrapper)
+                await loop.run_in_executor(pool, functools.partial(scrapeWrapper, self.debug))
         except Exception as e:
             logging.error("Channel Scrape - An error has occurred in the cog!")
             traceback.print_exception(type(e), e, e.__traceback__)
