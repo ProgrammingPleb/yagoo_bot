@@ -3,12 +3,14 @@ import discord
 import asyncio
 import aiohttp
 from discord.ext import commands
+from discord_slash.context import SlashContext
+from typing import Union
 from ..infoscraper import FandomScrape, channelInfo
-from ..share.botUtils import chunks
+from ..share.botUtils import chunks, msgDelete
 from ..share.dataGrab import getwebhook
 from ..share.prompts import ctgPicker, subCheck, searchConfirm, searchPrompt, searchMessage
 
-async def subCategory(ctx: commands.Context, bot: commands.Bot):
+async def subCategory(ctx: Union[commands.Context, SlashContext], bot: commands.Bot):
     listmsg = await ctx.send("Loading channels list...")
 
     with open("data/channels.json", encoding="utf-8") as f:
@@ -20,13 +22,13 @@ async def subCategory(ctx: commands.Context, bot: commands.Bot):
         srch = await searchMessage(ctx, bot, listmsg)
         await listmsg.delete()
         if not srch["success"]:
-            await ctx.message.delete()
+            await msgDelete(ctx)
             return
         await subCustom(ctx, bot, srch["search"])
         return
     elif not ctgPick["success"]:
         await listmsg.delete()
-        await ctx.message.delete()
+        await msgDelete(ctx)
         return
     
     ctgChannels = {}
@@ -73,7 +75,7 @@ async def subCategory(ctx: commands.Context, bot: commands.Bot):
                 msg = await bot.wait_for('message', timeout=60.0, check=check)
             except asyncio.TimeoutError:
                 await listmsg.delete()
-                await ctx.message.delete()
+                await msgDelete(ctx)
                 return
             if msg.content in pNumList:
                 with open("data/servers.json") as f:
@@ -93,7 +95,7 @@ async def subCategory(ctx: commands.Context, bot: commands.Bot):
 
                 if not uInput["success"]:
                     await listmsg.delete()
-                    await ctx.message.delete()
+                    await msgDelete(ctx)
                     return
 
                 for subType in uInput["subType"]:
@@ -105,13 +107,13 @@ async def subCategory(ctx: commands.Context, bot: commands.Bot):
                         else:
                             ytch = csplit[pagepos][picklist[int(msg.content) - 1]]
                             await listmsg.edit(content=f'This channel is already subscribed to {ytch["name"]}.', embed=None)
-                            await ctx.message.delete()
+                            await msgDelete(ctx)
                             return
                 with open("data/servers.json", "w") as f:
                     json.dump(servers, f, indent=4)
                 ytch = csplit[pagepos][picklist[int(msg.content) - 1]]
                 await listmsg.edit(content=f'This channel is now subscribed to: {ytch["name"]}.', embed=None)
-                await ctx.message.delete()
+                await msgDelete(ctx)
                 return
             elif msg.content.lower() == 'a':
                 with open("data/servers.json") as f:
@@ -129,7 +131,7 @@ async def subCategory(ctx: commands.Context, bot: commands.Bot):
                     }
                 if not uInput["success"]:
                     await listmsg.delete()
-                    await ctx.message.delete()
+                    await msgDelete(ctx)
                     return
                 for subType in uInput["subType"]:
                     for ytch in ctgChannels:
@@ -138,7 +140,7 @@ async def subCategory(ctx: commands.Context, bot: commands.Bot):
                 with open("data/servers.json", "w") as f:
                     json.dump(servers, f, indent=4)
                 await listmsg.edit(content=f'This channel is now subscribed to all {ctgPick["category"]} YouTube channels.', embed=None)
-                await ctx.message.delete()
+                await msgDelete(ctx)
                 return
             elif msg.content.lower() == 'n' and pagepos < len(csplit) - 1:
                 await msg.delete()
@@ -153,19 +155,19 @@ async def subCategory(ctx: commands.Context, bot: commands.Bot):
                 srch = await searchMessage(ctx, bot, listmsg)
                 await listmsg.delete()
                 if not srch["success"]:
-                    await ctx.message.delete()
+                    await msgDelete(ctx)
                     return
                 await subCustom(ctx, bot, srch["search"])
                 return
             elif msg.content.lower() == 'x':
                 await msg.delete()
                 await listmsg.delete()
-                await ctx.message.delete()
+                await msgDelete(ctx)
                 return
             else:
                 await msg.delete()
 
-async def subCustom(ctx: commands.Context, bot: commands.Bot, search: str):
+async def subCustom(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, search: str):
     getChannel = False
     newChannel = False
     channelID = ""
@@ -195,7 +197,7 @@ async def subCustom(ctx: commands.Context, bot: commands.Bot, search: str):
                             getChannel = True
                         elif not sConfirm["success"] and not sConfirm["declined"]:
                             await searchMsg.delete()
-                            await ctx.message.delete()
+                            await msgDelete(ctx)
                             return
     
     if not getChannel:
@@ -209,14 +211,14 @@ async def subCustom(ctx: commands.Context, bot: commands.Bot, search: str):
                 getChannel = True
             elif not sConfirm["success"] and not sConfirm["declined"]:
                 await searchMsg.delete()
-                await ctx.message.delete()
+                await msgDelete(ctx)
                 return
         
         if not getChannel or fandomSearch["status"] == "Cannot Match":
             sPick = await searchPrompt(ctx, bot, fandomSearch["results"], searchMsg, "Select a channel to subscribe to:")
             if not sPick["success"]:
                 await searchMsg.delete()
-                await ctx.message.delete()
+                await msgDelete(ctx)
                 return
             channelID = await FandomScrape.getChannelURL(sPick["name"])
     
@@ -259,7 +261,7 @@ async def subCustom(ctx: commands.Context, bot: commands.Bot, search: str):
 
     if not uInput["success"]:
         await searchMsg.delete()
-        await ctx.message.delete()
+        await msgDelete(ctx)
         return
 
     for subType in uInput["subType"]:
@@ -270,12 +272,12 @@ async def subCustom(ctx: commands.Context, bot: commands.Bot, search: str):
                 lastSubbed = True
             else:
                 await searchMsg.edit(content=f'This channel is already subscribed to {cInfo["name"]}.', embed=None)
-                await ctx.message.delete()
+                await msgDelete(ctx)
                 return
 
     with open("data/servers.json", "w") as f:
         json.dump(servers, f, indent=4)
 
     await searchMsg.edit(content=f'This channel is now subscribed to: {cInfo["name"]}.', embed=None)
-    await ctx.message.delete()
+    await msgDelete(ctx)
     return

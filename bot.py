@@ -7,6 +7,7 @@ import logging
 import sys
 import platform
 from discord import Webhook, AsyncWebhookAdapter
+from discord_slash import SlashCommand
 from discord.ext import commands
 from ext.infoscraper import channelInfo
 from ext.cogs.subCycle import StreamCycle, streamcheck
@@ -18,6 +19,8 @@ from ext.share.botUtils import subPerms, creatorCheck
 from ext.share.dataGrab import getSubType, getwebhook
 from ext.share.prompts import botError, subCheck
 from ext.commands.subscribe import subCategory, subCustom
+from ext.commands.general import botHelp, botSublist
+from ext.commands.slash import YagooSlash
 
 init = False
 
@@ -34,6 +37,8 @@ elif settings["logging"] == "debug":
 
 bot = commands.Bot(command_prefix=commands.when_mentioned_or(settings["prefix"]), help_command=None)
 bot.remove_command('help')
+slash = SlashCommand(bot, True)
+bot.add_cog(YagooSlash(bot, slash))
 
 @bot.event
 async def on_ready():
@@ -44,15 +49,15 @@ async def on_ready():
             guildCount += 1
         print(f"Yagoo Bot now streaming in {guildCount} servers!")
         await bot.change_presence(status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.watching, name='other Hololive members'))
-        """if settings["dblPublish"]:
-            bot.add_cog(guildUpdate(bot, settings["dblToken"]))"""
-        bot.add_cog(ScrapeCycle(bot))
+        if settings["dblPublish"]:
+            bot.add_cog(guildUpdate(bot, settings["dblToken"]))
+        bot.add_cog(ScrapeCycle(bot, settings["logging"]))
         await asyncio.sleep(30)
         if settings["notify"]:
             bot.add_cog(StreamCycle(bot))
         if settings["milestone"]:
             bot.add_cog(msCycle(bot))
-        #bot.add_cog(chCycle(bot))
+        bot.add_cog(chCycle(bot))
         init = True
     else:
         print("Reconnected to Discord!")
@@ -68,30 +73,7 @@ async def on_guild_remove(server):
 
 @bot.command(alias=['h'])
 async def help(ctx): # pylint: disable=redefined-builtin
-    hembed = discord.Embed(title="Yagoo Bot Commands")
-    hembed.description = "Currently the bot only has a small number of commands, as it is still in development!\n" \
-                         "New stream notifications will be posted on a 3 minute interval, thus any new notifications " \
-                         "will not come immediately after subscribing.\n" \
-                         "Currently all the commands (except for `y!help`) require the user to have either the `Administrator` or `Manage Webhook` permission in the channel or server.\n" \
-                         "Anything in square brackets `[]` are optional, so leaving them will also make the command work."
-    
-    hembed.add_field(name="Commands",
-                     value="**y!sub** [Custom VTuber Name] (Alias: subscribe)\n"
-                           "Brings up a list of channels to subscribe to.\n"
-                           "Add a non-Hololive VTuber's name to the command to opt in to their notifications.\n\n"
-                           "**y!unsub** (Alias: unsubscribe)\n"
-                           "Brings up a list of channels to unsubscribe to.\n\n"
-                           "**y!sublist** (Alias: subs, subslist)\n"
-                           "Brings up a list of channels that the current chat channel has subscribed to.\n\n"
-                           "**y!subdefault** (Alias: subDefault)\n"
-                           "Set's the default subscription type for the channel.",
-                     inline=False)
-    
-    hembed.add_field(name="Issues/Suggestions?",
-                     value="If you run into any problems with/have any suggestions for the bot, then feel free to join the [support server](https://discord.gg/GJd6sdNjeQ) and drop a message there.",
-                     inline=False)
-
-    await ctx.send(embed=hembed)
+    await ctx.send(embed=await botHelp())
 
 @bot.command(aliases=['subdefault'])
 @commands.check(subPerms)
@@ -271,108 +253,7 @@ async def unsub_error(ctx, error):
 @bot.command(aliases=["subs", "subslist", "subscriptions", "subscribed"])
 @commands.check(subPerms)
 async def sublist(ctx):
-    with open("data/channels.json", encoding="utf-8") as f:
-        channels = json.load(f)
-    with open("data/servers.json") as f:
-        servers = json.load(f)
-    
-    subsmsg = await ctx.send("Loading subscription list...")
-
-    if "subDefault" not in servers[str(ctx.guild.id)][str(ctx.channel.id)]:
-        uInput = await getSubType(ctx, 2, bot, subsmsg)
-    else:
-        if not len(servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"]) > 1:
-            uInput = {
-                "success": True,
-                "subType": servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"][0]
-            }
-        else:
-            uInput = {
-                "success": True,
-                "subType": "livestream"
-            }
-
-    if not uInput["success"]:
-        return
-    
-    try:
-        len(servers[str(ctx.guild.id)][str(ctx.channel.id)][uInput["subType"]])
-    except KeyError:
-        await subsmsg.edit(content="There are no subscriptions on this channel.", embed=None)
-        return
-
-    multi = False
-    sublist = []
-    templist = []
-    if len(servers[str(ctx.guild.id)][str(ctx.channel.id)][uInput["subType"]]) > 10:
-        for sub in servers[str(ctx.guild.id)][str(ctx.channel.id)][uInput["subType"]]:
-            if len(templist) < 10:
-                templist.append(sub)
-            else:
-                sublist.append(templist)
-                templist = [sub]
-        sublist.append(templist)
-        multi = True
-    elif len(servers[str(ctx.guild.id)][str(ctx.channel.id)][uInput["subType"]]) > 0 and len(servers[str(ctx.guild.id)][str(ctx.channel.id)][uInput["subType"]]) < 11:
-        for sub in servers[str(ctx.guild.id)][str(ctx.channel.id)][uInput["subType"]]:
-            sublist.append(sub)
-    else:
-        await subsmsg.edit(content="There are no subscriptions on this channel.", embed=None)
-        return
-    
-    pagepos = 0
-    realnum = 1
-    while True:
-        dispstring = ""
-        if multi:
-            subProc = sublist[pagepos]
-            for sub in subProc:
-                ytch = channels[sub]
-                dispstring += f'{realnum}. {ytch["name"]}\n'
-                realnum += 1
-            if pagepos == 0:
-                dispstring += f'\nN. Go to next page\nX. Remove this message'
-            elif pagepos == len(sublist) - 1:
-                dispstring += f'\nB. Go to previous page\nX. Remove this message'
-            else:
-                dispstring += f'\nN. Go to next page\nB. Go to previous page\nX. Remove this message'
-        else:
-            subProc = sublist
-            for sub in sublist:
-                ytch = channels[sub]
-                dispstring += f'{realnum}. {ytch["name"]}\n'
-                realnum += 1
-            dispstring += f'\nX. Remove this message'
-        
-        subsembed = discord.Embed(title="Currently subscribed channels:", description=dispstring)
-        await subsmsg.edit(content=None, embed=subsembed)
-
-        def check(m):
-            return m.content.lower() in ['n', 'b', 'x'] and m.author == ctx.author
-
-        while True:
-            try:
-                msg = await bot.wait_for('message', timeout=60.0, check=check)
-            except asyncio.TimeoutError:
-                return
-            else:
-                if msg.content.lower() == 'x':
-                    await msg.delete()
-                    await subsmsg.delete()
-                    await ctx.message.delete()
-                    return
-                if multi:
-                    if msg.content.lower() == 'n' and pagepos < len(sublist) - 1:
-                        await msg.delete()
-                        pagepos += 1
-                        break
-                    elif msg.content.lower() == 'b' and pagepos > 0:
-                        await msg.delete()
-                        pagepos -= 1
-                        realnum -= 20
-                        break
-                else:
-                    await msg.delete()
+    await botSublist(ctx, bot)
 
 @sublist.error
 async def sublist_error(ctx, error):
@@ -446,6 +327,31 @@ async def postas(ctx, vtuber, *, text):
     async with aiohttp.ClientSession() as session:
         webhook = Webhook.from_url(whurl, adapter=AsyncWebhookAdapter(session))
         await webhook.send(text, username=ytch["name"], avatar_url=ytch["image"])
+
+@bot.command()
+@commands.check(creatorCheck)
+async def removeChannel(ctx, channelId):
+    removed = False
+
+    with open("data/servers.json") as f:
+        servers = json.load(f)
+    
+    for server in servers:
+        try:
+            if channelId in servers[server]:
+                servers[server].pop(channelId)
+                removed = True
+        except Exception as e:
+            await ctx.send(f"Unable to remove {channelId} from servers.json!")
+
+    if removed:
+        await ctx.send(f"Removed {channelId} from servers.json!")
+    else:
+        await ctx.send(f"{channelId} does not exist in servers.json!")
+        return
+    
+    with open("data/servers.json", "w") as f:
+        json.dump(servers, f, indent=4)
 
 @bot.command(aliases=["maint", "shutdown", "stop"])
 @commands.check(creatorCheck)
