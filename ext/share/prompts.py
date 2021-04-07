@@ -81,6 +81,9 @@ async def botError(ctx, error):
             errEmbed.description += f'\n - `{perm}`'
         
         return errEmbed
+    if "Missing Arguments" in str(error):
+        errEmbed.description = "A command argument was not given when required to."
+        return errEmbed
     if isinstance(error, commands.CheckFailure):
         errEmbed.description = "You are missing permissions to use this bot.\n" \
                                "Ensure that you have one of these permissions for the channel/server:\n\n" \
