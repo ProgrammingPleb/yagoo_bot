@@ -19,7 +19,7 @@ from ext.share.botUtils import subPerms, creatorCheck
 from ext.share.dataGrab import getSubType, getwebhook
 from ext.share.prompts import botError, subCheck
 from ext.commands.subscribe import subCategory, subCustom
-from ext.commands.general import botHelp, botSublist
+from ext.commands.general import botHelp, botSublist, botGetInfo
 from ext.commands.slash import YagooSlash
 
 init = False
@@ -249,6 +249,13 @@ async def unsub_error(ctx, error):
     errEmbed = await botError(ctx, error)
     if errEmbed:
         await ctx.send(embed=errEmbed)
+
+@bot.command(aliases=["getinfo"])
+async def info(ctx, *, name: str = None):
+    if name == None:
+        await ctx.send(embed=await botError(ctx, "Missing Arguments"))
+        return
+    await botGetInfo(ctx, bot, name)
 
 @bot.command(aliases=["subs", "subslist", "subscriptions", "subscribed"])
 @commands.check(subPerms)

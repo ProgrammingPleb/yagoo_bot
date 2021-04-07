@@ -141,7 +141,6 @@ async def channelInfo(channelId: Union[str, int], scrape = False, debug: bool = 
     return channelData
 
 class FandomScrape():
-
     async def searchChannel(chName, silent = False):
         chNSplit = chName.split()
 
@@ -247,7 +246,13 @@ class FandomScrape():
             "channelID": channelID
         }
     
-    async def getAffiliate(chName):
+    async def getThumbnail(dataText) -> str:
+        soup = BeautifulSoup(dataText, "html5lib")
+        imgTag = soup.find("img", {"class": "pi-image-thumbnail"})
+
+        return imgTag["src"]
+    
+    async def getAffiliate(chName) -> str:
         fandomName = (await FandomScrape.searchChannel(chName, True))["name"]
         fullPage = await FandomScrape.getChannel(fandomName, dataKey="text")
         try:
@@ -256,6 +261,110 @@ class FandomScrape():
             logging.warn(f'Failed getting affliate data for {fandomName}! Registering as "Other/Independent".', exc_info=True)
             affiliate = "Others/Independent"
         return affiliate
+    
+    async def getSections(dataText) -> list:
+        soup = BeautifulSoup(dataText, "html5lib")
+
+        pastInfobox = False
+        sections = []
+        for h2 in soup.find_all("h2"):
+            sName = h2.getText().replace("[edit | edit source]", "")
+            if sName.lower() in ("External Links".lower(), "References".lower()):
+                continue
+            if pastInfobox:
+                sections.append(sName)
+            if sName.lower() == "Introduction Video".lower():
+                pastInfobox = True
+        
+        return sections
+    
+    async def getSectionData(dataText, sections) -> list:
+        soup = BeautifulSoup(dataText, "html5lib")
+
+        data = []
+        for h2 in soup.find_all("h2"):
+            sName = h2.getText().replace("[edit | edit source]", "")
+            
+            try:
+                if sName in sections:
+                    pList = []
+                    lastElement = h2.find_next_sibling()
+
+                    while True:
+                        if lastElement.name == "p":
+                            pList.append(re.sub(r'\[[^()]*\]', '', lastElement.getText().strip()))
+                            lastElement = lastElement.find_next_sibling()
+                        elif lastElement.name == "ul":
+                            pList = await FandomScrape.getPointers(lastElement)
+                            break
+                        elif lastElement.name == "h3":
+                            pList = await FandomScrape.getSubSections(lastElement)
+                            break
+                        elif lastElement.name == "figure":
+                            lastElement = lastElement.find_next_sibling()
+                        else:
+                            break
+
+                    data.append({'name': sName, 'text': pList})
+            except Exception as e:
+                logging.error("Fandom Scrape - An error has occured!", exc_info=True)
+                #print(f"Info Scraper - Unable to get text for {sName}!")
+                #traceback.print_exception(type(e), e, e.__traceback__)
+        
+        return data
+    
+    async def getSubSections(lastElement) -> dict:
+        subSections = []
+        subHeader = None
+        subPoints = []
+
+        while True:
+            if lastElement.name == "h3":
+                if len(subPoints) != 0:
+                    subSections.append({subHeader: subPoints})
+                subHeader = lastElement.getText().replace("[edit | edit source]", "")
+                subPoints = []
+            elif lastElement.name == "p":
+                subPoints.append(re.sub(r'\[[^()]*\]', '', lastElement.getText().strip()))
+            elif lastElement.name == "ul":
+                subPoints.append(await FandomScrape.getPointers(lastElement))
+            elif lastElement.name == "h2":
+                if len(subPoints) != 0:
+                    subSections.append({subHeader: subPoints})
+                break
+            lastElement = lastElement.find_next_sibling()
+
+        return subSections
+    
+    async def getPointers(lastElement) -> list:
+        subPointers = []
+        
+        if lastElement.name == "ul":
+            liTags = lastElement.find_all("li", recursive=False)
+        else:
+            return
+
+        for tag in liTags:
+            subPointers.append(await FandomScrape.getSubPointers(tag))
+
+        return [subPointers]
+    
+    async def getSubPointers(tag):
+        subPointers = None
+
+        if tag.find("ul", recursive=False) == None:
+            subPointers = re.sub(r'\[[^()]*\]', '', tag.getText()).strip()
+        else:
+            subPointers = {"point": re.sub(r'\[[^()]*\]', '', tag.getText()).strip()}
+            tempPointers = []
+            for tag in tag.find("ul", recursive=False).find_all("li", recursive=False):
+                tempPointers.append(await FandomScrape.getSubPointers(tag))
+            for text in tempPointers:
+                if text in subPointers["point"]:
+                    subPointers["point"] = subPointers["point"].replace(text, "").strip()
+            subPointers["subPoints"] = tempPointers
+
+        return subPointers
 
 async def channelScrape(query: str):
 
