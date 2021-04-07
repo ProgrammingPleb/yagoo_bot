@@ -6,7 +6,7 @@ from discord.ext import commands
 from discord_slash.context import SlashContext
 from typing import Union
 from ..infoscraper import FandomScrape, channelInfo
-from ..share.botUtils import chunks, msgDelete
+from ..share.botUtils import chunks, msgDelete, vtuberSearch
 from ..share.dataGrab import getwebhook
 from ..share.prompts import ctgPicker, subCheck, searchConfirm, searchPrompt, searchMessage
 
@@ -168,69 +168,24 @@ async def subCategory(ctx: Union[commands.Context, SlashContext], bot: commands.
                 await msg.delete()
 
 async def subCustom(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, search: str):
-    getChannel = False
     newChannel = False
     channelID = ""
     cInfo = None
 
     searchMsg = await ctx.send(content="Searching for channel...")
-
-    if "https://www.youtube.com/channel/" in search:
-        for part in search.split("/"):
-            if 23 <= len(part) <= 25:
-                if part[0] == "U":
-                    channelID = part
-                    getChannel = True
-    
-    if 23 <= len(search) <= 25:
-        if search[0] == "U":
-            async with aiohttp.ClientSession() as session:
-                async with session.get(f"https://www.youtube.com/channel/{search}") as r:
-                    if r.status == 200:
-                        cInfo = await channelInfo(channelID)
-                        sConfirm = await searchConfirm(ctx, bot, cInfo["name"], searchMsg, f"Subscribe to {cInfo['name']}?", "Subscribe to this channel", "Choose another channel")
-                        if sConfirm["success"]:
-                            channelID = {
-                                "success": True,
-                                "channelID": search
-                            }
-                            getChannel = True
-                        elif not sConfirm["success"] and not sConfirm["declined"]:
-                            await searchMsg.delete()
-                            await msgDelete(ctx)
-                            return
-    
-    if not getChannel:
-        fandomSearch = await FandomScrape.searchChannel(search)
-
-        if fandomSearch["status"] == "Success":
-            sConfirm = await searchConfirm(ctx, bot, fandomSearch["name"], searchMsg, f"Subscribe to {fandomSearch['name']}?", "Subscribe to this channel", "Choose another channel")
-            if sConfirm["success"]:
-                channelID = await FandomScrape.getChannelURL(fandomSearch["name"])
-                cInfo = None
-                getChannel = True
-            elif not sConfirm["success"] and not sConfirm["declined"]:
-                await searchMsg.delete()
-                await msgDelete(ctx)
-                return
-        
-        if not getChannel or fandomSearch["status"] == "Cannot Match":
-            sPick = await searchPrompt(ctx, bot, fandomSearch["results"], searchMsg, "Select a channel to subscribe to:")
-            if not sPick["success"]:
-                await searchMsg.delete()
-                await msgDelete(ctx)
-                return
-            channelID = await FandomScrape.getChannelURL(sPick["name"])
+    chSearch = await vtuberSearch(ctx, bot, search, searchMsg)
     
     with open("data/channels.json") as f:
         channels = json.load(f)
 
-    if channelID["success"]:
-        channelID = channelID["channelID"]
+    if chSearch["success"]:
+        channelID = chSearch["channelID"]
     
     if channelID not in channels:
-        if cInfo is None:
-            cInfo = await channelInfo(channelID)
+        cInfo = await channelInfo(channelID)
+        if not cInfo["success"]:
+            await searchMsg.edit(embed=discord.Embed(title="Loading...", description=f"The bot is currently getting info about {chSearch['name']}"))
+            cInfo = await channelInfo(channelID, True)
         channels[channelID] = {
             "name": cInfo["name"],
             "image": cInfo["image"],
