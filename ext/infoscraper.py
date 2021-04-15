@@ -7,9 +7,7 @@ import logging
 import yaml
 from bs4 import BeautifulSoup
 from typing import Union
-
-def round_down(num, divisor):
-    return num - (num%divisor)
+from .share.botUtils import formatMilestone, premiereScrape
 
 async def streamInfo(channelId: Union[str, int]):
     output = None
@@ -93,15 +91,8 @@ async def channelInfo(channelId: Union[str, int], scrape = False, debug: bool = 
                         # Check Subscriber Count
                         cSubsA, cSubsR = await formatMilestone(ytdata["header"]["c4TabbedHeaderRenderer"]["subscriberCountText"]["simpleText"])
 
-                        if "M" in cSubsText:
-                            cSubsA = int(float(cSubsText.replace("M subscribers", "")) * 1000000)
-                            cSubsR = round_down(cSubsA, 500000)
-                        elif "K" in cSubsText:
-                            cSubsA = int(float(cSubsText.replace("K subscribers", "")) * 1000)
-                            cSubsR = round_down(cSubsA, 100000)
-                        else:
-                            cSubsA = None
-                            cSubsR = None
+                        # Get premieres (if any)
+                        premieres = await premiereScrape(ytdata)
 
                         channelData = {
                             "id": channelId,
@@ -110,7 +101,8 @@ async def channelInfo(channelId: Union[str, int], scrape = False, debug: bool = 
                             "image": ytdata["metadata"]["channelMetadataRenderer"]["avatar"]["thumbnails"][0]["url"],
                             "realSubs": cSubsA,
                             "roundSubs": cSubsR,
-                            "success": True
+                            "success": True,
+                            "premieres": premieres
                         }
 
                         try:

@@ -2,6 +2,7 @@ import logging
 import discord
 import aiohttp
 import asyncio
+import datetime
 import yaml
 import rpyc
 from discord.ext import commands
@@ -224,6 +225,31 @@ async def formatMilestone(msCount):
         cSubsR = 0
     
     return cSubsA, cSubsR
+
+async def premiereScrape(ytData):
+    pEvents = {}
+
+    try:
+        cFirstTab = ytData["contents"]["twoColumnBrowseResultsRenderer"]["tabs"][0]["tabRenderer"]["content"]["sectionListRenderer"]["contents"]
+
+        for oContents in cFirstTab:
+            if "shelfRenderer" in oContents["itemSectionRenderer"]["contents"][0]:
+                if "horizontalListRenderer" in oContents["itemSectionRenderer"]["contents"][0]["shelfRenderer"]["content"]:
+                    for iContents in oContents["itemSectionRenderer"]["contents"][0]["shelfRenderer"]["content"]["horizontalListRenderer"]["items"]:
+                        if "gridVideoRenderer" in iContents:
+                            if "upcomingEventData" in iContents["gridVideoRenderer"]:
+                                for runs in iContents["gridVideoRenderer"]["upcomingEventData"]["upcomingEventText"]["runs"]:
+                                    if "Premieres" in runs["text"]:
+                                        cPremiereVid = iContents["gridVideoRenderer"]
+                                        if cPremiereVid["videoId"] not in pEvents and (int(cPremiereVid["upcomingEventData"]["startTime"]) - datetime.datetime.now().timestamp()) > 10:
+                                            pEvents[cPremiereVid["videoId"]] = {
+                                                "title": cPremiereVid["title"]["simpleText"],
+                                                "time": int(cPremiereVid["upcomingEventData"]["startTime"])
+                                            }
+    except Exception as e:
+        logging.error("Premiere Scrape - An error has occured!", exc_info=True)
+
+    return pEvents
 
 async def uplThumbnail(channelID, videoID, live=True):
     with open("data/settings.yaml") as f:
