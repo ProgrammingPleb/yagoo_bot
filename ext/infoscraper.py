@@ -90,7 +90,8 @@ async def channelInfo(channelId: Union[str, int], scrape = False, debug: bool = 
                     if ("var ytInitialData" in script.getText()) or ('window["ytInitialData"]' in script.getText()):
                         ytdata = json.loads(script.getText().replace(';', '').replace('var ytInitialData = ', '').replace('window["ytInitialData"]', ''))
 
-                        cSubsText = ytdata["header"]["c4TabbedHeaderRenderer"]["subscriberCountText"]["simpleText"]
+                        # Check Subscriber Count
+                        cSubsA, cSubsR = await formatMilestone(ytdata["header"]["c4TabbedHeaderRenderer"]["subscriberCountText"]["simpleText"])
 
                         if "M" in cSubsText:
                             cSubsA = int(float(cSubsText.replace("M subscribers", "")) * 1000000)

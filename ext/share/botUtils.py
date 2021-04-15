@@ -1,12 +1,17 @@
+import logging
 import discord
 import aiohttp
 import asyncio
+import yaml
+import rpyc
 from discord.ext import commands
 from discord_slash.context import SlashContext
 from itertools import islice
 from typing import Union
-from ..infoscraper import FandomScrape, channelInfo
 from .prompts import searchConfirm, searchPrompt
+
+def round_down(num, divisor):
+    return num - (num%divisor)
 
 def chunks(data, SIZE=10000):
     it = iter(data)
@@ -99,6 +104,7 @@ class fandomTextParse():
         return dictText
 
 async def vtuberSearch(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, searchTerm: str, searchMsg):
+    from ..infoscraper import FandomScrape, channelInfo
     getChannel = False
 
     if "https://www.youtube.com/channel/" in searchTerm:
@@ -205,3 +211,47 @@ async def embedContinue(ctx: Union[commands.Context, SlashContext], bot: command
             pagePos += 1
         elif msg.content.lower() == 'p':
             pagePos -= 1
+
+async def formatMilestone(msCount):
+    if "M" in msCount:
+        cSubsA = int(float(msCount.replace("M subscribers", "")) * 1000000)
+        cSubsR = round_down(cSubsA, 500000)
+    elif "K" in msCount:
+        cSubsA = int(float(msCount.replace("K subscribers", "")) * 1000)
+        cSubsR = round_down(cSubsA, 100000)
+    else:
+        cSubsA = int(float(msCount.replace(" subscribers", "")))
+        cSubsR = 0
+    
+    return cSubsA, cSubsR
+
+async def uplThumbnail(channelID, videoID, live=True):
+    with open("data/settings.yaml") as f:
+        settings = yaml.load(f, Loader=yaml.SafeLoader)
+    extServer = rpyc.connect(settings["thumbnailIP"], int(settings["thumbnailPort"]))
+    asyncUpl = rpyc.async_(extServer.root.thumbGrab)
+    uplSuccess = False
+
+    for x in range(3):
+        if live:
+            upload = asyncUpl(channelID, f'https://img.youtube.com/vi/{videoID}/maxresdefault_live.jpg')
+        else:
+            upload = asyncUpl(channelID, f'https://img.youtube.com/vi/{videoID}/maxresdefault.jpg')
+        uplSuccess = False
+
+        while True:
+            if upload.ready and not upload.error:
+                logging.debug("Stream - Uploaded thumbnail!")
+                uplSuccess = True
+                break
+            elif upload.error:
+                break
+
+            await asyncio.sleep(0.5)
+
+        if not uplSuccess or "yagoo.ezz.moe" not in upload.value:
+            logging.error("Stream - Couldn't upload thumbnail!")
+            logging.error(upload.value)
+        else:
+            return upload.value
+
