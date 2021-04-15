@@ -9,6 +9,7 @@ import asyncio
 import concurrent.futures
 from discord import Webhook, AsyncWebhookAdapter
 from discord.ext import commands, tasks
+from ext.share.botUtils import uplThumbnail
 from ..infoscraper import streamInfo, channelInfo
 from ..share.dataGrab import getwebhook
 from ..share.prompts import botError
@@ -16,10 +17,6 @@ from ..share.prompts import botError
 async def streamcheck(ctx = None, test: bool = False, loop: bool = False):
     with open("data/channels.json", encoding="utf-8") as f:
         channels = json.load(f)
-    with open("data/settings.yaml") as f:
-        settings = yaml.load(f, Loader=yaml.SafeLoader)
-    extServer = rpyc.connect(settings["thumbnailIP"], int(settings["thumbnailPort"]))
-    asyncUpl = rpyc.async_(extServer.root.thumbGrab)
 
     async def channelCheck(channel):
         for x in range(2):
@@ -31,28 +28,7 @@ async def streamcheck(ctx = None, test: bool = False, loop: bool = False):
                     logging.debug(f'Stream - {ytchannel["name"]} is live!')
                     logging.debug("Stream - Sending upload command to thumbnail server...")
 
-                    upload = asyncUpl(channel, f'https://img.youtube.com/vi/{status["videoId"]}/maxresdefault_live.jpg')
-                    uplSuccess = False
-
-                    for x in range(3):
-                        upload = asyncUpl(channel, f'https://img.youtube.com/vi/{status["videoId"]}/maxresdefault_live.jpg')
-                        uplSuccess = False
-
-                        while True:
-                            if upload.ready and not upload.error:
-                                logging.debug("Stream - Uploaded thumbnail!")
-                                uplSuccess = True
-                                break
-                            elif upload.error:
-                                break
-
-                            await asyncio.sleep(0.5)
-
-                        if not uplSuccess or "yagoo.ezz.moe" not in upload.value:
-                            logging.error("Stream - Couldn't upload thumbnail!")
-                            logging.error(upload.value)
-                        else:
-                            break
+                    thumbnail = await uplThumbnail(channel, status["videoId"], True)
                     
                     return {
                         "id": channel,
@@ -61,7 +37,7 @@ async def streamcheck(ctx = None, test: bool = False, loop: bool = False):
                         "videoId": status["videoId"],
                         "videoTitle": status["videoTitle"],
                         "timeText": status["timeText"],
-                        "thumbURL": upload.value
+                        "thumbURL": thumbnail
                     }
             except Exception as e:
                 if x == 1:
@@ -106,9 +82,9 @@ async def streamcheck(ctx = None, test: bool = False, loop: bool = False):
                 break
             except Exception as e:
                 if x == 2:
-                    logging.error("An error has occured!", exc_info=True)
+                    logging.error("An error has occurred!", exc_info=True)
                     print("An error has occurred.")
-                    traceback.print_tb(e)
+                    traceback.print_tb(e.__traceback__)
                     if len(stext) + len(f'{channel}: <:warning:786380003306111018>\n') <= 2000:
                         stext += f'{channel}: <:warning:786380003306111018>\n'
                     else:

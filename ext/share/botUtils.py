@@ -1,12 +1,18 @@
+import logging
 import discord
 import aiohttp
 import asyncio
+import datetime
+import yaml
+import rpyc
 from discord.ext import commands
 from discord_slash.context import SlashContext
 from itertools import islice
 from typing import Union
-from ..infoscraper import FandomScrape, channelInfo
 from .prompts import searchConfirm, searchPrompt
+
+def round_down(num, divisor):
+    return num - (num%divisor)
 
 def chunks(data, SIZE=10000):
     it = iter(data)
@@ -21,20 +27,10 @@ def subPerms(ctx):
     return userPerms.administrator or userPerms.manage_webhooks or ctx.guild.owner_id == ctx.author.id
 
 async def msgDelete(ctx: Union[commands.Context, SlashContext]):
-    """
-    Removes the message that invoked the command (if any)
-
-    Arguments:
-    ---
-    `ctx`: A discord.py `commands.Context` or discord-py-slash-commands `SlashContext`
-    """
     if type(ctx) != SlashContext:
         await ctx.message.delete()
 
 class fandomTextParse():
-    """
-    Class that contains functions for Fandom Wiki related actions.
-    """
     async def parseToEmbed(name: str, embedData: list):
         embedParts = {}
         excessParts = None
@@ -72,8 +68,7 @@ class fandomTextParse():
             elif headerCount > 1:
                 partPhrase = "these sections have"
             discordEmbed.add_field(name=fieldHeader.strip("/"), value=f"Due to Discord's limitations, {partPhrase} to be seperated to different embeds.\n"
-                                                                      f"Respond with {partChoice.strip(',')} to look at the section.", inline=False)
-            discordEmbed.add_field(name="Not the VTuber you're searching for?", value=f"Respond with `search` to choose the correct VTuber.", inline=False)
+                                                                      f"Respond with {partChoice.strip(',')} to look at the section.")
 
         discordEmbed.set_footer(text="Powered by Fandom", icon_url="https://img.ezz.moe/0407/14-24-14.png")
         return discordEmbed, excessParts
@@ -109,64 +104,48 @@ class fandomTextParse():
 
         return dictText
 
-async def vtuberSearch(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, searchTerm: str, searchMsg, askTerm: str, getOther: bool = False):
-    """
-    Searches for a VTuber and returns a `dict` with it's relevant data.
-
-    Arguments:
-    ---
-    `ctx`: A `discord.py` command context or a `discord-py-slash-command` slash context.
-    `bot`: A `discord.py` `commands.Bot` object.
-    `searchTerm`: The search term that is passed by from the user's input.
-    `searchMsg`: A Discord message object that is responsible for the search message.
-    `askTerm`: Term used when the search embed says "[askTerm] this channel"
-    `getOther`: Whether to have a message confirming the detected VTuber from `searchTerm` or to assume that the first term is correct.
-    """
-
+async def vtuberSearch(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, searchTerm: str, searchMsg):
+    from ..infoscraper import FandomScrape, channelInfo
     getChannel = False
 
-    if not getOther:
-        if "https://www.youtube.com/channel/" in searchTerm:
-            for part in searchTerm.split("/"):
-                if 23 <= len(part) <= 25:
-                    if part[0] == "U":
-                        channelID = part
-                        getChannel = True
-        
-        if 23 <= len(searchTerm) <= 25:
-            if searchTerm[0] == "U":
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(f"https://www.youtube.com/channel/{searchTerm}") as r:
-                        if r.status == 200:
-                            cInfo = await channelInfo(searchTerm)
-                            if not cInfo["success"]:
-                                cInfo = await channelInfo(searchTerm, True)
-                            sConfirm = await searchConfirm(ctx, bot, cInfo["name"], searchMsg, f"{askTerm} {cInfo['name']}?", f"{askTerm} this channel", "Choose another channel", True)
-                            if sConfirm["success"]:
-                                return {
-                                    "success": True,
-                                    "channelID": searchTerm,
-                                    "name": cInfo['name']
-                                }
-                            elif not sConfirm["success"] and not sConfirm["declined"]:
-                                await searchMsg.delete()
-                                await msgDelete(ctx)
-                                return {
-                                    "success": False
-                                }
+    if "https://www.youtube.com/channel/" in searchTerm:
+        for part in searchTerm.split("/"):
+            if 23 <= len(part) <= 25:
+                if part[0] == "U":
+                    channelID = part
+                    getChannel = True
+    
+    if 23 <= len(searchTerm) <= 25:
+        if searchTerm[0] == "U":
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"https://www.youtube.com/channel/{searchTerm}") as r:
+                    if r.status == 200:
+                        cInfo = await channelInfo(channelID)
+                        if not cInfo["success"]:
+                            cInfo = await channelInfo(channelID, True)
+                        sConfirm = await searchConfirm(ctx, bot, cInfo["name"], searchMsg, f"Subscribe to {cInfo['name']}?", "Subscribe to this channel", "Choose another channel")
+                        if sConfirm["success"]:
+                            return {
+                                "success": True,
+                                "channelID": searchTerm,
+                                "name": cInfo['name']
+                            }
+                        elif not sConfirm["success"] and not sConfirm["declined"]:
+                            await searchTerm.delete()
+                            await msgDelete(ctx)
+                            return {
+                                "success": False
+                            }
     
     if not getChannel:
         fandomSearch = await FandomScrape.searchChannel(searchTerm)
 
-        if fandomSearch["status"] == "Success" and not getOther:
-            sConfirm = await searchConfirm(ctx, bot, fandomSearch["name"], searchMsg, f"{askTerm} {fandomSearch['name']}?", f"{askTerm} this channel", "Choose another channel")
+        if fandomSearch["status"] == "Success":
+            sConfirm = await searchConfirm(ctx, bot, fandomSearch["name"], searchMsg, f"Subscribe to {fandomSearch['name']}?", "Subscribe to this channel", "Choose another channel")
             if sConfirm["success"]:
                 channelID = await FandomScrape.getChannelURL(fandomSearch["name"])
-                return {
-                    "success": True,
-                    "channelID": channelID["channelID"],
-                    "name": fandomSearch['name']
-                }
+                channelID["name"] = fandomSearch["name"]
+                return channelID
             elif not sConfirm["success"] and not sConfirm["declined"]:
                 await searchMsg.delete()
                 await msgDelete(ctx)
@@ -175,7 +154,7 @@ async def vtuberSearch(ctx: Union[commands.Context, SlashContext], bot: commands
                 }
         
         if not getChannel or fandomSearch["status"] == "Cannot Match":
-            sPick = await searchPrompt(ctx, bot, fandomSearch["results"], searchMsg, f"Select a channel to {askTerm.lower()}:")
+            sPick = await searchPrompt(ctx, bot, fandomSearch["results"], searchMsg, "Select a channel to subscribe to:")
             if not sPick["success"]:
                 await searchMsg.delete()
                 await msgDelete(ctx)
@@ -183,11 +162,8 @@ async def vtuberSearch(ctx: Union[commands.Context, SlashContext], bot: commands
                     "success": False
                 }
             channelID = await FandomScrape.getChannelURL(sPick["name"])
-            return {
-                "success": True,
-                "channelID": channelID["channelID"],
-                "name": sPick['name']
-            }
+            channelID["name"] = sPick["name"]
+            return channelID
 
 async def embedContinue(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, embedMsg: discord.Message, section: str, text: str, name: str):
     textLines = text.split("\n")
@@ -236,3 +212,72 @@ async def embedContinue(ctx: Union[commands.Context, SlashContext], bot: command
             pagePos += 1
         elif msg.content.lower() == 'p':
             pagePos -= 1
+
+async def formatMilestone(msCount):
+    if "M" in msCount:
+        cSubsA = int(float(msCount.replace("M subscribers", "")) * 1000000)
+        cSubsR = round_down(cSubsA, 500000)
+    elif "K" in msCount:
+        cSubsA = int(float(msCount.replace("K subscribers", "")) * 1000)
+        cSubsR = round_down(cSubsA, 100000)
+    else:
+        cSubsA = int(float(msCount.replace(" subscribers", "")))
+        cSubsR = 0
+    
+    return cSubsA, cSubsR
+
+async def premiereScrape(ytData):
+    pEvents = {}
+
+    try:
+        cFirstTab = ytData["contents"]["twoColumnBrowseResultsRenderer"]["tabs"][0]["tabRenderer"]["content"]["sectionListRenderer"]["contents"]
+
+        for oContents in cFirstTab:
+            if "shelfRenderer" in oContents["itemSectionRenderer"]["contents"][0]:
+                if "horizontalListRenderer" in oContents["itemSectionRenderer"]["contents"][0]["shelfRenderer"]["content"]:
+                    for iContents in oContents["itemSectionRenderer"]["contents"][0]["shelfRenderer"]["content"]["horizontalListRenderer"]["items"]:
+                        if "gridVideoRenderer" in iContents:
+                            if "upcomingEventData" in iContents["gridVideoRenderer"]:
+                                for runs in iContents["gridVideoRenderer"]["upcomingEventData"]["upcomingEventText"]["runs"]:
+                                    if "Premieres" in runs["text"]:
+                                        cPremiereVid = iContents["gridVideoRenderer"]
+                                        if cPremiereVid["videoId"] not in pEvents and (int(cPremiereVid["upcomingEventData"]["startTime"]) - datetime.datetime.now().timestamp()) > 10:
+                                            pEvents[cPremiereVid["videoId"]] = {
+                                                "title": cPremiereVid["title"]["simpleText"],
+                                                "time": int(cPremiereVid["upcomingEventData"]["startTime"])
+                                            }
+    except Exception as e:
+        logging.error("Premiere Scrape - An error has occured!", exc_info=True)
+
+    return pEvents
+
+async def uplThumbnail(channelID, videoID, live=True):
+    with open("data/settings.yaml") as f:
+        settings = yaml.load(f, Loader=yaml.SafeLoader)
+    extServer = rpyc.connect(settings["thumbnailIP"], int(settings["thumbnailPort"]))
+    asyncUpl = rpyc.async_(extServer.root.thumbGrab)
+    uplSuccess = False
+
+    for x in range(3):
+        if live:
+            upload = asyncUpl(channelID, f'https://img.youtube.com/vi/{videoID}/maxresdefault_live.jpg')
+        else:
+            upload = asyncUpl(channelID, f'https://img.youtube.com/vi/{videoID}/maxresdefault.jpg')
+        uplSuccess = False
+
+        while True:
+            if upload.ready and not upload.error:
+                logging.debug("Stream - Uploaded thumbnail!")
+                uplSuccess = True
+                break
+            elif upload.error:
+                break
+
+            await asyncio.sleep(0.5)
+
+        if not uplSuccess or "yagoo.ezz.moe" not in upload.value:
+            logging.error("Stream - Couldn't upload thumbnail!")
+            logging.error(upload.value)
+        else:
+            return upload.value
+
