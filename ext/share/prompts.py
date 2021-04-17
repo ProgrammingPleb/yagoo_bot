@@ -81,6 +81,9 @@ async def botError(ctx, error):
             errEmbed.description += f'\n - `{perm}`'
         
         return errEmbed
+    if "Missing Arguments" in str(error):
+        errEmbed.description = "A command argument was not given when required to."
+        return errEmbed
     if isinstance(error, commands.CheckFailure):
         errEmbed.description = "You are missing permissions to use this bot.\n" \
                                "Ensure that you have one of these permissions for the channel/server:\n\n" \
@@ -139,14 +142,19 @@ async def searchPrompt(ctx, bot, sResults: list, smsg, embedDesc):
         "name": pickName
     }
 
-async def searchConfirm(ctx, bot, sName: str, smsg, embedDesc, accept, decline):
+async def searchConfirm(ctx, bot, sName: str, smsg, embedDesc, accept, decline, url: bool = False):
     sEmbed = discord.Embed(title="VTuber Search", description=embedDesc)
-    sEmbed.add_field(name="Actions", value=f"Y. {accept}\nN. {decline}\nX. Cancel", inline=False)
+    if not url:
+        sEmbed.add_field(name="Actions", value=f"Y. {accept}\nN. {decline}\nX. Cancel", inline=False)
+        choices = ["y", "n", "x"]
+    else:
+        sEmbed.add_field(name="Actions", value=f"Y. {accept}\nX. Cancel", inline=False)
+        choices = ["y", "x"]
 
     await smsg.edit(content=None, embed=sEmbed)
 
     def check(m):
-        return m.content.lower() in ["y", "n", "x"] and m.author == ctx.author
+        return m.content.lower() in choices and m.author == ctx.author
     
     while True:
         try:

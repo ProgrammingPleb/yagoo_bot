@@ -15,11 +15,12 @@ from ext.cogs.msCycle import msCycle, milestoneNotify
 from ext.cogs.dblUpdate import guildUpdate
 from ext.cogs.chUpdater import chCycle
 from ext.cogs.scrapeCycle import ScrapeCycle
+from ext.cogs.premiereCycle import PremiereCycle
 from ext.share.botUtils import subPerms, creatorCheck
 from ext.share.dataGrab import getSubType, getwebhook
 from ext.share.prompts import botError, subCheck
 from ext.commands.subscribe import subCategory, subCustom
-from ext.commands.general import botHelp, botSublist
+from ext.commands.general import botHelp, botSublist, botGetInfo
 from ext.commands.slash import YagooSlash
 
 init = False
@@ -37,6 +38,7 @@ elif settings["logging"] == "debug":
 
 bot = commands.Bot(command_prefix=commands.when_mentioned_or(settings["prefix"]), help_command=None)
 bot.remove_command('help')
+if settings["slash"]:
 slash = SlashCommand(bot, True)
 bot.add_cog(YagooSlash(bot, slash))
 
@@ -51,13 +53,16 @@ async def on_ready():
         await bot.change_presence(status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.watching, name='other Hololive members'))
         if settings["dblPublish"]:
             bot.add_cog(guildUpdate(bot, settings["dblToken"]))
+        if settings["channel"]:
         bot.add_cog(ScrapeCycle(bot, settings["logging"]))
         await asyncio.sleep(30)
+            bot.add_cog(chCycle(bot))
         if settings["notify"]:
             bot.add_cog(StreamCycle(bot))
+        if settings["premiere"]:
+            bot.add_cog(PremiereCycle(bot))
         if settings["milestone"]:
             bot.add_cog(msCycle(bot))
-        bot.add_cog(chCycle(bot))
         init = True
     else:
         print("Reconnected to Discord!")
@@ -249,6 +254,13 @@ async def unsub_error(ctx, error):
     errEmbed = await botError(ctx, error)
     if errEmbed:
         await ctx.send(embed=errEmbed)
+
+@bot.command(aliases=["getinfo"])
+async def info(ctx, *, name: str = None):
+    if name == None:
+        await ctx.send(embed=await botError(ctx, "Missing Arguments"))
+        return
+    await botGetInfo(ctx, bot, name)
 
 @bot.command(aliases=["subs", "subslist", "subscriptions", "subscribed"])
 @commands.check(subPerms)
