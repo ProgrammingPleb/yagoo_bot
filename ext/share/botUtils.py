@@ -21,10 +21,20 @@ def subPerms(ctx):
     return userPerms.administrator or userPerms.manage_webhooks or ctx.guild.owner_id == ctx.author.id
 
 async def msgDelete(ctx: Union[commands.Context, SlashContext]):
+    """
+    Removes the message that invoked the command (if any)
+
+    Arguments:
+    ---
+    `ctx`: A discord.py `commands.Context` or discord-py-slash-commands `SlashContext`
+    """
     if type(ctx) != SlashContext:
         await ctx.message.delete()
 
 class fandomTextParse():
+    """
+    Class that contains functions for Fandom Wiki related actions.
+    """
     async def parseToEmbed(name: str, embedData: list):
         embedParts = {}
         excessParts = None
@@ -100,6 +110,19 @@ class fandomTextParse():
         return dictText
 
 async def vtuberSearch(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, searchTerm: str, searchMsg, askTerm: str, getOther: bool = False):
+    """
+    Searches for a VTuber and returns a `dict` with it's relevant data.
+
+    Arguments:
+    ---
+    `ctx`: A `discord.py` command context or a `discord-py-slash-command` slash context.
+    `bot`: A `discord.py` `commands.Bot` object.
+    `searchTerm`: The search term that is passed by from the user's input.
+    `searchMsg`: A Discord message object that is responsible for the search message.
+    `askTerm`: Term used when the search embed says "[askTerm] this channel"
+    `getOther`: Whether to have a message confirming the detected VTuber from `searchTerm` or to assume that the first term is correct.
+    """
+
     getChannel = False
 
     if not getOther:
