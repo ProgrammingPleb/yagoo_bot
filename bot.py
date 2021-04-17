@@ -39,8 +39,8 @@ elif settings["logging"] == "debug":
 bot = commands.Bot(command_prefix=commands.when_mentioned_or(settings["prefix"]), help_command=None)
 bot.remove_command('help')
 if settings["slash"]:
-slash = SlashCommand(bot, True)
-bot.add_cog(YagooSlash(bot, slash))
+    slash = SlashCommand(bot, True)
+    bot.add_cog(YagooSlash(bot, slash))
 
 @bot.event
 async def on_ready():
@@ -54,8 +54,8 @@ async def on_ready():
         if settings["dblPublish"]:
             bot.add_cog(guildUpdate(bot, settings["dblToken"]))
         if settings["channel"]:
-        bot.add_cog(ScrapeCycle(bot, settings["logging"]))
-        await asyncio.sleep(30)
+            bot.add_cog(ScrapeCycle(bot, settings["logging"]))
+            await asyncio.sleep(30)
             bot.add_cog(chCycle(bot))
         if settings["notify"]:
             bot.add_cog(StreamCycle(bot))
@@ -364,6 +364,26 @@ async def removeChannel(ctx, channelId):
     
     with open("data/servers.json", "w") as f:
         json.dump(servers, f, indent=4)
+
+@bot.command()
+@commands.check(creatorCheck)
+async def omedetou(ctx: commands.Context):
+    replyID = ctx.message.reference.message_id
+    replyMsg = await ctx.channel.fetch_message(replyID)
+
+    await replyMsg.reply("おめでとう！", mention_author=False)
+
+@bot.command()
+@commands.check(creatorCheck)
+async def ytchCount(ctx):
+    chCount = 0
+
+    with open("data/channels.json") as f:
+        channels = json.load(f)
+    for channel in channels:
+        chCount += 1
+    
+    await ctx.send(f"Yagoo Bot has {chCount} channels in the database.")
 
 @bot.command(aliases=["maint", "shutdown", "stop"])
 @commands.check(creatorCheck)
