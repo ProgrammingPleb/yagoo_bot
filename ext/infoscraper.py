@@ -120,7 +120,7 @@ async def channelInfo(channelId: Union[str, int], scrape = False, debug: bool = 
                     logging.warn(f"Unable to get ytInitialData for {channelId}!")
     else:
         try:
-            with open("data/scrape.json") as f:
+            with open("data/scrape.json", encoding="utf-8") as f:
                 channels = json.load(f)
 
             channelData = channels[channelId]

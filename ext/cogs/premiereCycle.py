@@ -18,22 +18,30 @@ async def premiereCheck():
     pInfo = {}
     
     for channel in channels:
-        cInfo = await channelInfo(channel)
-        if cInfo["premieres"] != {}:
-            for video in cInfo["premieres"]:
-                vURL = ""
-                if (cInfo["premieres"][video]["time"] - datetime.now().timestamp()) < 60:
-                    vURL = await uplThumbnail(channel, video, False)
-                if (cInfo["premieres"][video]["time"] - datetime.now().timestamp()) < 10:
-                    pInfo[channel] = {
-                        "channel": cInfo["name"],
-                        "image": cInfo["image"],
-                        "title": cInfo["premieres"][video]["title"],
-                        "videoID": video,
-                        "thumbnail": vURL
-                    }
-                    channels[channel]["premieres"].pop(video, "")
-                    channelWrite = True
+        for x in range(3):
+            try:
+                cInfo = await channelInfo(channel)
+                if cInfo["premieres"] != {}:
+                    for video in cInfo["premieres"]:
+                        vURL = ""
+                        if (cInfo["premieres"][video]["time"] - datetime.now().timestamp()) < 60:
+                            vURL = await uplThumbnail(channel, video, False)
+                        if (cInfo["premieres"][video]["time"] - datetime.now().timestamp()) < 10:
+                            pInfo[channel] = {
+                                "channel": cInfo["name"],
+                                "image": cInfo["image"],
+                                "title": cInfo["premieres"][video]["title"],
+                                "videoID": video,
+                                "thumbnail": vURL
+                            }
+                            channels[channel]["premieres"].pop(video, "")
+                            channelWrite = True
+                    break
+                else:
+                    break
+            except Exception as e:
+                if x == 2:
+                    logging.error(f"Premiere Scrape - Unable to get premieres data for {channel}!", exc_info=True)
     
     if channelWrite:
         with open("data/scrape.json", "w", encoding="utf-8") as f:
