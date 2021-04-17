@@ -257,7 +257,7 @@ async def unsub_error(ctx, error):
 
 @bot.command(aliases=["getinfo"])
 async def info(ctx, *, name: str = None):
-    if name == None:
+    if name is None:
         await ctx.send(embed=await botError(ctx, "Missing Arguments"))
         return
     await botGetInfo(ctx, bot, name)
