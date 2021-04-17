@@ -142,14 +142,19 @@ async def searchPrompt(ctx, bot, sResults: list, smsg, embedDesc):
         "name": pickName
     }
 
-async def searchConfirm(ctx, bot, sName: str, smsg, embedDesc, accept, decline):
+async def searchConfirm(ctx, bot, sName: str, smsg, embedDesc, accept, decline, url: bool = False):
     sEmbed = discord.Embed(title="VTuber Search", description=embedDesc)
-    sEmbed.add_field(name="Actions", value=f"Y. {accept}\nN. {decline}\nX. Cancel", inline=False)
+    if not url:
+        sEmbed.add_field(name="Actions", value=f"Y. {accept}\nN. {decline}\nX. Cancel", inline=False)
+        choices = ["y", "n", "x"]
+    else:
+        sEmbed.add_field(name="Actions", value=f"Y. {accept}\nX. Cancel", inline=False)
+        choices = ["y", "x"]
 
     await smsg.edit(content=None, embed=sEmbed)
 
     def check(m):
-        return m.content.lower() in ["y", "n", "x"] and m.author == ctx.author
+        return m.content.lower() in choices and m.author == ctx.author
     
     while True:
         try:
