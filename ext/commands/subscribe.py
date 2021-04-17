@@ -173,8 +173,11 @@ async def subCustom(ctx: Union[commands.Context, SlashContext], bot: commands.Bo
     cInfo = None
 
     searchMsg = await ctx.send(content="Searching for channel...")
-    chSearch = await vtuberSearch(ctx, bot, search, searchMsg)
+    chSearch = await vtuberSearch(ctx, bot, search, searchMsg, "Subscribe to")
     
+    if not chSearch["success"]:
+        return
+
     with open("data/channels.json") as f:
         channels = json.load(f)
 
