@@ -1,8 +1,11 @@
 token:
 prefix: y!
 logging: info
+channel: True
 notify: True
 milestone: True
+premiere: True
+slash: True
 thumbnailIP:
 thumbnailPort:
 dblPublish: False
