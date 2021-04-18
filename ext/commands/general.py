@@ -5,7 +5,7 @@ from typing import Union
 from discord.ext import commands
 from discord_slash.context import SlashContext
 from ..infoscraper import FandomScrape
-from ..share.botUtils import embedContinue, msgDelete, fandomTextParse
+from ..share.botUtils import embedContinue, msgDelete, fandomTextParse, vtuberSearch
 from ..share.dataGrab import getwebhook, getSubType
 from ..share.prompts import subCheck
 
@@ -285,37 +285,54 @@ async def botSublist(ctx: Union[commands.Context, SlashContext], bot: commands.B
                     await msg.delete()
 
 async def botGetInfo(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, name: str):
-    fandomName = (await FandomScrape.searchChannel(name, True))["name"]
-    fullPage = await FandomScrape.getChannel(fandomName, dataKey="text")
-    allSections = await FandomScrape.getSections(fullPage)
-    allSData = await FandomScrape.getSectionData(fullPage, allSections)
-    infoEmbed, excessParts = await fandomTextParse.parseToEmbed(fandomName, allSData)
-    infoEmbed.set_thumbnail(url=await FandomScrape.getThumbnail(fullPage))
+    retry = True
+    infoMsg = None
 
-    infoMsg = await ctx.send(embed=infoEmbed)
+    while retry:
+        fandomName = (await FandomScrape.searchChannel(name, True))["name"]
+        fullPage = await FandomScrape.getChannel(fandomName, dataKey="text")
+        allSections = await FandomScrape.getSections(fullPage)
+        allSData = await FandomScrape.getSectionData(fullPage, allSections)
+        infoEmbed, excessParts = await fandomTextParse.parseToEmbed(fandomName, allSData)
+        infoEmbed.set_thumbnail(url=await FandomScrape.getThumbnail(fullPage))
 
-    if excessParts == None:
-        return
+        if infoMsg is None:
+            infoMsg = await ctx.send(embed=infoEmbed)
+        else:
+            await infoMsg.edit(embed=infoEmbed)
 
-    excessChoice = []
-    for part in excessParts:
-        excessChoice.append(part.lower())
-    
-    def check(m):
-        return m.content.lower() in excessChoice and m.author == ctx.author
+        if excessParts == None:
+            return
 
-    excessLoop = True
-    while excessLoop:
-        try:
-            msg = await bot.wait_for('message', timeout=60.0, check=check)
-        except asyncio.TimeoutError:
-            break
-        await msg.delete()
+        excessChoice = []
         for part in excessParts:
-            if msg.content.lower() == part.lower():
-                userReturn = await embedContinue(ctx, bot, infoMsg, part, excessParts[part], fandomName)
-                if userReturn:
-                    await infoMsg.edit(embed=infoEmbed)
-                    break
-                else:
+            excessChoice.append(part.lower())
+        
+        def check(m):
+            return m.content.lower() in excessChoice + ['search'] and m.author == ctx.author
+
+        excessLoop = True
+        while excessLoop:
+            try:
+                msg = await bot.wait_for('message', timeout=60.0, check=check)
+            except asyncio.TimeoutError:
+                retry = False
+                break
+            await msg.delete()
+            if msg.content.lower() == 'search':
+                chChoice = await vtuberSearch(ctx, bot, name, infoMsg, "Get info for", True)
+                if chChoice["success"]:
+                    name = chChoice["name"]
                     excessLoop = False
+                    retry = True
+                else:
+                    await infoMsg.edit(embed=infoEmbed)
+            else:
+                for part in excessParts:
+                    if msg.content.lower() == part.lower():
+                        userReturn = await embedContinue(ctx, bot, infoMsg, part, excessParts[part], fandomName)
+                        if userReturn:
+                            await infoMsg.edit(embed=infoEmbed)
+                            break
+                        else:
+                            excessLoop = False
