@@ -1,7 +1,10 @@
 ![](https://img.ezz.moe/0115/23-29-24.PNG)
 [![Discord Bots](https://top.gg/api/widget/status/786108316865658890.svg?noavatar=true)](https://top.gg/bot/786108316865658890)
-[![CodeFactor](https://www.codefactor.io/repository/github/ezzprograms/yagoo_bot/badge)](https://www.codefactor.io/repository/github/ezzprograms/yagoo_bot)  
+[![CodeFactor](https://www.codefactor.io/repository/github/programmingpleb/yagoo_bot/badge)](https://www.codefactor.io/repository/github/programmingpleb/yagoo_bot)  
 A VTuber-centered Discord bot that notifies a channel when a VTuber starts a livestream.
+
+## Want to invite the bot?
+Open this [link](https://yagoo.ezz.moe/), and make sure the bot has enough permissions for the server.
 
 ## Features
 - Livestream notifications
@@ -18,5 +21,5 @@ Follow the prompt given to (un)subscribe to the channel.
 The features that are upcoming on this bot can be found on the projects section of this repository.
 
 ## Contributing
-Any issues and suggestions can be opened here at GitHub, although it is much recommended to be put in the [Discord Server](https://discord.gg/uNgnR5g8ZR).  
-Feel free to make a pull request to improve the bot!
+Any issues and suggestions should be put in the [Discord Server](https://discord.gg/uNgnR5g8ZR).  
+If you have any code optimizations/feature implementations, feel free to make a pull request to improve the bot!
