@@ -5,6 +5,7 @@ import asyncio
 import datetime
 import yaml
 import rpyc
+import json
 from discord.ext import commands
 from discord_slash.context import SlashContext
 from itertools import islice
@@ -311,3 +312,86 @@ async def uplThumbnail(channelID, videoID, live=True):
             logging.error(upload.value)
         else:
             return upload.value
+
+async def serverSubTypes(msg: discord.Message, subDNum: list, subOptions: list) -> dict:
+    """
+    Gives subscription types from the input message.
+
+    Arguments
+    ---
+    `msg`: A Discord message object containing the user's input.
+    `subDNum`: List containing subscription type number (and letter) assignments.
+    `subOptions`: List containing all available subscription types.
+
+    Returns a `dict` object containing:
+    `success`: Boolean that returns `True` if the message is valid.
+    `subType`: List that has all subscription types.
+    """
+    valid = True
+    subUChoice = []
+
+    try:
+        if "," in msg.content:
+            for choice in msg.content.split(","):
+                if choice != '':
+                    subUChoice.append(int(choice))
+        else:
+            subUChoice.append(int(msg.content))
+    except ValueError:
+            valid = False
+
+    if valid:
+        subType = []
+        try:
+            if int(subDNum[-2]) not in subUChoice:
+                for subUType in subUChoice:
+                    subType.append(subOptions[subUType - 1].lower())
+            else:
+                for subUType in subOptions:
+                    subType.append(subUType.lower())
+        except Exception as e:
+            return {
+                "success": False,
+                "subType": None
+            }
+        return {
+            "success": True,
+            "subType": subType
+        }
+    else:
+        return {
+            "success": False,
+            "subType": None
+        }
+
+async def getAllSubs(chData: dict) -> dict:
+    """
+    Gets all subscriptions from all the subscription categories
+
+    Arguments
+    ---
+    `chData`: `Dict` containing the Discord channel data.
+
+    Returns `dict` with keys in this format:
+
+    "`Channel ID`":
+        "name": "`Channel Name`",
+        "subType": [`Channel Subscription Types`]
+    """
+
+    with open("data/channels.json", encoding="utf-8") as f:
+        channels = json.load(f)
+
+    allCh = {}
+    for data in chData:
+        if data in ["livestream", "milestone", "premiere"]:
+            for ch in chData[data]:
+                if ch not in allCh:
+                    allCh[ch] = {
+                        "name": channels[ch]["name"],
+                        "subType": [data]
+                    }
+                else:
+                    allCh[ch]["subType"].append(data)
+    
+    return allCh
