@@ -12,7 +12,8 @@ from .share.botUtils import formatMilestone, premiereScrape
 async def streamInfo(channelId: Union[str, int]):
     output = None
 
-    async with aiohttp.ClientSession() as session:
+    consent = {'CONSENT': 'YES+cb.20210328-17-p0.en+FX+162'}
+    async with aiohttp.ClientSession(cookies=consent) as session:
         with open("data/settings.yaml") as f:
             settings = yaml.load(f, Loader=yaml.SafeLoader)
         
