@@ -5,9 +5,9 @@ from typing import Union
 from discord.ext import commands
 from discord_slash.context import SlashContext
 from ..infoscraper import FandomScrape
-from ..share.botUtils import embedContinue, msgDelete, fandomTextParse, vtuberSearch
+from ..share.botUtils import chunks, embedContinue, getAllSubs, msgDelete, fandomTextParse, vtuberSearch
 from ..share.dataGrab import getwebhook, getSubType
-from ..share.prompts import subCheck
+from ..share.prompts import subCheck, unsubCheck
 
 async def botHelp():
     hembed = discord.Embed(title="Yagoo Bot Commands")
@@ -39,146 +39,94 @@ async def botHelp():
     return hembed
 
 async def botUnsub(ctx: Union[commands.Context, SlashContext], bot: commands.Bot):
-    with open("data/channels.json", encoding="utf-8") as f:
-        channels = json.load(f)
+    # TODO: Add way to search for already subscribed VTubers
+
     with open("data/servers.json") as f:
         servers = json.load(f)
     
     unsubmsg = await ctx.send("Loading subscription list...")
 
-    if "subDefault" not in servers[str(ctx.guild.id)][str(ctx.channel.id)]:
-        uInput = await subCheck(ctx, bot, unsubmsg, 2, "Unsubscribe")
-    else:
-        uInput = {
-            "success": True,
-            "subType": servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"]
-        }
-    
-    if not uInput["success"]:
-        await unsubmsg.delete()
-        await msgDelete(ctx)
-        return
-    
-    if len(uInput["subType"]) > 1:
-        subDisp = "livestream"
-    else:
-        subDisp = uInput["subType"][0]
-    
-    try:
-        len(servers[str(ctx.guild.id)][str(ctx.channel.id)][subDisp])
-    except KeyError:
-        await unsubmsg.edit(content="There are no subscriptions on this channel.", embed=None)
-        return
+    allCh = await getAllSubs(servers[str(ctx.guild.id)][str(ctx.channel.id)])
+    chPages = []
+    for section in chunks(allCh, 9):
+        chPages.append(section)
 
-    multi = False
-    sublist = []
-    templist = []
-    if len(servers[str(ctx.guild.id)][str(ctx.channel.id)][subDisp]) > 9:
-        for sub in servers[str(ctx.guild.id)][str(ctx.channel.id)][subDisp]:
-            if len(templist) < 9:
-                templist.append(sub)
-            else:
-                sublist.append(templist)
-                templist = [sub]
-        sublist.append(templist)
-        multi = True
-    elif len(servers[str(ctx.guild.id)][str(ctx.channel.id)][subDisp]) > 0 and len(servers[str(ctx.guild.id)][str(ctx.channel.id)][subDisp]) < 10:
-        for sub in servers[str(ctx.guild.id)][str(ctx.channel.id)][subDisp]:
-            sublist.append(sub)
-    else:
-        await unsubmsg.edit(content="There are no subscriptions on this channel.", embed=None)
-        return
-    
-    pagepos = 0
+    pageNum = 1
     while True:
-        dispstring = ""
-        dispnum = 1
-        if multi:
-            subProc = sublist[pagepos]
-            for sub in subProc:
-                ytch = channels[sub]
-                dispstring += f'{dispnum}. {ytch["name"]}\n'
-                dispnum += 1
-            if pagepos == 0:
-                dispstring += f'\nA. Unsubscribe to all channels\nN. Go to next page\nX. Cancel'
-            elif pagepos == len(sublist) - 1:
-                dispstring += f'\nA. Unsubscribe to all channels\nB. Go to previous page\nX. Cancel'
-            else:
-                dispstring += f'\nA. Unsubscribe to all channels\nN. Go to next page\nB. Go to previous page\nX. Cancel'
-        else:
-            subProc = sublist
-            for sub in sublist:
-                ytch = channels[sub]
-                dispstring += f'{dispnum}. {ytch["name"]}\n'
-                dispnum += 1
-            dispstring += f'A. Unsubscribe to all channels\nX. Cancel'
-        
-        usembed = discord.Embed(title="Unsubscribe from channel:", description=dispstring)
-        await unsubmsg.edit(content=None, embed=usembed)
+        dcEmbed = discord.Embed(title="Unsubscribing from Existing Channels", description="YouTube channels this Discord channel is currently subscribed to: ")
+        chNum = 1
+        chChoice = []
+        chChannels = []
+        chEmbedText = ""
+        for channel in chPages[pageNum - 1]:
+            chEmbedText += f"{chNum}. {chPages[pageNum - 1][channel]['name']}\n"
+            chChoice.append(str(chNum))
+            chChannels.append(channel)
+            chNum += 1
+
+        embedNav = ""
+        if pageNum > 1:
+            embedNav += "B. Go to the previous page\n"
+            chChoice.append("b")
+        if pageNum < len(chPages):
+            embedNav += "N. Go to the next page\n"
+            chChoice.append("n")
+        embedNav += "A. Unsubscribe from all existing channels\nX. Cancel" # Add "S. Search for a subscribed channel []\n" when search implementation is good
+        chChoice += ["s", "a", "x"]
+
+        dcEmbed.add_field(name="Channels", value=chEmbedText, inline=False)
+        dcEmbed.add_field(name="Actions", value=embedNav, inline=False)
+        await unsubmsg.edit(content=None, embed=dcEmbed)
 
         def check(m):
-            return m.content.lower() in ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'n', 'b', 'x'] and m.author == ctx.author
-
-        while True:
-            try:
-                msg = await bot.wait_for('message', timeout=60.0, check=check)
-            except asyncio.TimeoutError:
+            return m.content.lower() in chChoice and m.author == ctx.author
+        
+        try:
+            msg = await bot.wait_for('message', check=check, timeout=60)
+        except asyncio.TimeoutError:
+            await unsubmsg.delete()
+            await msgDelete(ctx)
+            return
+        await msg.delete()
+        if msg.content in ['1', '2', '3', '4', '5', '6', '7', '8', '9']:
+            chUnsub = await unsubCheck(ctx, bot, chPages[pageNum - 1][chChannels[int(msg.content) - 1]], unsubmsg)
+            
+            if not chUnsub["success"]:
                 await unsubmsg.delete()
                 await msgDelete(ctx)
                 return
-            else:
-                if msg.content in ['1', '2', '3', '4', '5', '6', '7', '8', '9']:
-                    with open("data/servers.json") as f:
-                        servers = json.load(f)
-                    await getwebhook(bot, servers, ctx.guild, ctx.channel)
-                    with open("data/servers.json") as f:
-                        servers = json.load(f)
-                    await msg.delete()
-                    for subType in uInput["subType"]:
-                        try:
-                            servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].remove(subProc[int(msg.content) - 1])
-                        except ValueError:
-                            ytch = channels[subProc[int(msg.content) - 1]]
-                            await unsubmsg.edit(content=f'Couldn\'t unsubscribe {subType} notifications from: {ytch["name"]}!', embed=None)
-                        else:
-                            servers[str(ctx.guild.id)][str(ctx.channel.id)]["notified"].pop(subProc[int(msg.content) - 1], None)
-                            ytch = channels[subProc[int(msg.content) - 1]]
-                            await unsubmsg.edit(content=f'Unsubscribed from: {ytch["name"]}.', embed=None)
-                    with open("data/servers.json", "w") as f:
-                        json.dump(servers, f, indent=4)
-                    await msgDelete(ctx)
-                    return
-                if msg.content.lower() == 'a':
-                    with open("data/servers.json") as f:
-                        servers = json.load(f)
-                    await getwebhook(bot, servers, ctx.guild, ctx.channel)
-                    with open("data/servers.json") as f:
-                        servers = json.load(f)
-                    for subType in uInput["subType"]:
-                        servers[str(ctx.guild.id)][str(ctx.channel.id)][subType] = []
-                    servers[str(ctx.guild.id)][str(ctx.channel.id)]["notified"] = {}
-                    with open("data/servers.json", "w") as f:
-                        json.dump(servers, f, indent=4)
-                    await unsubmsg.edit(content=f'This channel is now unsubscribed from any YouTube channels.', embed=None)
-                    await msg.delete()
-                    await msgDelete(ctx)
-                    return
-                if multi:
-                    if msg.content.lower() == 'n' and pagepos < len(sublist) - 1:
-                        await msg.delete()
-                        pagepos += 1
-                        break
-                    elif msg.content.lower() == 'b' and pagepos > 0:
-                        await msg.delete()
-                        pagepos -= 1
-                        break
-                elif msg.content.lower() == 'x':
-                    await msg.delete()
-                    await unsubmsg.delete()
-                    await msgDelete(ctx)
-                    return
+
+            subRemove = ""
+            with open("data/servers.json") as f:
+                servers = json.load(f)
+            for subType in chUnsub["subType"]:
+                servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].remove(chChannels[int(msg.content) - 1])
+                if len(chUnsub["subType"]) > 2:
+                    subRemove += f"{subType}, "
+                elif len(chUnsub["subType"]) == 2:
+                    if "and" in subRemove:
+                        subRemove += subType
+                    else:
+                        subRemove += f"{subType} and "
                 else:
-                    await msg.delete()
+                    subRemove = subType
+            with open("data/servers.json", "w") as f:
+                json.dump(servers, f, indent=4)
+
+            await unsubmsg.edit(content=f"This channel has now been unsubscribed from {chPages[pageNum - 1][chChannels[int(msg.content) - 1]]['name']}. (Types: {subRemove.strip(', ')})", embed=None)
+            await msgDelete(ctx)
+            return
+        elif msg.content.lower() == "b":
+            pageNum -= 1
+        elif msg.content.lower() == "n":
+            pageNum += 1
+        elif msg.content.lower() == "S": # Change this back later to lowercase S when can use
+            # TODO: Check if current search function can be used here
+            continue
+        elif msg.content.lower() == "x":
+            await unsubmsg.delete()
+            await msgDelete(ctx)
+            return
 
 async def botSublist(ctx: Union[commands.Context, SlashContext], bot: commands.Bot):
     with open("data/channels.json", encoding="utf-8") as f:
@@ -191,16 +139,13 @@ async def botSublist(ctx: Union[commands.Context, SlashContext], bot: commands.B
     if "subDefault" not in servers[str(ctx.guild.id)][str(ctx.channel.id)]:
         uInput = await getSubType(ctx, 2, bot, subsmsg)
     else:
-        if not len(servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"]) > 1:
+        if len(servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"]) > 1:
             uInput = {
                 "success": True,
                 "subType": servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"][0]
             }
         else:
-            uInput = {
-                "success": True,
-                "subType": "livestream"
-            }
+            uInput = await getSubType(ctx, 2, bot, subsmsg)
 
     if not uInput["success"]:
         return
