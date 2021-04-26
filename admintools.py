@@ -186,6 +186,22 @@ def migrateData(version: str):
         
         with open("data/channels.json", "w", encoding="utf-8") as f:
             json.dump(channels, f, indent=4)
+    if version == "4":
+        if os.path.exists("data_backup"):
+            shutil.copy("data/servers.json", "data_backup/servers.json")
+        else:
+            os.mkdir("data_backup")
+            shutil.copy("data/servers.json", "data_backup/servers.json")
+        with open("data/servers.json") as f:
+            servers = json.load(f)
+        
+        for server in servers:
+            for channel in servers[server]:
+                if "livestream" in servers[server][channel]:
+                    servers[server][channel]["premiere"] = servers[server][channel]["livestream"]
+        
+        with open("data/servers.json", "w") as f:
+            json.dump(servers, f, indent=4)
 
 async def affUpdate():
     tasks = []

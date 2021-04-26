@@ -1,12 +1,19 @@
+import logging
 import discord
 import aiohttp
 import asyncio
+import datetime
+import yaml
+import rpyc
+import json
 from discord.ext import commands
 from discord_slash.context import SlashContext
 from itertools import islice
 from typing import Union
-from ..infoscraper import FandomScrape, channelInfo
 from .prompts import searchConfirm, searchPrompt
+
+def round_down(num, divisor):
+    return num - (num%divisor)
 
 def chunks(data, SIZE=10000):
     it = iter(data)
@@ -122,6 +129,7 @@ async def vtuberSearch(ctx: Union[commands.Context, SlashContext], bot: commands
     `askTerm`: Term used when the search embed says "[askTerm] this channel"
     `getOther`: Whether to have a message confirming the detected VTuber from `searchTerm` or to assume that the first term is correct.
     """
+    from ..infoscraper import FandomScrape, channelInfo
 
     getChannel = False
 
@@ -236,3 +244,154 @@ async def embedContinue(ctx: Union[commands.Context, SlashContext], bot: command
             pagePos += 1
         elif msg.content.lower() == 'p':
             pagePos -= 1
+
+async def formatMilestone(msCount):
+    if "M" in msCount:
+        cSubsA = int(float(msCount.replace("M subscribers", "")) * 1000000)
+        cSubsR = round_down(cSubsA, 500000)
+    elif "K" in msCount:
+        cSubsA = int(float(msCount.replace("K subscribers", "")) * 1000)
+        cSubsR = round_down(cSubsA, 100000)
+    else:
+        cSubsA = int(float(msCount.replace(" subscribers", "")))
+        cSubsR = 0
+    
+    return cSubsA, cSubsR
+
+async def premiereScrape(ytData):
+    pEvents = {}
+
+    try:
+        cFirstTab = ytData["contents"]["twoColumnBrowseResultsRenderer"]["tabs"][0]["tabRenderer"]["content"]["sectionListRenderer"]["contents"]
+
+        for oContents in cFirstTab:
+            if "shelfRenderer" in oContents["itemSectionRenderer"]["contents"][0]:
+                if "horizontalListRenderer" in oContents["itemSectionRenderer"]["contents"][0]["shelfRenderer"]["content"]:
+                    for iContents in oContents["itemSectionRenderer"]["contents"][0]["shelfRenderer"]["content"]["horizontalListRenderer"]["items"]:
+                        if "gridVideoRenderer" in iContents:
+                            if "upcomingEventData" in iContents["gridVideoRenderer"]:
+                                for runs in iContents["gridVideoRenderer"]["upcomingEventData"]["upcomingEventText"]["runs"]:
+                                    if "Premieres" in runs["text"]:
+                                        cPremiereVid = iContents["gridVideoRenderer"]
+                                        if cPremiereVid["videoId"] not in pEvents and (int(cPremiereVid["upcomingEventData"]["startTime"]) - datetime.datetime.now().timestamp()) > 10:
+                                            pEvents[cPremiereVid["videoId"]] = {
+                                                "title": cPremiereVid["title"]["simpleText"],
+                                                "time": int(cPremiereVid["upcomingEventData"]["startTime"])
+                                            }
+    except Exception as e:
+        logging.error("Premiere Scrape - An error has occured!", exc_info=True)
+
+    return pEvents
+
+async def uplThumbnail(channelID, videoID, live=True):
+    with open("data/settings.yaml") as f:
+        settings = yaml.load(f, Loader=yaml.SafeLoader)
+    extServer = rpyc.connect(settings["thumbnailIP"], int(settings["thumbnailPort"]))
+    asyncUpl = rpyc.async_(extServer.root.thumbGrab)
+    uplSuccess = False
+
+    for x in range(3):
+        if live:
+            upload = asyncUpl(channelID, f'https://img.youtube.com/vi/{videoID}/maxresdefault_live.jpg')
+        else:
+            upload = asyncUpl(channelID, f'https://img.youtube.com/vi/{videoID}/maxresdefault.jpg')
+        uplSuccess = False
+
+        while True:
+            if upload.ready and not upload.error:
+                logging.debug("Stream - Uploaded thumbnail!")
+                uplSuccess = True
+                break
+            elif upload.error:
+                break
+
+            await asyncio.sleep(0.5)
+
+        if not uplSuccess or "yagoo.ezz.moe" not in upload.value:
+            logging.error("Stream - Couldn't upload thumbnail!")
+            logging.error(upload.value)
+        else:
+            return upload.value
+
+async def serverSubTypes(msg: discord.Message, subDNum: list, subOptions: list) -> dict:
+    """
+    Gives subscription types from the input message.
+
+    Arguments
+    ---
+    `msg`: A Discord message object containing the user's input.
+    `subDNum`: List containing subscription type number (and letter) assignments.
+    `subOptions`: List containing all available subscription types.
+
+    Returns a `dict` object containing:
+    `success`: Boolean that returns `True` if the message is valid.
+    `subType`: List that has all subscription types.
+    """
+    valid = True
+    subUChoice = []
+
+    try:
+        if "," in msg.content:
+            for choice in msg.content.split(","):
+                if choice != '':
+                    subUChoice.append(int(choice))
+        else:
+            subUChoice.append(int(msg.content))
+    except ValueError:
+            valid = False
+
+    if valid:
+        subType = []
+        try:
+            if int(subDNum[-2]) not in subUChoice:
+                for subUType in subUChoice:
+                    subType.append(subOptions[subUType - 1].lower())
+            else:
+                for subUType in subOptions:
+                    subType.append(subUType.lower())
+        except Exception as e:
+            return {
+                "success": False,
+                "subType": None
+            }
+        return {
+            "success": True,
+            "subType": subType
+        }
+    else:
+        return {
+            "success": False,
+            "subType": None
+        }
+
+async def getAllSubs(chData: dict) -> dict:
+    """
+    Gets all subscriptions from all the subscription categories
+
+    Arguments
+    ---
+    `chData`: `Dict` containing the Discord channel data.
+
+    Returns `dict` with keys in this format:
+
+    "`Channel ID`":
+        "name": "`Channel Name`",
+        "subType": [`Channel Subscription Types`]
+    """
+
+    with open("data/channels.json", encoding="utf-8") as f:
+        channels = json.load(f)
+
+    allCh = {}
+    for data in chData:
+        if data in ["livestream", "milestone", "premiere"]:
+            for ch in chData[data]:
+                if ch not in allCh:
+                    allCh[ch] = {
+                        "name": channels[ch]["name"],
+                        "subType": [data]
+                    }
+                else:
+                    allCh[ch]["subType"].append(data)
+    
+    return allCh

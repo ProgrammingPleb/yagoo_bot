@@ -2,6 +2,8 @@ import logging
 import asyncio
 import json
 import concurrent.futures
+import shutil
+import os
 import traceback
 import functools
 from discord.ext import commands, tasks
@@ -39,8 +41,11 @@ async def channelScrape(debug: bool = False):
         except Exception as e:
             logging.error("Channel Scrape - An error has occurred!", exc_info=True)
 
-    with open("data/scrape.json", "w", encoding="utf-8") as f:
+    with open("data/scrapetemp.json", "w", encoding="utf-8") as f:
         json.dump(channels, f, indent=4)
+    
+    shutil.copyfile("data/scrapetemp.json", "data/scrape.json")
+    os.remove("data/scrapetemp.json")
 
 def scrapeWrapper(debug):
     asyncio.run(channelScrape(debug))

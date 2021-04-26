@@ -7,14 +7,13 @@ import logging
 import yaml
 from bs4 import BeautifulSoup
 from typing import Union
-
-def round_down(num, divisor):
-    return num - (num%divisor)
+from .share.botUtils import formatMilestone, premiereScrape
 
 async def streamInfo(channelId: Union[str, int]):
     output = None
 
-    async with aiohttp.ClientSession() as session:
+    consent = {'CONSENT': 'YES+cb.20210328-17-p0.en+FX+162'}
+    async with aiohttp.ClientSession(cookies=consent) as session:
         with open("data/settings.yaml") as f:
             settings = yaml.load(f, Loader=yaml.SafeLoader)
         
@@ -90,17 +89,11 @@ async def channelInfo(channelId: Union[str, int], scrape = False, debug: bool = 
                     if ("var ytInitialData" in script.getText()) or ('window["ytInitialData"]' in script.getText()):
                         ytdata = json.loads(script.getText().replace(';', '').replace('var ytInitialData = ', '').replace('window["ytInitialData"]', ''))
 
-                        cSubsText = ytdata["header"]["c4TabbedHeaderRenderer"]["subscriberCountText"]["simpleText"]
+                        # Check Subscriber Count
+                        cSubsA, cSubsR = await formatMilestone(ytdata["header"]["c4TabbedHeaderRenderer"]["subscriberCountText"]["simpleText"])
 
-                        if "M" in cSubsText:
-                            cSubsA = int(float(cSubsText.replace("M subscribers", "")) * 1000000)
-                            cSubsR = round_down(cSubsA, 500000)
-                        elif "K" in cSubsText:
-                            cSubsA = int(float(cSubsText.replace("K subscribers", "")) * 1000)
-                            cSubsR = round_down(cSubsA, 100000)
-                        else:
-                            cSubsA = None
-                            cSubsR = None
+                        # Get premieres (if any)
+                        premieres = await premiereScrape(ytdata)
 
                         channelData = {
                             "id": channelId,
@@ -109,7 +102,8 @@ async def channelInfo(channelId: Union[str, int], scrape = False, debug: bool = 
                             "image": ytdata["metadata"]["channelMetadataRenderer"]["avatar"]["thumbnails"][0]["url"],
                             "realSubs": cSubsA,
                             "roundSubs": cSubsR,
-                            "success": True
+                            "success": True,
+                            "premieres": premieres
                         }
 
                         try:
@@ -127,7 +121,7 @@ async def channelInfo(channelId: Union[str, int], scrape = False, debug: bool = 
                     logging.warn(f"Unable to get ytInitialData for {channelId}!")
     else:
         try:
-            with open("data/scrape.json") as f:
+            with open("data/scrape.json", encoding="utf-8") as f:
                 channels = json.load(f)
 
             channelData = channels[channelId]

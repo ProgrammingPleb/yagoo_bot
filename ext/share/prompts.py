@@ -1,9 +1,22 @@
 import asyncio
 import traceback
+from typing import Union
 import discord
 from discord.ext import commands
+from discord_slash.context import SlashContext
 
 async def subCheck(ctx, bot, subMsg, mode, chName):
+    from ext.share.botUtils import serverSubTypes
+    subOptions = ["Livestream", "Milestone", "Premiere", "All"]
+    subText = ""
+    subChoice = []
+    subNum = 1
+
+    for sub in subOptions:
+        subText += f"{subNum}. {sub} Notifications\n"
+        subChoice.append(str(subNum))
+        subNum += 1
+    
     if mode == 1:
         action = "Subscribe"
     elif mode == 2:
@@ -14,13 +27,8 @@ async def subCheck(ctx, bot, subMsg, mode, chName):
         }
     
     subEmbed = discord.Embed(title=chName, description=f"{action} to the channel's:\n\n"
-                                                        "1. Livestream Notifications\n2. Milestone Notifications\n3. Both\n\n"
-                                                        "X. Cancel\n\n[Bypass this by setting the channel's default subscription type using `y!subdefault`]")
-    
-    if mode == 2:
-        subEmbed.description=f"Unsubscribe to channel with subscription type:\n\n" \
-                              "1. Livestream Notifications\n2. Milestone Notifications\n3. Both\n\n" \
-                              "X. Cancel\n\n[Bypass this by setting the channel's default subscription type using `y!subdefault`]"
+                                                        f"{subText}X. Cancel\n\n[Bypass this by setting the channel's default subscription type using `y!subdefault`.\n"
+                                                        "Select multiple subscriptions by seperating them using commas, for example `1,3`.]")
 
     await subMsg.edit(content=None, embed=subEmbed)
 
@@ -29,7 +37,7 @@ async def subCheck(ctx, bot, subMsg, mode, chName):
     }
 
     def check(m):
-        return m.content.lower() in ['1', '2', '3', 'x'] and m.author == ctx.author
+        return (m.content.lower() in subChoice + ['x'] or "," in m.content) and m.author == ctx.author
 
     while True:
         try:
@@ -38,23 +46,77 @@ async def subCheck(ctx, bot, subMsg, mode, chName):
             await subMsg.delete()
             break
         else:
-            if msg.content in ['1', '2', '3']:
-                await msg.delete()
-                if msg.content == '1':
-                    uInput["subType"] = ["livestream"]
-                elif msg.content == '2':
-                    uInput["subType"] = ["milestone"]
-                elif msg.content == '3':
-                    uInput["subType"] = ["livestream", "milestone"]
+            await msg.delete()
+            if msg.content in subChoice or ("," in msg.content and "x" not in msg.content.lower()):
+                if subChoice[-1] not in msg.content.split(","):
+                    sSubType = await serverSubTypes(msg, subChoice + ['x'], subOptions)
+                    uInput["subType"] = sSubType["subType"]
+                else:
+                    subTypes = []
+                    for sub in subOptions:
+                        if sub != subOptions[-1]:
+                            subTypes.append(sub.lower())
+                    uInput["subType"] = subTypes
                 uInput["success"] = True
                 break
             elif msg.content.lower() == 'x':
-                await msg.delete()
                 break
-            else:
-                await msg.delete()
     
     return uInput
+
+async def unsubCheck(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, chData: dict, unsubMsg: discord.Message):
+    notifCount = 1
+    embedChoice = []
+    unsubEmbed = discord.Embed(title=chData["name"], description="Unsubscribe from this channel's:\n")
+    
+    for subType in chData["subType"]:
+        unsubEmbed.description += f"{notifCount}. {subType.capitalize()} Notifications\n"
+        embedChoice.append(str(notifCount))
+        notifCount += 1
+    unsubEmbed.description += "\nX. Cancel\n[Select multiple subscriptions by seperating them using commas, for example `1,3`.]"
+
+    await unsubMsg.edit(content=None, embed=unsubEmbed)
+
+
+    def check(m):
+        return (m.content.lower() in embedChoice + ["x"] or "," in m.content) and m.author == ctx.author
+
+    while True:
+        try:
+            msg = await bot.wait_for('message', check=check, timeout=60)
+        except asyncio.TimeoutError:
+            return {
+                "success": False,
+                "subType": None
+            }
+        await msg.delete()
+        if msg.content in embedChoice:
+            return {
+                "success": True,
+                "subType": [chData["subType"][int(msg.content) - 1]]
+            }
+        elif "," in msg.content and "x" not in msg.content.lower():
+            valid = True
+            returnData = {
+                    "success": False,
+                    "subType": []
+                }
+            for subType in msg.content.split(","):
+                if valid:
+                    try:
+                        returnData["subType"].append(chData["subType"][int(subType) - 1])
+                    except Exception as e:
+                        valid = False
+                else:
+                    break
+            if valid:
+                returnData["success"] = True
+                return returnData
+        elif "x" in msg.content.lower():
+            return {
+                "success": False,
+                "subType": None
+            }
 
 async def botError(ctx, error):
     errEmbed = discord.Embed(title="An error has occurred!", color=discord.Colour.red())
@@ -79,20 +141,22 @@ async def botError(ctx, error):
                                f"Please allow the bot {plural}:\n"
         for perm in permOutput:
             errEmbed.description += f'\n - `{perm}`'
-        
-        return errEmbed
     if "Missing Arguments" in str(error):
         errEmbed.description = "A command argument was not given when required to."
-        return errEmbed
+    if "No Subscriptions" in str(error):
+        errEmbed.description = "There are no subscriptions for this channel.\n" \
+                               "Subscribe to a channel's notifications by using `y!sub` or `/sub` command."
     if isinstance(error, commands.CheckFailure):
         errEmbed.description = "You are missing permissions to use this bot.\n" \
                                "Ensure that you have one of these permissions for the channel/server:\n\n" \
                                " - `Administrator (Server)`\n - `Manage Webhooks (Channel/Server)`"
-        
-        return errEmbed
-    print("An unknown error has occurred.")
-    traceback.print_exception(type(error), error, error.__traceback__)
-    print(error)
+
+    if type(error) != str:
+        print("An unknown error has occurred.")
+        traceback.print_exception(type(error), error, error.__traceback__)
+        print(error)
+    
+    return errEmbed
 
 async def searchPrompt(ctx, bot, sResults: list, smsg, embedDesc):
     sEmbed = discord.Embed(title="VTuber Search", description=embedDesc)

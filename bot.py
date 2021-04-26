@@ -20,7 +20,7 @@ from ext.share.botUtils import subPerms, creatorCheck
 from ext.share.dataGrab import getSubType, getwebhook
 from ext.share.prompts import botError, subCheck
 from ext.commands.subscribe import subCategory, subCustom
-from ext.commands.general import botHelp, botSublist, botGetInfo
+from ext.commands.general import botHelp, botSublist, botGetInfo, botUnsub
 from ext.commands.slash import YagooSlash
 
 init = False
@@ -39,8 +39,8 @@ elif settings["logging"] == "debug":
 bot = commands.Bot(command_prefix=commands.when_mentioned_or(settings["prefix"]), help_command=None)
 bot.remove_command('help')
 if settings["slash"]:
-slash = SlashCommand(bot, True)
-bot.add_cog(YagooSlash(bot, slash))
+    slash = SlashCommand(bot, True)
+    bot.add_cog(YagooSlash(bot, slash))
 
 @bot.event
 async def on_ready():
@@ -54,8 +54,8 @@ async def on_ready():
         if settings["dblPublish"]:
             bot.add_cog(guildUpdate(bot, settings["dblToken"]))
         if settings["channel"]:
-        bot.add_cog(ScrapeCycle(bot, settings["logging"]))
-        await asyncio.sleep(30)
+            bot.add_cog(ScrapeCycle(bot, settings["logging"]))
+            await asyncio.sleep(30)
             bot.add_cog(chCycle(bot))
         if settings["notify"]:
             bot.add_cog(StreamCycle(bot))
@@ -108,146 +108,7 @@ async def sub_error(ctx, error):
 @bot.command(aliases=["unsub"])
 @commands.check(subPerms)
 async def unsubscribe(ctx):
-    with open("data/channels.json", encoding="utf-8") as f:
-        channels = json.load(f)
-    with open("data/servers.json") as f:
-        servers = json.load(f)
-    
-    unsubmsg = await ctx.send("Loading subscription list...")
-
-    if "subDefault" not in servers[str(ctx.guild.id)][str(ctx.channel.id)]:
-        uInput = await subCheck(ctx, bot, unsubmsg, 2, "Unsubscribe")
-    else:
-        uInput = {
-            "success": True,
-            "subType": servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"]
-        }
-    
-    if not uInput["success"]:
-        await unsubmsg.delete()
-        await ctx.message.delete()
-        return
-    
-    if len(uInput["subType"]) > 1:
-        subDisp = "livestream"
-    else:
-        subDisp = uInput["subType"][0]
-    
-    try:
-        len(servers[str(ctx.guild.id)][str(ctx.channel.id)][subDisp])
-    except KeyError:
-        await unsubmsg.edit(content="There are no subscriptions on this channel.", embed=None)
-        return
-
-    multi = False
-    sublist = []
-    templist = []
-    if len(servers[str(ctx.guild.id)][str(ctx.channel.id)][subDisp]) > 9:
-        for sub in servers[str(ctx.guild.id)][str(ctx.channel.id)][subDisp]:
-            if len(templist) < 9:
-                templist.append(sub)
-            else:
-                sublist.append(templist)
-                templist = [sub]
-        sublist.append(templist)
-        multi = True
-    elif len(servers[str(ctx.guild.id)][str(ctx.channel.id)][subDisp]) > 0 and len(servers[str(ctx.guild.id)][str(ctx.channel.id)][subDisp]) < 10:
-        for sub in servers[str(ctx.guild.id)][str(ctx.channel.id)][subDisp]:
-            sublist.append(sub)
-    else:
-        await unsubmsg.edit(content="There are no subscriptions on this channel.", embed=None)
-        return
-    
-    pagepos = 0
-    while True:
-        dispstring = ""
-        dispnum = 1
-        if multi:
-            subProc = sublist[pagepos]
-            for sub in subProc:
-                ytch = channels[sub]
-                dispstring += f'{dispnum}. {ytch["name"]}\n'
-                dispnum += 1
-            if pagepos == 0:
-                dispstring += f'\nA. Unsubscribe to all channels\nN. Go to next page\nX. Cancel'
-            elif pagepos == len(sublist) - 1:
-                dispstring += f'\nA. Unsubscribe to all channels\nB. Go to previous page\nX. Cancel'
-            else:
-                dispstring += f'\nA. Unsubscribe to all channels\nN. Go to next page\nB. Go to previous page\nX. Cancel'
-        else:
-            subProc = sublist
-            for sub in sublist:
-                ytch = channels[sub]
-                dispstring += f'{dispnum}. {ytch["name"]}\n'
-                dispnum += 1
-            dispstring += f'A. Unsubscribe to all channels\nX. Cancel'
-        
-        usembed = discord.Embed(title="Unsubscribe from channel:", description=dispstring)
-        await unsubmsg.edit(content=None, embed=usembed)
-
-        def check(m):
-            return m.content.lower() in ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'n', 'b', 'x'] and m.author == ctx.author
-
-        while True:
-            try:
-                msg = await bot.wait_for('message', timeout=60.0, check=check)
-            except asyncio.TimeoutError:
-                await unsubmsg.delete()
-                await ctx.message.delete()
-                return
-            else:
-                if msg.content in ['1', '2', '3', '4', '5', '6', '7', '8', '9']:
-                    with open("data/servers.json") as f:
-                        servers = json.load(f)
-                    await getwebhook(bot, servers, ctx.guild, ctx.channel)
-                    with open("data/servers.json") as f:
-                        servers = json.load(f)
-                    await msg.delete()
-                    for subType in uInput["subType"]:
-                        try:
-                            servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].remove(subProc[int(msg.content) - 1])
-                        except ValueError:
-                            ytch = channels[subProc[int(msg.content) - 1]]
-                            await unsubmsg.edit(content=f'Couldn\'t unsubscribe {subType} notifications from: {ytch["name"]}!', embed=None)
-                        else:
-                            servers[str(ctx.guild.id)][str(ctx.channel.id)]["notified"].pop(subProc[int(msg.content) - 1], None)
-                            ytch = channels[subProc[int(msg.content) - 1]]
-                            await unsubmsg.edit(content=f'Unsubscribed from: {ytch["name"]}.', embed=None)
-                    with open("data/servers.json", "w") as f:
-                        json.dump(servers, f, indent=4)
-                    await ctx.message.delete()
-                    return
-                if msg.content.lower() == 'a':
-                    with open("data/servers.json") as f:
-                        servers = json.load(f)
-                    await getwebhook(bot, servers, ctx.guild, ctx.channel)
-                    with open("data/servers.json") as f:
-                        servers = json.load(f)
-                    for subType in uInput["subType"]:
-                        servers[str(ctx.guild.id)][str(ctx.channel.id)][subType] = []
-                    servers[str(ctx.guild.id)][str(ctx.channel.id)]["notified"] = {}
-                    with open("data/servers.json", "w") as f:
-                        json.dump(servers, f, indent=4)
-                    await unsubmsg.edit(content=f'This channel is now unsubscribed from any YouTube channels.', embed=None)
-                    await msg.delete()
-                    await ctx.message.delete()
-                    return
-                if multi:
-                    if msg.content.lower() == 'n' and pagepos < len(sublist) - 1:
-                        await msg.delete()
-                        pagepos += 1
-                        break
-                    elif msg.content.lower() == 'b' and pagepos > 0:
-                        await msg.delete()
-                        pagepos -= 1
-                        break
-                elif msg.content.lower() == 'x':
-                    await msg.delete()
-                    await unsubmsg.delete()
-                    await ctx.message.delete()
-                    return
-                else:
-                    await msg.delete()
+    await botUnsub(ctx, bot)
 
 @unsubscribe.error
 async def unsub_error(ctx, error):
@@ -257,7 +118,7 @@ async def unsub_error(ctx, error):
 
 @bot.command(aliases=["getinfo"])
 async def info(ctx, *, name: str = None):
-    if name == None:
+    if name is None:
         await ctx.send(embed=await botError(ctx, "Missing Arguments"))
         return
     await botGetInfo(ctx, bot, name)
@@ -364,6 +225,26 @@ async def removeChannel(ctx, channelId):
     
     with open("data/servers.json", "w") as f:
         json.dump(servers, f, indent=4)
+
+@bot.command()
+@commands.check(creatorCheck)
+async def omedetou(ctx: commands.Context):
+    replyID = ctx.message.reference.message_id
+    replyMsg = await ctx.channel.fetch_message(replyID)
+
+    await replyMsg.reply("おめでとう！", mention_author=False)
+
+@bot.command()
+@commands.check(creatorCheck)
+async def ytchCount(ctx):
+    chCount = 0
+
+    with open("data/channels.json") as f:
+        channels = json.load(f)
+    for channel in channels:
+        chCount += 1
+    
+    await ctx.send(f"Yagoo Bot has {chCount} channels in the database.")
 
 @bot.command(aliases=["maint", "shutdown", "stop"])
 @commands.check(creatorCheck)

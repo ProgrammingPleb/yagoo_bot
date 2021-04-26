@@ -11,6 +11,8 @@ from ..share.dataGrab import getwebhook
 from ..share.prompts import ctgPicker, subCheck, searchConfirm, searchPrompt, searchMessage
 
 async def subCategory(ctx: Union[commands.Context, SlashContext], bot: commands.Bot):
+    # TODO: Seperate the subscribe code to a function instead
+
     listmsg = await ctx.send("Loading channels list...")
 
     with open("data/channels.json", encoding="utf-8") as f:
@@ -86,12 +88,14 @@ async def subCategory(ctx: Union[commands.Context, SlashContext], bot: commands.
                 await msg.delete()
                 if "subDefault" not in servers[str(ctx.guild.id)][str(ctx.channel.id)]:
                     uInput = await subCheck(ctx, bot, listmsg, 1, csplit[pagepos][picklist[int(msg.content) - 1]]["name"])
+                elif servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"] == []:
+                    uInput = await subCheck(ctx, bot, listmsg, 1, csplit[pagepos][picklist[int(msg.content) - 1]]["name"])
                 else:
                     uInput = {
                         "success": True,
                         "subType": servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"]
                     }
-                lastSubbed = False
+                validSub = False
 
                 if not uInput["success"]:
                     await listmsg.delete()
@@ -101,14 +105,12 @@ async def subCategory(ctx: Union[commands.Context, SlashContext], bot: commands.
                 for subType in uInput["subType"]:
                     if picklist[int(msg.content) - 1] not in servers[str(ctx.guild.id)][str(ctx.channel.id)][subType]:
                         servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].append(picklist[int(msg.content) - 1])
-                    else:
-                        if len(uInput["subType"]) > 1 and not lastSubbed:
-                            lastSubbed = True
-                        else:
-                            ytch = csplit[pagepos][picklist[int(msg.content) - 1]]
-                            await listmsg.edit(content=f'This channel is already subscribed to {ytch["name"]}.', embed=None)
-                            await msgDelete(ctx)
-                            return
+                        validSub = True
+                if not validSub:
+                    ytch = csplit[pagepos][picklist[int(msg.content) - 1]]
+                    await listmsg.edit(content=f'This channel is already subscribed to {ytch["name"]}.', embed=None)
+                    await msgDelete(ctx)
+                    return
                 with open("data/servers.json", "w") as f:
                     json.dump(servers, f, indent=4)
                 ytch = csplit[pagepos][picklist[int(msg.content) - 1]]
@@ -124,6 +126,8 @@ async def subCategory(ctx: Union[commands.Context, SlashContext], bot: commands.
                 await msg.delete()
                 if "subDefault" not in servers[str(ctx.guild.id)][str(ctx.channel.id)]:
                     uInput = await subCheck(ctx, bot, listmsg, 1, "Subscribing to all channels.")
+                elif servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"] == []:
+                    uInput = await subCheck(ctx, bot, listmsg, 1, f'{ctgPick["category"]} Channels')
                 else:
                     uInput = {
                         "success": True,
@@ -210,12 +214,14 @@ async def subCustom(ctx: Union[commands.Context, SlashContext], bot: commands.Bo
     
     if "subDefault" not in servers[str(ctx.guild.id)][str(ctx.channel.id)]:
         uInput = await subCheck(ctx, bot, searchMsg, 1, cInfo["name"])
+    elif servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"] == []:
+        uInput = await subCheck(ctx, bot, searchMsg, 1, cInfo["name"])
     else:
         uInput = {
             "success": True,
             "subType": servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"]
         }
-    lastSubbed = False
+    validSub = False
 
     if not uInput["success"]:
         await searchMsg.delete()
@@ -223,15 +229,16 @@ async def subCustom(ctx: Union[commands.Context, SlashContext], bot: commands.Bo
         return
 
     for subType in uInput["subType"]:
+        if subType not in servers[str(ctx.guild.id)][str(ctx.channel.id)]:
+            servers[str(ctx.guild.id)][str(ctx.channel.id)][subType] = []
+            validSub = True
         if channelID not in servers[str(ctx.guild.id)][str(ctx.channel.id)][subType]:
             servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].append(channelID)
-        else:
-            if len(uInput["subType"]) > 1 and not lastSubbed:
-                lastSubbed = True
-            else:
-                await searchMsg.edit(content=f'This channel is already subscribed to {cInfo["name"]}.', embed=None)
-                await msgDelete(ctx)
-                return
+            validSub = True
+    if not validSub:
+        await searchMsg.edit(content=f'This channel is already subscribed to {cInfo["name"]}.', embed=None)
+        await msgDelete(ctx)
+        return
 
     with open("data/servers.json", "w") as f:
         json.dump(servers, f, indent=4)

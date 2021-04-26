@@ -41,5 +41,5 @@ class YagooSlash(commands.Cog):
         await botSublist(ctx, self.bot)
 
     @cog_ext.cog_slash(name="unsubscribe", description="Unsubscribe to an existing VTuber's livestream/milestone notifications.", options=None)
-    async def _sub(self, ctx):
+    async def _unsub(self, ctx):
         await botUnsub(ctx, self.bot)
