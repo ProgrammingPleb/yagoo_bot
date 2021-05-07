@@ -124,7 +124,7 @@ async def getSubType(ctx: commands.Context, mode, bot: commands.Bot, prompt = No
                     if "," not in msg.content:
                         return {
                             "success": True,
-                            "subType": subOptions[int(msg.content) - 1].lower()
+                            "subType": actualSubTypes[int(msg.content) - 1].lower()
                         }
             elif msg.content.lower() == 'x':
                 await prompt.delete()

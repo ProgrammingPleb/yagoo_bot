@@ -65,9 +65,22 @@ async def subCheck(ctx, bot, subMsg, mode, chName):
     return uInput
 
 async def unsubCheck(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, chData: dict, unsubMsg: discord.Message):
+    """
+    Prompts the user for the choice of which subscription type to unsubscribe from.
+
+    Arguments
+    ---
+    `ctx`: A discord.py `commmands.Context` or discord-py-slash-command `SlashContext` object.
+    `bot`: A discord.py `commands.Bot` object
+    `chData`: A dict containing `"name"` for the embed title and `"subType"` for available subscription types.
+    `unsubMsg`: A discord.py `discord.Message` object.
+
+    Returns a `dict` with `"success"` for the success code and `"subType"` for the chosen subscription types to unsubscribe from.
+    """
+
     notifCount = 1
     embedChoice = []
-    unsubEmbed = discord.Embed(title=chData["name"], description="Unsubscribe from this channel's:\n")
+    unsubEmbed = discord.Embed(title=chData["name"], description="Unsubscribe from the channel's:\n")
     
     for subType in chData["subType"]:
         unsubEmbed.description += f"{notifCount}. {subType.capitalize()} Notifications\n"
