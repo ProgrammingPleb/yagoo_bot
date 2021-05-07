@@ -103,6 +103,8 @@ async def subCategory(ctx: Union[commands.Context, SlashContext], bot: commands.
                     return
 
                 for subType in uInput["subType"]:
+                    if subType not in servers[str(ctx.guild.id)][str(ctx.channel.id)]:
+                        servers[str(ctx.guild.id)][str(ctx.channel.id)][subType] = []
                     if picklist[int(msg.content) - 1] not in servers[str(ctx.guild.id)][str(ctx.channel.id)][subType]:
                         servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].append(picklist[int(msg.content) - 1])
                         validSub = True
@@ -139,6 +141,8 @@ async def subCategory(ctx: Union[commands.Context, SlashContext], bot: commands.
                     return
                 for subType in uInput["subType"]:
                     for ytch in ctgChannels:
+                        if subType not in servers[str(ctx.guild.id)][str(ctx.channel.id)]:
+                            servers[str(ctx.guild.id)][str(ctx.channel.id)][subType] = []
                         if ytch not in servers[str(ctx.guild.id)][str(ctx.channel.id)][subType]:
                             servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].append(ytch)
                 with open("data/servers.json", "w") as f:

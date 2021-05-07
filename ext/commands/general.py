@@ -116,6 +116,31 @@ async def botUnsub(ctx: Union[commands.Context, SlashContext], bot: commands.Bot
             await unsubmsg.edit(content=f"This channel has now been unsubscribed from {chPages[pageNum - 1][chChannels[int(msg.content) - 1]]['name']}. (Types: {subRemove.strip(', ')})", embed=None)
             await msgDelete(ctx)
             return
+        elif msg.content.lower() == "a":
+            unsubData = {
+                "name": "All Channels",
+                "subType": ["livestream", "milestone", "premiere"]
+            }
+            unsubTypes = await unsubCheck(ctx, bot, unsubData, unsubmsg)
+            
+            subRemove = ""
+            for unsubType in unsubTypes["subType"]:
+                servers[str(ctx.guild.id)][str(ctx.channel.id)][unsubType] = []
+                if len(unsubTypes["subType"]) > 2:
+                    subRemove += f"{unsubType}, "
+                elif len(unsubTypes["subType"]) == 2:
+                    if "and" in subRemove:
+                        subRemove += unsubType
+                    else:
+                        subRemove += f"{unsubTypes} and "
+                else:
+                    subRemove = unsubType
+            
+            with open("data/servers.json", "w") as f:
+                json.dump(servers, f, indent=4)
+
+            await unsubmsg.edit(content=f"This channel has now been unsubscribed from all channels. (Types: {subRemove.strip(', ')})", embed=None)
+            return
         elif msg.content.lower() == "b":
             pageNum -= 1
         elif msg.content.lower() == "n":
