@@ -15,3 +15,9 @@ proxyIP:
 proxyPort: 80
 proxyUsername:
 proxyPassword:
+twitter:
+  enabled: False
+  apiKey:
+  apiSecret:
+  accessKey:
+  accessSecret:
