@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import traceback
+from tweepy.errors import NotFound
 from tweepy.asynchronous import AsyncStream
 from ..infoscraper import TwitterScrape, channelInfo
 from discord.ext import commands, tasks
@@ -28,11 +29,14 @@ async def twtUpdater():
 
     for channel in channels:
         if "twitter" not in channels[channel] and "twitter" in scrape[channel]:
-            twtID = await TwitterScrape.getUserID(scrape[channel]["twitter"])
-            if twtID is not None:
-                channels[channel]["twitter"] = twtID
-                twitter[twtID] = channel
-                write = True
+            try:
+                twtID = await TwitterScrape.getUserID(scrape[channel]["twitter"])
+                if twtID is not None:
+                    channels[channel]["twitter"] = twtID
+                    twitter[twtID] = channel
+                    write = True
+            except NotFound:
+                logging.error(f"Twitter - Could not find user @{scrape[channel]['twitter']}")
     
     if write:
         with open("data/channels.json", "w") as f:
