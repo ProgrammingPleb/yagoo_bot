@@ -11,6 +11,7 @@ from discord_slash.context import SlashContext
 from itertools import islice
 from typing import Union
 from .prompts import searchConfirm, searchPrompt
+from .botVars import allSubTypes
 
 def round_down(num, divisor):
     return num - (num%divisor)
@@ -381,11 +382,15 @@ async def getAllSubs(chData: dict) -> dict:
 
     with open("data/channels.json", encoding="utf-8") as f:
         channels = json.load(f)
+    with open("data/twitter.json") as f:
+        twitter = json.load(f)
 
     allCh = {}
     for data in chData:
-        if data in ["livestream", "milestone", "premiere"]:
+        if data in allSubTypes(False):
             for ch in chData[data]:
+                if data == "twitter":
+                    ch = twitter[ch]
                 if ch not in allCh:
                     allCh[ch] = {
                         "name": channels[ch]["name"],
