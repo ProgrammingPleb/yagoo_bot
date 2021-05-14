@@ -5,12 +5,13 @@ import discord
 from discord.ext import commands
 from ext.share.prompts import botError
 from .dataWrite import genServer
-from ext.share.botUtils import msgDelete, serverSubTypes
+from .botUtils import msgDelete, serverSubTypes
+from .botVars import allSubTypes
 
 async def getSubType(ctx: commands.Context, mode, bot: commands.Bot, prompt = None):
     pEmbed = discord.Embed()
     subDNum = 1
-    subOptions = ["Livestream", "Milestone", "Premiere"]            # Update this on prompts.py/subCheck() and botUtils.py/getAllSubs() too
+    subOptions = allSubTypes()
     subChoice = []
 
     with open("data/servers.json") as f:
