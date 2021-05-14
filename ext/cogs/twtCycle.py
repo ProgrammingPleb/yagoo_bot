@@ -58,7 +58,6 @@ async def twtSubscribe(bot):
     for channel in channels:
         if "twitter" in channels[channel]:
             twtUsers.append(channels[channel]["twitter"])
-    print(len(twtUsers))
 
     twtCred = await TwitterScrape.getCredentials()
     stream = twtPost(bot, twtCred["apiKey"], twtCred["apiSecret"], twtCred["accessKey"], twtCred["accessSecret"])
