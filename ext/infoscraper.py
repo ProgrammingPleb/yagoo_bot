@@ -5,6 +5,7 @@ import re
 import sys
 import logging
 import yaml
+import tweepy
 from bs4 import BeautifulSoup
 from typing import Union
 from .share.botUtils import formatMilestone, premiereScrape
@@ -16,7 +17,7 @@ async def streamInfo(channelId: Union[str, int]):
     async with aiohttp.ClientSession(cookies=consent) as session:
         with open("data/settings.yaml") as f:
             settings = yaml.load(f, Loader=yaml.SafeLoader)
-        
+
         if settings["proxy"]:
             proxy = f"http://{settings['proxyIP']}:{settings['proxyPort']}"
             proxyauth = aiohttp.BasicAuth(settings["proxyUsername"], settings["proxyPassword"])
@@ -69,13 +70,13 @@ async def streamInfo(channelId: Union[str, int]):
 
 async def channelInfo(channelId: Union[str, int], scrape = False, debug: bool = False):
     channelData = None
-    
+
     if scrape:
         consent = {'CONSENT': 'YES+cb.20210328-17-p0.en+FX+162'}
         async with aiohttp.ClientSession(cookies=consent) as session:
             with open("data/settings.yaml") as f:
                 settings = yaml.load(f, Loader=yaml.SafeLoader)
-            
+
             if settings["proxy"]:
                 proxy = f"http://{settings['proxyIP']}:{settings['proxyPort']}"
                 proxyauth = aiohttp.BasicAuth(settings["proxyUsername"], settings["proxyPassword"])
@@ -110,11 +111,16 @@ async def channelInfo(channelId: Union[str, int], scrape = False, debug: bool = 
                             channelData["banner"] = ytdata["header"]["c4TabbedHeaderRenderer"]["banner"]["thumbnails"][3]["url"]
                         except Exception as e:
                             channelData["banner"] = None
-                    
+
                         try:
                             channelData["mbanner"] = ytdata["header"]["c4TabbedHeaderRenderer"]["banner"]["thumbnails"][1]["url"]
                         except Exception as e:
                             channelData["mbanner"] = None
+
+                        if "headerLinks" in ytdata["header"]["c4TabbedHeaderRenderer"]:
+                            for link in ytdata["header"]["c4TabbedHeaderRenderer"]["headerLinks"]["channelHeaderLinksRenderer"]["primaryLinks"]:
+                                if "twitter.com" in link["navigationEndpoint"]["urlEndpoint"]["url"]:
+                                    channelData["twitter"] = link["navigationEndpoint"]["urlEndpoint"]["url"].split("&q=")[-1].split("%2F")[-1].split("%3F")[0]
                 if channelData is None:
                     with open(f"debug/{channelId}.html", "w") as f:
                         f.write(await r.text())
@@ -127,7 +133,7 @@ async def channelInfo(channelId: Union[str, int], scrape = False, debug: bool = 
             channelData = channels[channelId]
         except Exception as e:
             logging.error("Info Scraper - An error has occurred!", exc_info=True)
-                    
+
     if channelData is None:
         channelData = {
             "success": False
@@ -171,9 +177,9 @@ class FandomScrape():
                         "name": chRName,
                         "results": nameList
                     }
-        
+
         return chLink
-    
+
     async def getChannel(chLink, dataKey = "infobox", scope = 4):
         async with aiohttp.ClientSession() as session:
             async with session.get(f'https://virtualyoutuber.fandom.com/api.php?action=parse&format=json&page={chLink.split("/")[0]}') as r:
@@ -191,13 +197,13 @@ class FandomScrape():
                     dataSource = resp
                 else:
                     dataSource = None
-        
+
         return dataSource
-    
+
     async def parseChannelText(dataText, scrapeList: list = None):
         if scrapeList is None:
             scrapeList = ["Profile", "Personality"]
-        
+
         outputData = []
 
         soup = BeautifulSoup(dataText, "html5lib")
@@ -214,9 +220,9 @@ class FandomScrape():
                 "name": webObj,
                 "text": headData
             })
-        
+
         return outputData
-    
+
     async def getChannelURL(chLink):
         channelID = None
 
@@ -229,23 +235,23 @@ class FandomScrape():
                             if 23 <= len(part) <= 25:
                                 if part[0] == "U":
                                     channelID = part
-        
+
         if channelID is None:
             return {
                 "success": False
             }
-        
+
         return {
             "success": True,
             "channelID": channelID
         }
-    
+
     async def getThumbnail(dataText) -> str:
         soup = BeautifulSoup(dataText, "html5lib")
         imgTag = soup.find("img", {"class": "pi-image-thumbnail"})
 
         return imgTag["src"]
-    
+
     async def getAffiliate(chName) -> str:
         fandomName = (await FandomScrape.searchChannel(chName, True))["name"]
         fullPage = await FandomScrape.getChannel(fandomName, dataKey="text")
@@ -255,7 +261,7 @@ class FandomScrape():
             logging.warn(f'Failed getting affliate data for {fandomName}! Registering as "Other/Independent".', exc_info=True)
             affiliate = "Others/Independent"
         return affiliate
-    
+
     async def getSections(dataText) -> list:
         soup = BeautifulSoup(dataText, "html5lib")
 
@@ -269,16 +275,16 @@ class FandomScrape():
                 sections.append(sName)
             if sName.lower() == "Introduction Video".lower():
                 pastInfobox = True
-        
+
         return sections
-    
+
     async def getSectionData(dataText, sections) -> list:
         soup = BeautifulSoup(dataText, "html5lib")
 
         data = []
         for h2 in soup.find_all("h2"):
             sName = h2.getText().replace("[edit | edit source]", "")
-            
+
             try:
                 if sName in sections:
                     pList = []
@@ -304,9 +310,9 @@ class FandomScrape():
                 logging.error("Fandom Scrape - An error has occured!", exc_info=True)
                 #print(f"Info Scraper - Unable to get text for {sName}!")
                 #traceback.print_exception(type(e), e, e.__traceback__)
-        
+
         return data
-    
+
     async def getSubSections(lastElement) -> dict:
         subSections = []
         subHeader = None
@@ -329,10 +335,10 @@ class FandomScrape():
             lastElement = lastElement.find_next_sibling()
 
         return subSections
-    
+
     async def getPointers(lastElement) -> list:
         subPointers = []
-        
+
         if lastElement.name == "ul":
             liTags = lastElement.find_all("li", recursive=False)
         else:
@@ -342,7 +348,7 @@ class FandomScrape():
             subPointers.append(await FandomScrape.getSubPointers(tag))
 
         return [subPointers]
-    
+
     async def getSubPointers(tag):
         subPointers = None
 
@@ -360,18 +366,37 @@ class FandomScrape():
 
         return subPointers
 
+class TwitterScrape():
+    async def getCredentials():
+        with open("data/settings.yaml") as f:
+            settings = yaml.load(f, Loader=yaml.SafeLoader)
+
+        return settings["twitter"]
+
+    async def getUserID(screenName):
+        print(screenName)
+        credentials = await TwitterScrape.getCredentials()
+
+        auth = tweepy.OAuthHandler(credentials["apiKey"], credentials["apiSecret"])
+        auth.set_access_token(credentials["accessKey"], credentials["accessSecret"])
+
+        # Create API object
+        api = tweepy.API(auth, wait_on_rate_limit=True)
+
+        return (api.get_user(screen_name=screenName)).id_str
+
 async def channelScrape(query: str):
 
     if "/channel/" in query:
         query = query.split("/")[-1]
-    
+
     chInfo = await channelInfo(query)
 
     if not chInfo["success"]:
         return {
             "success": False
         }
-    
+
     dataSource = await FandomScrape.getChannel(await FandomScrape.searchChannel(chInfo["name"], True))
 
     result = {
@@ -407,11 +432,11 @@ async def channelScrape(query: str):
                     infoPresent = True
         if not infoPresent:
             result[infoGrab[entry]["dict"]] = None
-    
+
     return result
 
 def sInfoAdapter(cid):
-    cData = asyncio.run(FandomScrape.getAffiliate(cid))
+    cData = asyncio.run(channelInfo("UCNVEsYbiZjH5QLmGeSgTSzg", True))
     print(cData)
 
 if __name__ == "__main__":
