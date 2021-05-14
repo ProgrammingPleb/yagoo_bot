@@ -4,10 +4,11 @@ from typing import Union
 import discord
 from discord.ext import commands
 from discord_slash.context import SlashContext
+from ext.share.botVars import allSubTypes
 
 async def subCheck(ctx, bot, subMsg, mode, chName):
     from ext.share.botUtils import serverSubTypes
-    subOptions = ["Livestream", "Milestone", "Premiere", "All"]
+    subOptions = allSubTypes() + ["All"]
     subText = ""
     subChoice = []
     subNum = 1
