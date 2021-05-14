@@ -101,7 +101,7 @@ class twtPost(AsyncStream):
                             whurl = await getwebhook(self.bot, servers, server, channel)
                             async with aiohttp.ClientSession() as session:
                                 webhook = Webhook.from_url(whurl, adapter=AsyncWebhookAdapter(session))
-                                await webhook.send(twtString)
+                                await webhook.send(twtString, avatar_url=tweet.user.profile_image_url_https, username=tweet.user.name)
                         except Exception as e:
                             logging.error(f"Twitter - An error has occurred while publishing stream notification to #test1!", exc_info=True)
 
