@@ -43,6 +43,8 @@ async def botUnsub(ctx: Union[commands.Context, SlashContext], bot: commands.Bot
 
     with open("data/servers.json") as f:
         servers = json.load(f)
+    with open("data/channels.json") as f:
+        channels = json.load(f)
     
     unsubmsg = await ctx.send("Loading subscription list...")
 
@@ -100,7 +102,10 @@ async def botUnsub(ctx: Union[commands.Context, SlashContext], bot: commands.Bot
             with open("data/servers.json") as f:
                 servers = json.load(f)
             for subType in chUnsub["subType"]:
-                servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].remove(chChannels[int(msg.content) - 1])
+                if subType != "twitter":
+                    servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].remove(chChannels[int(msg.content) - 1])
+                else:
+                    servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].remove(channels[chChannels[int(msg.content) - 1]]["twitter"])
                 if len(chUnsub["subType"]) > 2:
                     subRemove += f"{subType}, "
                 elif len(chUnsub["subType"]) == 2:
