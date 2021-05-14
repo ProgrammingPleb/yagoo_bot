@@ -47,7 +47,6 @@ if settings["slash"]:
 async def on_ready():
     global init
     if not init:
-        print(settings["twitter"]["enabled"])
         guildCount = 0
         for guilds in bot.guilds:
             guildCount += 1
