@@ -16,6 +16,7 @@ from ext.cogs.dblUpdate import guildUpdate
 from ext.cogs.chUpdater import chCycle
 from ext.cogs.scrapeCycle import ScrapeCycle
 from ext.cogs.premiereCycle import PremiereCycle
+from ext.cogs.twtCycle import twtCycle
 from ext.share.botUtils import subPerms, creatorCheck
 from ext.share.dataGrab import getSubType, getwebhook
 from ext.share.prompts import botError, subCheck
@@ -46,6 +47,7 @@ if settings["slash"]:
 async def on_ready():
     global init
     if not init:
+        print(settings["twitter"]["enabled"])
         guildCount = 0
         for guilds in bot.guilds:
             guildCount += 1
@@ -57,6 +59,8 @@ async def on_ready():
             bot.add_cog(ScrapeCycle(bot, settings["logging"]))
             await asyncio.sleep(30)
             bot.add_cog(chCycle(bot))
+        if settings["twitter"]["enabled"]:
+            bot.add_cog(twtCycle(bot))
         if settings["notify"]:
             bot.add_cog(StreamCycle(bot))
         if settings["premiere"]:
@@ -229,6 +233,8 @@ async def removeChannel(ctx, channelId):
 @bot.command()
 @commands.check(creatorCheck)
 async def omedetou(ctx: commands.Context):
+    await ctx.message.delete()
+
     replyID = ctx.message.reference.message_id
     replyMsg = await ctx.channel.fetch_message(replyID)
 
