@@ -374,7 +374,6 @@ class TwitterScrape():
         return settings["twitter"]
 
     async def getUserID(screenName):
-        print(screenName)
         credentials = await TwitterScrape.getCredentials()
 
         auth = tweepy.OAuthHandler(credentials["apiKey"], credentials["apiSecret"])
