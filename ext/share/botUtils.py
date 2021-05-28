@@ -10,6 +10,7 @@ from discord.ext import commands
 from discord_slash.context import SlashContext
 from itertools import islice
 from typing import Union
+from yaml.loader import SafeLoader
 from .prompts import searchConfirm, searchPrompt
 from .botVars import allSubTypes
 
@@ -23,6 +24,12 @@ def chunks(data, SIZE=10000):
 
 def creatorCheck(ctx):
     return ctx.author.id == 256009740239241216
+
+def userWhitelist(ctx):
+    with open("data/settings.yaml") as f:
+        settings = yaml.load(f, Loader=SafeLoader)
+    
+    return ctx.author.id in settings["whitelist"]
 
 def subPerms(ctx):
     userPerms = ctx.channel.permissions_for(ctx.author)
