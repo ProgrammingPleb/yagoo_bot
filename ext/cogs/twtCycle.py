@@ -1,8 +1,10 @@
+import asyncio
 import aiohttp
 import json
 import logging
 import os
 import traceback
+import concurrent.futures
 from tweepy.errors import NotFound
 from tweepy.asynchronous import AsyncStream
 from ..infoscraper import TwitterScrape, channelInfo
@@ -89,7 +91,10 @@ class twtPost(AsyncStream):
         if tweet.is_quote_status:
             twtString = f'@{tweet.user.screen_name} just retweeted @{tweet.quoted_status.user.screen_name}\'s tweet: https://twitter.com/{tweet.user.screen_name}/status/{tweet.id_str}\n'\
                         f'Quoted Tweet: https://twitter.com/{tweet.quoted_status.user.screen_name}/status/{tweet.quoted_status.id_str}'
-        elif tweet.retweeted:
+        elif tweet.in_reply_to_screen_name != None:
+            twtString = f'@{tweet.user.screen_name} just replied to @{tweet.in_reply_to_screen_name}\'s tweet: https://twitter.com/{tweet.user.screen_name}/status/{tweet.id_str}\n'\
+                        f'Replied Tweet: https://twitter.com/{tweet.in_reply_to_screen_name}/status/{tweet.in_reply_to_status_id_str}'
+        elif "retweeted_status" in tweet._json:
             twtString = f'@{tweet.user.screen_name} just retweeted @{tweet.retweeted_status.user.screen_name}\'s tweet: https://twitter.com/{tweet.user.screen_name}/status/{tweet.id_str}'                
         elif tweet.favorited:
             twtString = f'@{tweet.user.screen_name} just liked @{tweet.retweeted_status.user.screen_name}\' tweet: https://twitter.com/{tweet.user.screen_name}/status/{tweet.id_str}'
@@ -106,10 +111,13 @@ class twtPost(AsyncStream):
                                 webhook = Webhook.from_url(whurl, adapter=AsyncWebhookAdapter(session))
                                 await webhook.send(twtString, avatar_url=tweet.user.profile_image_url_https, username=tweet.user.name)
                         except Exception as e:
-                            logging.error(f"Twitter - An error has occurred while publishing stream notification to #test1!", exc_info=True)
+                            logging.error(f"Twitter - An error has occurred while publishing stream notification to {channel}!", exc_info=True)
 
     async def on_error(self, status):
         logging.error(f"Twitter - An error has occured!\nTweepy Error: {status}")
+
+def updateWrapper():
+    asyncio.run(twtUpdater())
 
 class twtCycle(commands.Cog):
     def __init__(self, bot):
@@ -126,20 +134,23 @@ class twtCycle(commands.Cog):
     def botVar(self):
         return self.bot
 
-    @tasks.loop(hours=10000.0)
+    @tasks.loop(minutes=15.0)
     async def twtSubWrapper(self):
         try:
             if not self.subscribed:
                 self.subscribed = True
-                await twtSubscribe(self.bot)
+            await twtSubscribe(self.bot)
         except Exception as e:
             traceback.print_exception(type(e), e, e.__traceback__)
+
 
     @tasks.loop(minutes=15.0)
     async def twtIDcheck(self):
         logging.info("Starting Twitter ID checks.")
         try:
-            await twtUpdater()
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                loop = asyncio.get_running_loop()
+                await loop.run_in_executor(pool, updateWrapper)
         except Exception as e:
             traceback.print_exception(type(e), e, e.__traceback__)
         logging.info("Twitter ID checks done.")
