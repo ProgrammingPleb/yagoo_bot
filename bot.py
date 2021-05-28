@@ -17,8 +17,7 @@ from ext.cogs.chUpdater import chCycle
 from ext.cogs.scrapeCycle import ScrapeCycle
 from ext.cogs.premiereCycle import PremiereCycle
 from ext.cogs.twtCycle import twtCycle
-from ext.share.botUtils import subPerms, creatorCheck
-from ext.share.dataGrab import getSubType, getwebhook
+from ext.share.botUtils import subPerms, creatorCheck, userWhitelist
 from ext.share.prompts import botError, subCheck
 from ext.commands.subscribe import subCategory, subCustom
 from ext.commands.general import botHelp, botSublist, botGetInfo, botUnsub
@@ -230,7 +229,7 @@ async def removeChannel(ctx, channelId):
         json.dump(servers, f, indent=4)
 
 @bot.command()
-@commands.check(creatorCheck)
+@commands.check(userWhitelist)
 async def omedetou(ctx: commands.Context):
     await ctx.message.delete()
 
