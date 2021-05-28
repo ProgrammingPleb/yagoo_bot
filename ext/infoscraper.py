@@ -118,9 +118,15 @@ async def channelInfo(channelId: Union[str, int], scrape = False, debug: bool = 
                             channelData["mbanner"] = None
 
                         if "headerLinks" in ytdata["header"]["c4TabbedHeaderRenderer"]:
+                            found = False
                             for link in ytdata["header"]["c4TabbedHeaderRenderer"]["headerLinks"]["channelHeaderLinksRenderer"]["primaryLinks"]:
-                                if "twitter.com" in link["navigationEndpoint"]["urlEndpoint"]["url"]:
+                                if "twitter.com" in link["navigationEndpoint"]["urlEndpoint"]["url"] and not found:
                                     channelData["twitter"] = link["navigationEndpoint"]["urlEndpoint"]["url"].split("&q=")[-1].split("%2F")[-1].split("%3F")[0]
+                                    found = True
+                            if not found and "secondaryLinks" in ytdata["header"]["c4TabbedHeaderRenderer"]["headerLinks"]["channelHeaderLinksRenderer"]:
+                                for link in ytdata["header"]["c4TabbedHeaderRenderer"]["headerLinks"]["channelHeaderLinksRenderer"]["secondaryLinks"]:
+                                    if "twitter.com" in link["navigationEndpoint"]["urlEndpoint"]["url"] and not found:
+                                        channelData["twitter"] = link["navigationEndpoint"]["urlEndpoint"]["url"].split("&q=")[-1].split("%2F")[-1].split("%3F")[0]
                 if channelData is None:
                     with open(f"debug/{channelId}.html", "w") as f:
                         f.write(await r.text())
