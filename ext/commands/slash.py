@@ -30,7 +30,7 @@ class YagooSlash(commands.Cog):
     @cog_ext.cog_slash(name="subscribe", description="Subscribe to a VTuber's livestream/milestone notifications.",
                        options=[create_option(name = "name", description = "The VTuber's name that is being subscribed to.", option_type = 3, required = False)],
                        guild_ids=[802863586510241814, 751669314196602972])
-    async def _sub(self, ctx, name: str = None):
+    async def _subscribe(self, ctx, name: str = None):
         if name is None:
             await subCategory(ctx, self.bot)
         else:
@@ -41,5 +41,5 @@ class YagooSlash(commands.Cog):
         await botSublist(ctx, self.bot)
 
     @cog_ext.cog_slash(name="unsubscribe", description="Unsubscribe to an existing VTuber's livestream/milestone notifications.", options=None)
-    async def _unsub(self, ctx):
+    async def _unsubscribe(self, ctx):
         await botUnsub(ctx, self.bot)
