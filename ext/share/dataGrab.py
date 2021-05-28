@@ -151,3 +151,15 @@ async def getwebhook(bot, servers, cserver, cchannel):
         with open("data/servers.json", "w") as f:
             json.dump(servers, f, indent=4)
     return whurl
+
+async def refreshWebhook(server: discord.Guild, channel: discord.TextChannel):
+    with open("data/servers.json") as f:
+        servers = json.load(f)
+
+    with open("yagoo.jpg", "rb") as image:
+        webhook = await channel.create_webhook(name="Yagoo", avatar=image.read())
+    
+    servers[str(server.id)][str(channel.id)]["url"] = webhook.url
+
+    with open("data/servers.json", "w") as f:
+        json.dump(servers, f, indent=4)

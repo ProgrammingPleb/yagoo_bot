@@ -18,6 +18,7 @@ from ext.cogs.scrapeCycle import ScrapeCycle
 from ext.cogs.premiereCycle import PremiereCycle
 from ext.cogs.twtCycle import twtCycle
 from ext.share.botUtils import subPerms, creatorCheck, userWhitelist
+from ext.share.dataGrab import getSubType, getwebhook, refreshWebhook
 from ext.share.prompts import botError, subCheck
 from ext.commands.subscribe import subCategory, subCustom
 from ext.commands.general import botHelp, botSublist, botGetInfo, botUnsub
@@ -249,6 +250,12 @@ async def ytchCount(ctx):
         chCount += 1
     
     await ctx.send(f"Yagoo Bot has {chCount} channels in the database.")
+
+@bot.command()
+@commands.check(subPerms)
+async def chRefresh(ctx: commands.Context):
+    await refreshWebhook(ctx.guild, ctx.channel)
+    await ctx.send("The webhook URL has been refreshed for this channel.")
 
 @bot.command(aliases=["maint", "shutdown", "stop"])
 @commands.check(creatorCheck)
