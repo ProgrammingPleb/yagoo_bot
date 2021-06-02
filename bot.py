@@ -6,6 +6,7 @@ import yaml
 import logging
 import sys
 import platform
+from discord_components import DiscordComponents, Button, ButtonStyle
 from discord import Webhook, AsyncWebhookAdapter
 from discord_slash import SlashCommand
 from discord.ext import commands
@@ -47,6 +48,7 @@ if settings["slash"]:
 async def on_ready():
     global init
     if not init:
+        DiscordComponents(bot)
         guildCount = 0
         for guilds in bot.guilds:
             guildCount += 1
@@ -140,7 +142,9 @@ async def sublist_error(ctx, error):
 @bot.command()
 @commands.check(creatorCheck)
 async def test(ctx):
-    await ctx.send("Rushia Ch. \u6f64\u7fbd\u308b\u3057\u3042")
+    msg = await ctx.send("Test", components=[Button(label="Remove")])
+    await bot.wait_for("button_click")
+    await msg.edit("Changed to no buttons", components=[])
 
 @bot.command(aliases=["livestats", "livestat"])
 @commands.check(subPerms)
@@ -254,8 +258,24 @@ async def ytchCount(ctx):
 @bot.command()
 @commands.check(subPerms)
 async def chRefresh(ctx: commands.Context):
-    await refreshWebhook(ctx.guild, ctx.channel)
-    await ctx.send("The webhook URL has been refreshed for this channel.")
+    qmsg = await ctx.send("Are you sure to refresh this channel's webhook URL?", components=[[Button(style=ButtonStyle.blue, label="No"),
+                                                                                             Button(style=ButtonStyle.red, label="Yes")]])
+    
+    def check(res):
+        return res.user == ctx.message.author and res.channel == ctx.channel
+
+    try:
+        res = await bot.wait_for('button_click', check=check, timeout=60)
+    except asyncio.TimeoutError:
+        await qmsg.delete()
+        await ctx.message.delete()
+    else:
+        if res.component.label == "Yes":
+            await refreshWebhook(ctx.guild, ctx.channel)
+            await qmsg.edit("The webhook URL has been refreshed for this channel.", components=[])
+        else:
+            await qmsg.delete()
+            await ctx.message.delete()
 
 @bot.command(aliases=["maint", "shutdown", "stop"])
 @commands.check(creatorCheck)
