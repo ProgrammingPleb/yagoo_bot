@@ -1,10 +1,16 @@
 import discord
 import json
 import asyncio
+import tweepy
 from typing import Union
 from discord.ext import commands
 from discord_slash.context import SlashContext
+from discord_components import Button, ButtonStyle
 from ext.share.botVars import allSubTypes
+from ..infoscraper import FandomScrape, TwitterScrape
+from ..share.botUtils import TwitterUtils, chunks, embedContinue, getAllSubs, msgDelete, fandomTextParse, vtuberSearch
+from ..share.dataGrab import getSubType
+from ..share.prompts import TwitterPrompts, botError, unsubCheck
 
 async def botHelp():
     hembed = discord.Embed(title="Yagoo Bot Commands")
@@ -313,3 +319,63 @@ async def botGetInfo(ctx: Union[commands.Context, SlashContext], bot: commands.B
                             break
                         else:
                             excessLoop = False
+
+# Tasklist:
+# Create custom Twitter accounts compatibility layer
+# Create disclaimer on core unsubscribe command
+# Make Twitter cycle cog get user IDs from custom Twitter compatibility layer
+class botTwt:
+    async def follow(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, accLink: str):
+        twtHandle = ""
+
+        if accLink == "":
+            return await ctx.send(embed=await botError(ctx, "No Twitter ID"))
+        
+        with open("data/twitter.json") as f:
+            twtData = json.load(f)
+        
+        twtHandle = await TwitterUtils.getScreenName(accLink)
+        
+        try:
+            twtUser = await TwitterScrape.getUserDetails(twtHandle)
+        except tweepy.NotFound as e:
+            return await ctx.send(embed=await botError(ctx, e))
+
+        if "custom" not in twtData:
+            twtData["custom"] = {}
+        twtEmbed = discord.Embed(title=f"Following {twtUser.name} to this channel", description="Are you sure to subscribe to this Twitter account?")
+        twtMsg = await ctx.send(embed=twtEmbed, components=[[Button(label="No", style=ButtonStyle.red), Button(label="Yes", style=ButtonStyle.blue)]])
+        
+        def check(res):
+            return res.user == ctx.message.author and res.channel == ctx.channel
+        
+        try:
+            res = await bot.wait_for('button_click', check=check, timeout=60)
+        except asyncio.TimeoutError:
+            await twtMsg.delete()
+            await msgDelete(ctx)
+            return
+        if res.component.label == "Yes":
+            dbExist = await TwitterUtils.dbExists(twtUser.id_str)
+            if not dbExist["status"]:
+                twtData = await TwitterUtils.newAccount(twtUser)
+            await TwitterUtils.followActions("add", str(ctx.guild.id), str(ctx.channel.id), twtUser.id_str)
+            await twtMsg.delete()
+            await ctx.send(content=f"This channel is now following @{twtUser.screen_name}'s tweets.")
+            await msgDelete(ctx)
+            return
+        else:
+            await twtMsg.delete()
+            await msgDelete(ctx)
+            return
+    
+    async def unfollow(ctx: commands.Context, bot: commands.Bot):
+        twtMsg = await ctx.send("Loading custom Twitter accounts.")
+
+        with open("data/servers.json") as f:
+            servers = json.load(f)
+        
+        with open("data/twitter.json") as f:
+            twitter = json.load(f)
+        
+        await TwitterPrompts.unfollow(ctx, bot, twtMsg, twitter["custom"], servers)
