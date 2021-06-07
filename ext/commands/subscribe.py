@@ -67,7 +67,7 @@ async def subCategory(ctx: Union[commands.Context, SlashContext], bot: commands.
         else:
             listembed.add_field(name="Actions", value=f'A. Subscribe to all channels\nN. Go to next page\nB. Go to previous page\nS. Search for a VTuber\nX. Cancel')
         
-        await listmsg.edit(content=None, embed=listembed)
+        await listmsg.edit(content=" ", embed=listembed)
 
         def check(m):
             return m.content.lower() in pNumList + ['a', 'n', 'b', 's', 'x'] and m.author == ctx.author
@@ -115,13 +115,13 @@ async def subCategory(ctx: Union[commands.Context, SlashContext], bot: commands.
                             validSub = True
                 if not validSub:
                     ytch = csplit[pagepos][picklist[int(msg.content) - 1]]
-                    await listmsg.edit(content=f'This channel is already subscribed to {ytch["name"]}.', embed=None)
+                    await listmsg.edit(content=f'This channel is already subscribed to {ytch["name"]}.', embed=" ")
                     await msgDelete(ctx)
                     return
                 with open("data/servers.json", "w") as f:
                     json.dump(servers, f, indent=4)
                 ytch = csplit[pagepos][picklist[int(msg.content) - 1]]
-                await listmsg.edit(content=f'This channel is now subscribed to: {ytch["name"]}.', embed=None)
+                await listmsg.edit(content=f'This channel is now subscribed to: {ytch["name"]}.', embed=" ")
                 await msgDelete(ctx)
                 return
             elif msg.content.lower() == 'a':
@@ -156,7 +156,7 @@ async def subCategory(ctx: Union[commands.Context, SlashContext], bot: commands.
                                 servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].append(channels[ytch]["twitter"])
                 with open("data/servers.json", "w") as f:
                     json.dump(servers, f, indent=4)
-                await listmsg.edit(content=f'This channel is now subscribed to all {ctgPick["category"]} YouTube channels.', embed=None)
+                await listmsg.edit(content=f'This channel is now subscribed to all {ctgPick["category"]} YouTube channels.', embed=" ")
                 await msgDelete(ctx)
                 return
             elif msg.content.lower() == 'n' and pagepos < len(csplit) - 1:
@@ -254,13 +254,13 @@ async def subCustom(ctx: Union[commands.Context, SlashContext], bot: commands.Bo
                 servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].append(channels[channelID]["twitter"])
                 validSub = True
     if not validSub:
-        await searchMsg.edit(content=f'This channel is already subscribed to {cInfo["name"]}.', embed=None)
+        await searchMsg.edit(content=f'This channel is already subscribed to {cInfo["name"]}.', embed=" ")
         await msgDelete(ctx)
         return
 
     with open("data/servers.json", "w") as f:
         json.dump(servers, f, indent=4)
 
-    await searchMsg.edit(content=f'This channel is now subscribed to: {cInfo["name"]}.', embed=None)
+    await searchMsg.edit(content=f'This channel is now subscribed to: {cInfo["name"]}.', embed=" ")
     await msgDelete(ctx)
     return

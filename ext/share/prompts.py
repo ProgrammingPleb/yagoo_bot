@@ -31,7 +31,7 @@ async def subCheck(ctx, bot, subMsg, mode, chName):
                                                         f"{subText}X. Cancel\n\n[Bypass this by setting the channel's default subscription type using `y!subdefault`.\n"
                                                         "Select multiple subscriptions by seperating them using commas, for example `1,3`.]")
 
-    await subMsg.edit(content=None, embed=subEmbed)
+    await subMsg.edit(content=" ", embed=subEmbed)
 
     uInput = {
         "success": False
@@ -89,7 +89,7 @@ async def unsubCheck(ctx: Union[commands.Context, SlashContext], bot: commands.B
         notifCount += 1
     unsubEmbed.description += "\nX. Cancel\n[Select multiple subscriptions by seperating them using commas, for example `1,3`.]"
 
-    await unsubMsg.edit(content=None, embed=unsubEmbed)
+    await unsubMsg.edit(content=" ", embed=unsubEmbed)
 
 
     def check(m):
@@ -188,7 +188,7 @@ async def searchPrompt(ctx, bot, sResults: list, smsg, embedDesc):
     sEmbed.add_field(name="Search Results", value=sDesc.strip(), inline=False)
     sEmbed.add_field(name="Other Actions", value="X. Cancel", inline=False)
 
-    await smsg.edit(content=None, embed=sEmbed)
+    await smsg.edit(content=" ", embed=sEmbed)
 
     def check(m):
         return m.content.lower() in checkNum + ['x'] and m.author == ctx.author
@@ -229,7 +229,7 @@ async def searchConfirm(ctx, bot, sName: str, smsg, embedDesc, accept, decline, 
         sEmbed.add_field(name="Actions", value=f"Y. {accept}\nX. Cancel", inline=False)
         choices = ["y", "x"]
 
-    await smsg.edit(content=None, embed=sEmbed)
+    await smsg.edit(content=" ", embed=sEmbed)
 
     def check(m):
         return m.content.lower() in choices and m.author == ctx.author
@@ -279,7 +279,7 @@ async def ctgPicker(ctx, bot, channels, ctgMsg):
     catEmbed.add_field(name="Affiliation", value=catStr.strip())
     catEmbed.add_field(name="Other Actions", value="S. Search for a VTuber\nX. Cancel")
 
-    await ctgMsg.edit(content=None, embed=catEmbed)
+    await ctgMsg.edit(content=" ", embed=catEmbed)
 
     def check(m):
         return m.content.lower() in catNum + ["s", "x"] and m.author == ctx.author
@@ -317,8 +317,8 @@ async def searchMessage(ctx, bot, srchMsg):
     searchEmbed = discord.Embed(title="VTuber Search")
     searchEmbed.description = "Enter a VTuber name:\n" \
                               "[Enter `cancel` to cancel searching.]"
-    
-    await srchMsg.edit(content=None, embed=searchEmbed)
+
+    await srchMsg.edit(content=" ", embed=searchEmbed)
 
     def check(m):
         return m.author == ctx.author
