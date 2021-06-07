@@ -4,10 +4,7 @@ import asyncio
 from typing import Union
 from discord.ext import commands
 from discord_slash.context import SlashContext
-from ..infoscraper import FandomScrape
-from ..share.botUtils import chunks, embedContinue, getAllSubs, msgDelete, fandomTextParse, vtuberSearch
-from ..share.dataGrab import getwebhook, getSubType
-from ..share.prompts import subCheck, unsubCheck
+from ext.share.botVars import allSubTypes
 
 async def botHelp():
     hembed = discord.Embed(title="Yagoo Bot Commands")
@@ -124,10 +121,15 @@ async def botUnsub(ctx: Union[commands.Context, SlashContext], bot: commands.Bot
         elif msg.content.lower() == "a":
             unsubData = {
                 "name": "All Channels",
-                "subType": ["livestream", "milestone", "premiere"]
+                "subType": allSubTypes(False)
             }
             unsubTypes = await unsubCheck(ctx, bot, unsubData, unsubmsg)
             
+            if not unsubTypes["success"]:
+                await unsubmsg.delete()
+                await msgDelete(ctx)
+                return
+
             subRemove = ""
             for unsubType in unsubTypes["subType"]:
                 servers[str(ctx.guild.id)][str(ctx.channel.id)][unsubType] = []
