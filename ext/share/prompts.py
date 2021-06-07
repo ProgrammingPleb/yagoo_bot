@@ -155,17 +155,22 @@ async def botError(ctx, error):
                                f"Please allow the bot {plural}:\n"
         for perm in permOutput:
             errEmbed.description += f'\n - `{perm}`'
-    if "Missing Arguments" in str(error):
+    elif "Missing Arguments" in str(error):
         errEmbed.description = "A command argument was not given when required to."
-    if "No Subscriptions" in str(error):
+    elif "No Subscriptions" in str(error):
         errEmbed.description = "There are no subscriptions for this channel.\n" \
                                "Subscribe to a channel's notifications by using `y!sub` or `/sub` command."
-    if isinstance(error, commands.CheckFailure):
+    elif "No Twitter ID" in str(error):
+        errEmbed.description = "There was no Twitter account link given!\n" \
+                               "Ensure that the account's Twitter link or screen name is supplied to the command."
+    elif isinstance(error, commands.CheckFailure):
         errEmbed.description = "You are missing permissions to use this bot.\n" \
                                "Ensure that you have one of these permissions for the channel/server:\n\n" \
                                " - `Administrator (Server)`\n - `Manage Webhooks (Channel/Server)`"
-
-    if type(error) != str:
+    elif type(error) == tweepy.NotFound:
+        errEmbed.description = "This user was not found on Twitter!\n" \
+                               "Make sure the spelling of the user's Twitter link/screen name is correct!"
+    else:
         print("An unknown error has occurred.")
         traceback.print_exception(type(error), error, error.__traceback__)
         print(error)
