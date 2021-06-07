@@ -78,7 +78,7 @@ async def botUnsub(ctx: Union[commands.Context, SlashContext], bot: commands.Bot
 
         dcEmbed.add_field(name="Channels", value=chEmbedText, inline=False)
         dcEmbed.add_field(name="Actions", value=embedNav, inline=False)
-        await unsubmsg.edit(content=None, embed=dcEmbed)
+        await unsubmsg.edit(content=" ", embed=dcEmbed)
 
         def check(m):
             return m.content.lower() in chChoice and m.author == ctx.author
@@ -118,7 +118,7 @@ async def botUnsub(ctx: Union[commands.Context, SlashContext], bot: commands.Bot
             with open("data/servers.json", "w") as f:
                 json.dump(servers, f, indent=4)
 
-            await unsubmsg.edit(content=f"This channel has now been unsubscribed from {chPages[pageNum - 1][chChannels[int(msg.content) - 1]]['name']}. (Types: {subRemove.strip(', ')})", embed=None)
+            await unsubmsg.edit(content=f"This channel has now been unsubscribed from {chPages[pageNum - 1][chChannels[int(msg.content) - 1]]['name']}. (Types: {subRemove.strip(', ')})", embed=" ")
             await msgDelete(ctx)
             return
         elif msg.content.lower() == "a":
@@ -144,7 +144,7 @@ async def botUnsub(ctx: Union[commands.Context, SlashContext], bot: commands.Bot
             with open("data/servers.json", "w") as f:
                 json.dump(servers, f, indent=4)
 
-            await unsubmsg.edit(content=f"This channel has now been unsubscribed from all channels. (Types: {subRemove.strip(', ')})", embed=None)
+            await unsubmsg.edit(content=f"This channel has now been unsubscribed from all channels. (Types: {subRemove.strip(', ')})", embed=" ")
             return
         elif msg.content.lower() == "b":
             pageNum -= 1
@@ -183,7 +183,7 @@ async def botSublist(ctx: Union[commands.Context, SlashContext], bot: commands.B
     try:
         len(servers[str(ctx.guild.id)][str(ctx.channel.id)][uInput["subType"]])
     except KeyError:
-        await subsmsg.edit(content="There are no subscriptions on this channel.", embed=None)
+        await subsmsg.edit(content="There are no subscriptions on this channel.", embed=" ")
         return
 
     multi = False
@@ -202,7 +202,7 @@ async def botSublist(ctx: Union[commands.Context, SlashContext], bot: commands.B
         for sub in servers[str(ctx.guild.id)][str(ctx.channel.id)][uInput["subType"]]:
             sublist.append(sub)
     else:
-        await subsmsg.edit(content="There are no subscriptions on this channel.", embed=None)
+        await subsmsg.edit(content="There are no subscriptions on this channel.", embed=" ")
         return
     
     pagepos = 0
@@ -230,7 +230,7 @@ async def botSublist(ctx: Union[commands.Context, SlashContext], bot: commands.B
             dispstring += f'\nX. Remove this message'
         
         subsembed = discord.Embed(title="Currently subscribed channels:", description=dispstring)
-        await subsmsg.edit(content=None, embed=subsembed)
+        await subsmsg.edit(content=" ", embed=subsembed)
 
         def check(m):
             return m.content.lower() in ['n', 'b', 'x'] and m.author == ctx.author
