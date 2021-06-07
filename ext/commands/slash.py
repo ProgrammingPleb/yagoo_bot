@@ -1,10 +1,8 @@
 import logging
 from discord.ext import commands
 from discord_slash import cog_ext
-from discord_slash.context import SlashContext
 from discord_slash.utils.manage_commands import create_option
 from .general import botGetInfo, botHelp, botSublist, botUnsub
-from ..share.botUtils import subPerms
 from .subscribe import subCategory, subCustom
 
 class YagooSlash(commands.Cog):

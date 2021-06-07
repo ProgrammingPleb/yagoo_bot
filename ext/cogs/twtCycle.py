@@ -7,7 +7,7 @@ import traceback
 import concurrent.futures
 from tweepy.errors import NotFound
 from tweepy.asynchronous import AsyncStream
-from ..infoscraper import TwitterScrape, channelInfo
+from ..infoscraper import TwitterScrape
 from discord.ext import commands, tasks
 from discord import AsyncWebhookAdapter, Webhook
 from ext.share.dataGrab import getwebhook
