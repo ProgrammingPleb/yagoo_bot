@@ -45,7 +45,6 @@ async def twtUpdater():
             json.dump(channels, f, indent=4)
         with open("data/twitter.json", "w") as f:
             json.dump(twitter, f, indent=4)
-        twtCycle.twtSubWrapper.restart()
 
 async def twtSubscribe(bot):
     """
@@ -142,7 +141,6 @@ class twtCycle(commands.Cog):
             await twtSubscribe(self.bot)
         except Exception as e:
             traceback.print_exception(type(e), e, e.__traceback__)
-
 
     @tasks.loop(minutes=15.0)
     async def twtIDcheck(self):
