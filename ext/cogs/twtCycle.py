@@ -60,9 +60,15 @@ async def twtSubscribe(bot):
     with open("data/channels.json") as f:
         channels = json.load(f)
 
+    with open("data/twitter.json") as f:
+        customAcc = (json.load(f))["custom"]
+
     for channel in channels:
         if "twitter" in channels[channel]:
             twtUsers.append(channels[channel]["twitter"])
+    
+    for account in customAcc:
+        twtUsers.append(account)
 
     twtCred = await TwitterScrape.getCredentials()
     stream = twtPost(bot, twtCred["apiKey"], twtCred["apiSecret"], twtCred["accessKey"], twtCred["accessSecret"])
@@ -99,18 +105,24 @@ class twtPost(AsyncStream):
             twtString = f'@{tweet.user.screen_name} just liked @{tweet.retweeted_status.user.screen_name}\' tweet: https://twitter.com/{tweet.user.screen_name}/status/{tweet.id_str}'
         else:
             twtString = f'@{tweet.user.screen_name} tweeted just now: https://twitter.com/{tweet.user.screen_name}/status/{tweet.id_str}'
-        
+
+        async def postTweet(ptServer, ptChannel):
+            try:
+                whurl = await getwebhook(self.bot, servers, ptServer, ptChannel)
+                async with aiohttp.ClientSession() as session:
+                    webhook = Webhook.from_url(whurl, adapter=AsyncWebhookAdapter(session))
+                    await webhook.send(twtString, avatar_url=tweet.user.profile_image_url_https, username=tweet.user.name)
+            except Exception as e:
+                logging.error(f"Twitter - An error has occurred while publishing stream notification to {channel}!", exc_info=True)
+
         for server in servers:
             for channel in servers[server]:
                 if "twitter" in servers[server][channel]:
                     if tweet.user.id_str in servers[server][channel]["twitter"]:
-                        try:
-                            whurl = await getwebhook(self.bot, servers, server, channel)
-                            async with aiohttp.ClientSession() as session:
-                                webhook = Webhook.from_url(whurl, adapter=AsyncWebhookAdapter(session))
-                                await webhook.send(twtString, avatar_url=tweet.user.profile_image_url_https, username=tweet.user.name)
-                        except Exception as e:
-                            logging.error(f"Twitter - An error has occurred while publishing stream notification to {channel}!", exc_info=True)
+                        await postTweet(server, channel)
+                if "custom" in servers[server][channel]:
+                    if tweet.user.id_str in servers[server][channel]["custom"]:
+                        await postTweet(server, channel)
 
     async def on_error(self, status):
         logging.error(f"Twitter - An error has occured!\nTweepy Error: {status}")

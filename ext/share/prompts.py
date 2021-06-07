@@ -2,6 +2,7 @@ import asyncio
 import traceback
 import discord
 import discord_components
+import tweepy
 from discord.ext import commands
 from discord_components.interaction import InteractionType
 from discord_slash.context import SlashContext
@@ -485,3 +486,64 @@ class pageNav:
                     return {
                         "status": False
                     }
+
+class TwitterPrompts:
+    async def parseToPages(data: list):
+        pages = []
+
+        for section in data:
+            pos = 1
+            temp = ""
+            entries = []
+            id_list = []
+            names = []
+            for account in section:
+                temp += f"{pos}. {section[account]['name']} (@{section[account]['screen_name']})\n"
+                entries.append(str(pos))
+                id_list.append(account)
+                names.append(section[account]['name'])
+                pos += 1
+            pages.append({"text": temp, "entries": entries, "ids": id_list, "names": names})
+        
+        return pages
+
+    async def unfollow(ctx: commands.Context, bot: commands.Bot, msg: discord.Message, customAcc: dict, servers: dict):
+        from .botUtils import chunks, msgDelete, TwitterUtils
+        temp = {}
+        followed = []
+
+        for account in servers[str(ctx.guild.id)][str(ctx.channel.id)]["custom"]:
+            temp[account] = customAcc[account]
+                
+        for account in chunks(temp, SIZE=9):
+            followed.append(account)
+        
+        pages = await TwitterPrompts.parseToPages(followed)
+        prompt = await pageNav.minimal.prompt(ctx, bot, msg, pages, "Following an account")
+
+        if not prompt["status"]:
+            await msg.delete()
+            await msgDelete(ctx)
+        else:
+            if not prompt["all"]:
+                choiceText = f"unfollow from {prompt['channel']['name']}"
+                choiceTitle = "Unfollowing from a Twitter account"
+                resultText = f"@{prompt['channel']['name']}'s tweets are now unfollowed from this channel."
+            else:
+                choiceText = "unfollow from all Twitter accounts"
+                choiceTitle = "Unfollowing from all Twitter accounts"
+                resultText = f"All custom Twitter accounts are now unfollowed from this channel."
+            
+            choice = await generalPrompts.confirm(ctx, bot, msg, choiceTitle, choiceText)
+
+            if choice["status"] and choice["choice"]:
+                if not prompt["all"]:
+                    await TwitterUtils.followActions("remove", str(ctx.guild.id), str(ctx.channel.id), prompt["channel"]["id"])
+                else:
+                    await TwitterUtils.followActions("remove", str(ctx.guild.id), str(ctx.channel.id), all=True)
+                await msg.edit(content=resultText, embed=" ", components=[])
+                await msgDelete(ctx)
+            else:
+                await msg.delete()
+                await msgDelete(ctx)
+                return

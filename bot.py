@@ -22,7 +22,7 @@ from ext.share.botUtils import subPerms, creatorCheck, userWhitelist
 from ext.share.dataGrab import getSubType, getwebhook, refreshWebhook
 from ext.share.prompts import botError
 from ext.commands.subscribe import subCategory, subCustom
-from ext.commands.general import botHelp, botSublist, botGetInfo, botUnsub
+from ext.commands.general import botHelp, botSublist, botGetInfo, botTwt, botUnsub
 from ext.commands.slash import YagooSlash
 
 init = False
@@ -138,6 +138,16 @@ async def sublist_error(ctx, error):
     errEmbed = await botError(ctx, error)
     if errEmbed:
         await ctx.send(embed=errEmbed)
+
+@bot.command()
+@commands.check(subPerms)
+async def follow(ctx, accLink: str = ""):
+    await botTwt.follow(ctx, bot, accLink)
+
+@bot.command()
+@commands.check(subPerms)
+async def unfollow(ctx):
+    await botTwt.unfollow(ctx, bot)
 
 @bot.command()
 @commands.check(creatorCheck)
