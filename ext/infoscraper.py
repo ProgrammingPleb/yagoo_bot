@@ -372,23 +372,29 @@ class FandomScrape():
 
         return subPointers
 
-class TwitterScrape():
+class TwitterScrape:
     async def getCredentials():
         with open("data/settings.yaml") as f:
             settings = yaml.load(f, Loader=yaml.SafeLoader)
 
         return settings["twitter"]
 
-    async def getUserID(screenName):
+    async def getAPI():
         credentials = await TwitterScrape.getCredentials()
 
         auth = tweepy.OAuthHandler(credentials["apiKey"], credentials["apiSecret"])
         auth.set_access_token(credentials["accessKey"], credentials["accessSecret"])
 
-        # Create API object
-        api = tweepy.API(auth, wait_on_rate_limit=True)
+        # Return API object
+        return tweepy.API(auth, wait_on_rate_limit=True)
 
+    async def getUserID(screenName):
+        api = await TwitterScrape.getAPI()
         return (api.get_user(screen_name=screenName)).id_str
+    
+    async def getUserDetails(screenName):
+        api = await TwitterScrape.getAPI()
+        return api.get_user(screen_name=screenName)
 
 async def channelScrape(query: str):
 
