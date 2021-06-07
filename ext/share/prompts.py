@@ -1,9 +1,12 @@
 import asyncio
 import traceback
-from typing import Union
 import discord
+import discord_components
 from discord.ext import commands
+from discord_components.interaction import InteractionType
 from discord_slash.context import SlashContext
+from discord_components import Button, ButtonStyle
+from typing import Union
 from ext.share.botVars import allSubTypes
 
 async def subCheck(ctx, bot, subMsg, mode, chName):
@@ -347,3 +350,138 @@ async def searchMessage(ctx, bot, srchMsg):
             "success": True,
             "search": msg.content
         }
+
+class generalPrompts:
+    async def confirm(ctx: commands.Context, bot: commands.Bot, msg: discord.Message, title: str, action: str):
+        from .botUtils import msgDelete
+
+        embed = discord.Embed(title=title, description=f"Are you sure you want to {action}?")
+        await msg.edit(content=" ", embed=embed, components=[[Button(label="No", style=ButtonStyle.red, id="no"), Button(label="Yes", style=ButtonStyle.blue, id="yes")]])
+
+        def check(res):
+            return res.channel.id == ctx.channel.id and res.user.id == ctx.author.id and res.message.id == msg.id
+
+        try:
+            result = await bot.wait_for("button_click", check=check, timeout=30)
+        except asyncio.TimeoutError:
+            await msg.delete()
+            await msgDelete(ctx)
+            return {
+                "status": False,
+                "choice": None
+            }
+        else:
+            if result.component.id == "no":
+                return {
+                    "status": True,
+                    "choice": False
+                }
+            elif result.component.id == "yes":
+                return {
+                    "status": True,
+                    "choice": True
+                }
+
+class pageNav:
+    class utils:
+        async def doubleCheck(ctx: commands.Context, bot: commands.Bot, msg: discord.Message, pages: list, pageNum: int):
+            def mCheck(m):
+                return m.content in pages[pageNum]["entries"] and m.channel.id == ctx.channel.id and m.author.id == ctx.author.id
+            
+            def bCheck(res):
+                return res.channel.id == ctx.channel.id and res.user.id == ctx.author.id and res.message.id == msg.id
+
+            done, pending = await asyncio.wait([bot.wait_for("button_click", check=bCheck, timeout=30), bot.wait_for("message", check=mCheck, timeout=30)], return_when=asyncio.FIRST_COMPLETED)
+
+            for future in done:
+                future.exception()
+            
+            for future in pending:
+                future.cancel()
+
+            try:
+                result = done.pop().result()
+            except Exception as e:
+                if type(e) == asyncio.TimeoutError:
+                    return False
+                await botError(ctx, "AsyncIO Wait Error")
+            
+            return result
+        
+        async def buttonCheck(bot: commands.Bot):
+
+            return
+
+    class minimal:
+        async def editMsg(bot: commands.Bot, msg: discord.Message, embed: discord.Embed, pages: list, pageNum: int):
+            pageButtons = []
+            if len(pages) > 1:
+                pageButtons.append([Button(label=f"Page {pageNum + 1}/{len(pages)}", disabled=True)])
+                if pageNum == 0:
+                    pageButtons[0].insert(0, Button(id="back", emoji="⬅️", disabled=True))
+                    pageButtons[0].append(Button(id="next", emoji="➡️", style=ButtonStyle.blue))
+                elif pageNum == (len(pages) - 1):
+                    pageButtons[0].insert(0, Button(id="back", emoji="⬅️", style=ButtonStyle.blue))
+                    pageButtons[0].append(Button(id="next", emoji="➡️", disabled=True))
+                else:
+                    pageButtons[0].insert(0, Button(id="back", emoji="⬅️", style=ButtonStyle.blue))
+                    pageButtons[0].append(Button(id="next", emoji="➡️", style=ButtonStyle.blue))
+            pageButtons.append([Button(id="unfollow", label="Unfollow All Users", style=ButtonStyle.red), Button(id="cancel", label="Cancel", style=ButtonStyle.blue)])
+            await msg.edit(content=" ", embed=embed, components=pageButtons)
+
+        
+        async def processButton(data: discord_components.Interaction):
+            if data.component.id == "back":
+                return -1
+            elif data.component.id == "next":
+                return 1
+            elif data.component.id == "cancel":
+                return 2
+            elif data.component.id == "unfollow":
+                return 3
+        
+        async def processMsg(msg: discord.Message, pageData: dict):
+            return {
+                "status": True,
+                "all": False,
+                "channel": {
+                    "name": pageData["names"][int(msg.content) - 1],
+                    "id": pageData["ids"][int(msg.content) - 1]
+                }
+            }
+
+        async def prompt(ctx: commands.Context, bot: commands.Bot, msg: discord.Message, pages: list, title: str):
+            pageNum = 0
+            embed = discord.Embed(title=title)
+            embed.add_field(name="Actions", value="Pick a number correlating to the entry in the list or use the buttons below for other actions.")
+
+            while True:
+                embed.description = pages[pageNum]["text"].strip()
+                await pageNav.minimal.editMsg(bot, msg, embed, pages, pageNum)
+                result = await pageNav.utils.doubleCheck(ctx, bot, msg, pages, pageNum)
+                
+                if type(result) == discord_components.Interaction:
+                    await result.respond(type=InteractionType.DeferredUpdateMessage)
+                    buttonRes = await pageNav.minimal.processButton(result)
+                    if buttonRes == 2:
+                        return {
+                            "status": False,
+                            "all": False,
+                            "channel": None
+                        }
+                    elif buttonRes == 3:
+                        return {
+                            "status": True,
+                            "all": True,
+                            "channel": None
+                        }
+                    else:
+                        pageNum += buttonRes
+                elif type(result) == discord.Message:
+                    if result.content in pages[pageNum]["entries"]:
+                        await result.delete()
+                        return await pageNav.minimal.processMsg(result, pages[pageNum])
+                else:
+                    return {
+                        "status": False
+                    }
