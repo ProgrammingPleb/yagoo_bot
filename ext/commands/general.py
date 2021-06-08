@@ -359,9 +359,11 @@ class botTwt:
             dbExist = await TwitterUtils.dbExists(twtUser.id_str)
             if not dbExist["status"]:
                 twtData = await TwitterUtils.newAccount(twtUser)
-            await TwitterUtils.followActions("add", str(ctx.guild.id), str(ctx.channel.id), twtUser.id_str)
-            await twtMsg.delete()
-            await ctx.send(content=f"This channel is now following @{twtUser.screen_name}'s tweets.")
+            status = await TwitterUtils.followActions("add", str(ctx.guild.id), str(ctx.channel.id), twtUser.id_str)
+            if not status:
+                await twtMsg.edit(content=f"This channel is already following @{twtUser.name}'s tweets.", embed=" ")
+            else:
+                await twtMsg.delete()
             await msgDelete(ctx)
             return
         else:
