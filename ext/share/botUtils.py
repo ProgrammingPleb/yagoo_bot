@@ -477,6 +477,21 @@ class TwitterUtils:
         return db
     
     async def followActions(action: str, server: str, channel: str, userID: str = None, all: bool = False):
+        """
+        Follow or unfollow a user based on the action argument given. Saves it inside the bot's database.
+
+        Arguments
+        ---
+        `action`: Can be either `add` to follow or `remove` to unfollow.
+        `server`: The server's ID in `str` type.
+        `channel`: The channel's ID in `str` type.
+        `userID`: The user's Twitter ID. Optional if `all` is set to `True`.
+        `all`: Selects all currently followed users of the channel. Can be used only if `action` is `remove`.
+
+        Returns
+        ---
+        `True` if the action was successful, `False` if otherwise.
+        """
         with open("data/servers.json") as f:
             servers = json.load(f)
         
