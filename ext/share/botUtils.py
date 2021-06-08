@@ -6,11 +6,14 @@ import datetime
 import yaml
 import rpyc
 import json
+import tweepy
 from discord.ext import commands
 from discord_slash.context import SlashContext
 from itertools import islice
 from typing import Union
+from yaml.loader import SafeLoader
 from .prompts import searchConfirm, searchPrompt
+from .botVars import allSubTypes
 
 def round_down(num, divisor):
     return num - (num%divisor)
@@ -22,6 +25,12 @@ def chunks(data, SIZE=10000):
 
 def creatorCheck(ctx):
     return ctx.author.id == 256009740239241216
+
+def userWhitelist(ctx):
+    with open("data/settings.yaml") as f:
+        settings = yaml.load(f, Loader=SafeLoader)
+    
+    return ctx.author.id in settings["whitelist"]
 
 def subPerms(ctx):
     userPerms = ctx.channel.permissions_for(ctx.author)
@@ -381,11 +390,15 @@ async def getAllSubs(chData: dict) -> dict:
 
     with open("data/channels.json", encoding="utf-8") as f:
         channels = json.load(f)
+    with open("data/twitter.json") as f:
+        twitter = json.load(f)
 
     allCh = {}
     for data in chData:
-        if data in ["livestream", "milestone", "premiere"]:
+        if data in allSubTypes(False):
             for ch in chData[data]:
+                if data == "twitter":
+                    ch = twitter[ch]
                 if ch not in allCh:
                     allCh[ch] = {
                         "name": channels[ch]["name"],
@@ -395,3 +408,138 @@ async def getAllSubs(chData: dict) -> dict:
                     allCh[ch]["subType"].append(data)
     
     return allCh
+
+class TwitterUtils:
+    """
+    Twitter-related utilities to be used by the bot's functions.
+    """
+
+    async def dbExists(twtID: str):
+        """
+        Checks if the supplied Twitter user ID exists in the bot's Twitter database.
+        
+        Arguments
+        ---
+        `twtID`: A Twitter user's ID in string format.
+
+        Returns
+        ---
+        A dictionary containing:
+        `status`: `True` if the user exists in the database, `False` if otherwise.
+        `user`: User's account data if `status` is `True`, `None` if otherwise.
+        """
+        with open("data/twitter.json") as f:
+            twtDB = json.load(f)
+        
+        if "custom" not in twtDB:
+            return {
+                "status": False,
+                "user": None
+            }
+
+        if twtID in twtDB["custom"]:
+            return {
+                "status": True,
+                "user": twtDB["custom"][twtID]
+            }
+        else:
+            return {
+                "status": False,
+                "user": None
+            }
+
+    async def newAccount(userData: tweepy.User):
+        """
+        Adds a new Twitter account to the bot's database.
+
+        Arguments
+        ---
+        `userData`: The account's data (from `tweepy.User`)
+
+        Returns
+        ---
+        `twitter.json` with the new data.
+        """
+        with open("data/twitter.json") as f:
+            db = json.load(f)
+        
+        if "custom" not in db:
+            db["custom"] = {}
+
+        db["custom"][userData.id_str] = {
+            "name": userData.name,
+            "screen_name": userData.screen_name
+        }
+
+        with open("data/twitter.json", "w", encoding="utf-8") as f:
+            json.dump(db, f, indent=4)
+        
+        return db
+    
+    async def followActions(action: str, server: str, channel: str, userID: str = None, all: bool = False):
+        """
+        Follow or unfollow a user based on the action argument given. Saves it inside the bot's database.
+
+        Arguments
+        ---
+        `action`: Can be either `add` to follow or `remove` to unfollow.
+        `server`: The server's ID in `str` type.
+        `channel`: The channel's ID in `str` type.
+        `userID`: The user's Twitter ID. Optional if `all` is set to `True`.
+        `all`: Selects all currently followed users of the channel. Can be used only if `action` is `remove`.
+
+        Returns
+        ---
+        `True` if the action was successful, `False` if otherwise.
+        """
+        with open("data/servers.json") as f:
+            servers = json.load(f)
+        
+        if "custom" not in servers[server][channel]:
+            servers[server][channel]["custom"] = []
+        
+        if action == "add":
+            if userID not in servers[server][channel]["custom"]:
+                servers[server][channel]["custom"].append(userID)
+            else:
+                return False
+        elif action == "remove":
+            if all:
+                servers[server][channel]["custom"] = []
+            elif userID in servers[server][channel]["custom"]:
+                servers[server][channel]["custom"].remove(userID)
+            else:
+                return False
+        
+        with open("data/servers.json", "w") as f:
+            json.dump(servers, f, indent=4)
+        
+        return True
+    
+    async def getScreenName(accLink: str):
+        """
+        Get the screen name from a Twitter account/tweet link.\n
+        Can also be grabbed from just the Twitter screen name with or without the `@`.
+
+        Arguments
+        ---
+        `accLink`: The string containing one of either situations above.
+
+        Returns
+        ---
+        The screen name obtained from `accLink`.
+        """
+        if "twitter.com" in accLink:
+            nextSection = False
+            for section in accLink.split("/"):
+                if nextSection:
+                    twtHandle = section
+                    break
+                if section == "twitter.com":
+                    nextSection = True
+        elif "@" in accLink:
+            twtHandle = accLink.split("@")[-1]
+        else:
+            twtHandle = accLink
+        
+        return twtHandle

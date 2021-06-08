@@ -3,8 +3,6 @@ import traceback
 import aiohttp
 import discord
 import logging
-import rpyc
-import yaml
 import asyncio
 import concurrent.futures
 from discord import Webhook, AsyncWebhookAdapter
@@ -12,7 +10,6 @@ from discord.ext import commands, tasks
 from ext.share.botUtils import uplThumbnail
 from ..infoscraper import streamInfo, channelInfo
 from ..share.dataGrab import getwebhook
-from ..share.prompts import botError
 
 async def streamcheck(ctx = None, test: bool = False, loop: bool = False):
     with open("data/channels.json", encoding="utf-8") as f:

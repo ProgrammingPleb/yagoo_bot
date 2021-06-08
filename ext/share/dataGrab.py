@@ -5,12 +5,13 @@ import discord
 from discord.ext import commands
 from ext.share.prompts import botError
 from .dataWrite import genServer
-from ext.share.botUtils import msgDelete, serverSubTypes
+from .botUtils import msgDelete, serverSubTypes
+from .botVars import allSubTypes
 
 async def getSubType(ctx: commands.Context, mode, bot: commands.Bot, prompt = None):
     pEmbed = discord.Embed()
     subDNum = 1
-    subOptions = ["Livestream", "Milestone", "Premiere"]            # Update this on prompts.py/subCheck() and botUtils.py/getAllSubs() too
+    subOptions = allSubTypes()
     subChoice = []
 
     with open("data/servers.json") as f:
@@ -69,7 +70,7 @@ async def getSubType(ctx: commands.Context, mode, bot: commands.Bot, prompt = No
         pEmbed.description = subEText
         def check(m):
             return m.content.lower() in subChoice and m.author == ctx.author
-        await prompt.edit(content=None, embed=pEmbed)
+        await prompt.edit(content=" ", embed=pEmbed)
 
     while True:
         try:
@@ -116,15 +117,15 @@ async def getSubType(ctx: commands.Context, mode, bot: commands.Bot, prompt = No
 
                         await msgDelete(ctx)
                         if len(servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"]) == 0:
-                            await prompt.edit(content=f"Subscription defaults for this channel has been removed.", embed=None)
+                            await prompt.edit(content=f"Subscription defaults for this channel has been removed.", embed=" ")
                         else:
-                            await prompt.edit(content=f"This channel will now subscribe to {subText} notifications by default.", embed=None)
+                            await prompt.edit(content=f"This channel will now subscribe to {subText} notifications by default.", embed=" ")
                         break
                 elif mode == 2:
                     if "," not in msg.content:
                         return {
                             "success": True,
-                            "subType": subOptions[int(msg.content) - 1].lower()
+                            "subType": actualSubTypes[int(msg.content) - 1].lower()
                         }
             elif msg.content.lower() == 'x':
                 await prompt.delete()
@@ -150,3 +151,15 @@ async def getwebhook(bot, servers, cserver, cchannel):
         with open("data/servers.json", "w") as f:
             json.dump(servers, f, indent=4)
     return whurl
+
+async def refreshWebhook(server: discord.Guild, channel: discord.TextChannel):
+    with open("data/servers.json") as f:
+        servers = json.load(f)
+
+    with open("yagoo.jpg", "rb") as image:
+        webhook = await channel.create_webhook(name="Yagoo", avatar=image.read())
+    
+    servers[str(server.id)][str(channel.id)]["url"] = webhook.url
+
+    with open("data/servers.json", "w") as f:
+        json.dump(servers, f, indent=4)

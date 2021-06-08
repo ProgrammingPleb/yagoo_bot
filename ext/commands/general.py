@@ -1,13 +1,16 @@
 import discord
 import json
 import asyncio
+import tweepy
 from typing import Union
 from discord.ext import commands
 from discord_slash.context import SlashContext
-from ..infoscraper import FandomScrape
-from ..share.botUtils import chunks, embedContinue, getAllSubs, msgDelete, fandomTextParse, vtuberSearch
-from ..share.dataGrab import getwebhook, getSubType
-from ..share.prompts import subCheck, unsubCheck
+from discord_components import Button, ButtonStyle
+from ext.share.botVars import allSubTypes
+from ..infoscraper import FandomScrape, TwitterScrape
+from ..share.botUtils import TwitterUtils, chunks, embedContinue, getAllSubs, msgDelete, fandomTextParse, vtuberSearch
+from ..share.dataGrab import getSubType
+from ..share.prompts import TwitterPrompts, botError, unsubCheck
 
 async def botHelp():
     hembed = discord.Embed(title="Yagoo Bot Commands")
@@ -43,6 +46,8 @@ async def botUnsub(ctx: Union[commands.Context, SlashContext], bot: commands.Bot
 
     with open("data/servers.json") as f:
         servers = json.load(f)
+    with open("data/channels.json") as f:
+        channels = json.load(f)
     
     unsubmsg = await ctx.send("Loading subscription list...")
 
@@ -76,7 +81,7 @@ async def botUnsub(ctx: Union[commands.Context, SlashContext], bot: commands.Bot
 
         dcEmbed.add_field(name="Channels", value=chEmbedText, inline=False)
         dcEmbed.add_field(name="Actions", value=embedNav, inline=False)
-        await unsubmsg.edit(content=None, embed=dcEmbed)
+        await unsubmsg.edit(content=" ", embed=dcEmbed)
 
         def check(m):
             return m.content.lower() in chChoice and m.author == ctx.author
@@ -100,7 +105,10 @@ async def botUnsub(ctx: Union[commands.Context, SlashContext], bot: commands.Bot
             with open("data/servers.json") as f:
                 servers = json.load(f)
             for subType in chUnsub["subType"]:
-                servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].remove(chChannels[int(msg.content) - 1])
+                if subType != "twitter":
+                    servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].remove(chChannels[int(msg.content) - 1])
+                else:
+                    servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].remove(channels[chChannels[int(msg.content) - 1]]["twitter"])
                 if len(chUnsub["subType"]) > 2:
                     subRemove += f"{subType}, "
                 elif len(chUnsub["subType"]) == 2:
@@ -113,8 +121,38 @@ async def botUnsub(ctx: Union[commands.Context, SlashContext], bot: commands.Bot
             with open("data/servers.json", "w") as f:
                 json.dump(servers, f, indent=4)
 
-            await unsubmsg.edit(content=f"This channel has now been unsubscribed from {chPages[pageNum - 1][chChannels[int(msg.content) - 1]]['name']}. (Types: {subRemove.strip(', ')})", embed=None)
+            await unsubmsg.edit(content=f"This channel has now been unsubscribed from {chPages[pageNum - 1][chChannels[int(msg.content) - 1]]['name']}. (Types: {subRemove.strip(', ')})", embed=" ")
             await msgDelete(ctx)
+            return
+        elif msg.content.lower() == "a":
+            unsubData = {
+                "name": "All Channels",
+                "subType": allSubTypes(False)
+            }
+            unsubTypes = await unsubCheck(ctx, bot, unsubData, unsubmsg)
+            
+            if not unsubTypes["success"]:
+                await unsubmsg.delete()
+                await msgDelete(ctx)
+                return
+
+            subRemove = ""
+            for unsubType in unsubTypes["subType"]:
+                servers[str(ctx.guild.id)][str(ctx.channel.id)][unsubType] = []
+                if len(unsubTypes["subType"]) > 2:
+                    subRemove += f"{unsubType}, "
+                elif len(unsubTypes["subType"]) == 2:
+                    if "and" in subRemove:
+                        subRemove += unsubType
+                    else:
+                        subRemove += f"{unsubTypes} and "
+                else:
+                    subRemove = unsubType
+            
+            with open("data/servers.json", "w") as f:
+                json.dump(servers, f, indent=4)
+
+            await unsubmsg.edit(content=f"This channel has now been unsubscribed from all channels. (Types: {subRemove.strip(', ')})", embed=" ")
             return
         elif msg.content.lower() == "b":
             pageNum -= 1
@@ -153,7 +191,7 @@ async def botSublist(ctx: Union[commands.Context, SlashContext], bot: commands.B
     try:
         len(servers[str(ctx.guild.id)][str(ctx.channel.id)][uInput["subType"]])
     except KeyError:
-        await subsmsg.edit(content="There are no subscriptions on this channel.", embed=None)
+        await subsmsg.edit(content="There are no subscriptions on this channel.", embed=" ")
         return
 
     multi = False
@@ -172,7 +210,7 @@ async def botSublist(ctx: Union[commands.Context, SlashContext], bot: commands.B
         for sub in servers[str(ctx.guild.id)][str(ctx.channel.id)][uInput["subType"]]:
             sublist.append(sub)
     else:
-        await subsmsg.edit(content="There are no subscriptions on this channel.", embed=None)
+        await subsmsg.edit(content="There are no subscriptions on this channel.", embed=" ")
         return
     
     pagepos = 0
@@ -200,7 +238,7 @@ async def botSublist(ctx: Union[commands.Context, SlashContext], bot: commands.B
             dispstring += f'\nX. Remove this message'
         
         subsembed = discord.Embed(title="Currently subscribed channels:", description=dispstring)
-        await subsmsg.edit(content=None, embed=subsembed)
+        await subsmsg.edit(content=" ", embed=subsembed)
 
         def check(m):
             return m.content.lower() in ['n', 'b', 'x'] and m.author == ctx.author
@@ -281,3 +319,65 @@ async def botGetInfo(ctx: Union[commands.Context, SlashContext], bot: commands.B
                             break
                         else:
                             excessLoop = False
+
+# Tasklist:
+# Create custom Twitter accounts compatibility layer
+# Create disclaimer on core unsubscribe command
+# Make Twitter cycle cog get user IDs from custom Twitter compatibility layer
+class botTwt:
+    async def follow(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, accLink: str):
+        twtHandle = ""
+
+        if accLink == "":
+            return await ctx.send(embed=await botError(ctx, "No Twitter ID"))
+        
+        with open("data/twitter.json") as f:
+            twtData = json.load(f)
+        
+        twtHandle = await TwitterUtils.getScreenName(accLink)
+        
+        try:
+            twtUser = await TwitterScrape.getUserDetails(twtHandle)
+        except tweepy.NotFound as e:
+            return await ctx.send(embed=await botError(ctx, e))
+
+        if "custom" not in twtData:
+            twtData["custom"] = {}
+        twtEmbed = discord.Embed(title=f"Following {twtUser.name} to this channel", description="Are you sure to subscribe to this Twitter account?")
+        twtMsg = await ctx.send(embed=twtEmbed, components=[[Button(label="No", style=ButtonStyle.red), Button(label="Yes", style=ButtonStyle.blue)]])
+        
+        def check(res):
+            return res.user == ctx.message.author and res.channel == ctx.channel
+        
+        try:
+            res = await bot.wait_for('button_click', check=check, timeout=60)
+        except asyncio.TimeoutError:
+            await twtMsg.delete()
+            await msgDelete(ctx)
+            return
+        if res.component.label == "Yes":
+            dbExist = await TwitterUtils.dbExists(twtUser.id_str)
+            if not dbExist["status"]:
+                twtData = await TwitterUtils.newAccount(twtUser)
+            status = await TwitterUtils.followActions("add", str(ctx.guild.id), str(ctx.channel.id), twtUser.id_str)
+            if not status:
+                await twtMsg.edit(content=f"This channel is already following @{twtUser.name}'s tweets.", embed=" ")
+            else:
+                await twtMsg.delete()
+            await msgDelete(ctx)
+            return
+        else:
+            await twtMsg.delete()
+            await msgDelete(ctx)
+            return
+    
+    async def unfollow(ctx: commands.Context, bot: commands.Bot):
+        twtMsg = await ctx.send("Loading custom Twitter accounts.")
+
+        with open("data/servers.json") as f:
+            servers = json.load(f)
+        
+        with open("data/twitter.json") as f:
+            twitter = json.load(f)
+        
+        await TwitterPrompts.unfollow(ctx, bot, twtMsg, twitter["custom"], servers)

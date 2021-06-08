@@ -6,6 +6,7 @@ import yaml
 import logging
 import sys
 import platform
+from discord_components import DiscordComponents, Button, ButtonStyle
 from discord import Webhook, AsyncWebhookAdapter
 from discord_slash import SlashCommand
 from discord.ext import commands
@@ -16,11 +17,12 @@ from ext.cogs.dblUpdate import guildUpdate
 from ext.cogs.chUpdater import chCycle
 from ext.cogs.scrapeCycle import ScrapeCycle
 from ext.cogs.premiereCycle import PremiereCycle
-from ext.share.botUtils import subPerms, creatorCheck
-from ext.share.dataGrab import getSubType, getwebhook
-from ext.share.prompts import botError, subCheck
+from ext.cogs.twtCycle import twtCycle
+from ext.share.botUtils import subPerms, creatorCheck, userWhitelist
+from ext.share.dataGrab import getSubType, getwebhook, refreshWebhook
+from ext.share.prompts import botError
 from ext.commands.subscribe import subCategory, subCustom
-from ext.commands.general import botHelp, botSublist, botGetInfo, botUnsub
+from ext.commands.general import botHelp, botSublist, botGetInfo, botTwt, botUnsub
 from ext.commands.slash import YagooSlash
 
 init = False
@@ -46,6 +48,7 @@ if settings["slash"]:
 async def on_ready():
     global init
     if not init:
+        DiscordComponents(bot)
         guildCount = 0
         for guilds in bot.guilds:
             guildCount += 1
@@ -57,6 +60,8 @@ async def on_ready():
             bot.add_cog(ScrapeCycle(bot, settings["logging"]))
             await asyncio.sleep(30)
             bot.add_cog(chCycle(bot))
+        if settings["twitter"]["enabled"]:
+            bot.add_cog(twtCycle(bot))
         if settings["notify"]:
             bot.add_cog(StreamCycle(bot))
         if settings["premiere"]:
@@ -135,9 +140,21 @@ async def sublist_error(ctx, error):
         await ctx.send(embed=errEmbed)
 
 @bot.command()
+@commands.check(subPerms)
+async def follow(ctx, accLink: str = ""):
+    await botTwt.follow(ctx, bot, accLink)
+
+@bot.command()
+@commands.check(subPerms)
+async def unfollow(ctx):
+    await botTwt.unfollow(ctx, bot)
+
+@bot.command()
 @commands.check(creatorCheck)
 async def test(ctx):
-    await ctx.send("Rushia Ch. \u6f64\u7fbd\u308b\u3057\u3042")
+    msg = await ctx.send("Test", components=[Button(label="Remove")])
+    await bot.wait_for("button_click")
+    await msg.edit("Changed to no buttons", components=[])
 
 @bot.command(aliases=["livestats", "livestat"])
 @commands.check(subPerms)
@@ -227,8 +244,10 @@ async def removeChannel(ctx, channelId):
         json.dump(servers, f, indent=4)
 
 @bot.command()
-@commands.check(creatorCheck)
+@commands.check(userWhitelist)
 async def omedetou(ctx: commands.Context):
+    await ctx.message.delete()
+
     replyID = ctx.message.reference.message_id
     replyMsg = await ctx.channel.fetch_message(replyID)
 
@@ -245,6 +264,28 @@ async def ytchCount(ctx):
         chCount += 1
     
     await ctx.send(f"Yagoo Bot has {chCount} channels in the database.")
+
+@bot.command()
+@commands.check(subPerms)
+async def chRefresh(ctx: commands.Context):
+    qmsg = await ctx.send("Are you sure to refresh this channel's webhook URL?", components=[[Button(style=ButtonStyle.blue, label="No"),
+                                                                                             Button(style=ButtonStyle.red, label="Yes")]])
+    
+    def check(res):
+        return res.user == ctx.message.author and res.channel == ctx.channel
+
+    try:
+        res = await bot.wait_for('button_click', check=check, timeout=60)
+    except asyncio.TimeoutError:
+        await qmsg.delete()
+        await ctx.message.delete()
+    else:
+        if res.component.label == "Yes":
+            await refreshWebhook(ctx.guild, ctx.channel)
+            await qmsg.edit("The webhook URL has been refreshed for this channel.", components=[])
+        else:
+            await qmsg.delete()
+            await ctx.message.delete()
 
 @bot.command(aliases=["maint", "shutdown", "stop"])
 @commands.check(creatorCheck)

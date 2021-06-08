@@ -8,7 +8,7 @@ from typing import Union
 from ..infoscraper import FandomScrape, channelInfo
 from ..share.botUtils import chunks, msgDelete, vtuberSearch
 from ..share.dataGrab import getwebhook
-from ..share.prompts import ctgPicker, subCheck, searchConfirm, searchPrompt, searchMessage
+from ..share.prompts import ctgPicker, subCheck, searchMessage
 
 async def subCategory(ctx: Union[commands.Context, SlashContext], bot: commands.Bot):
     # TODO: Seperate the subscribe code to a function instead
@@ -67,7 +67,7 @@ async def subCategory(ctx: Union[commands.Context, SlashContext], bot: commands.
         else:
             listembed.add_field(name="Actions", value=f'A. Subscribe to all channels\nN. Go to next page\nB. Go to previous page\nS. Search for a VTuber\nX. Cancel')
         
-        await listmsg.edit(content=None, embed=listembed)
+        await listmsg.edit(content=" ", embed=listembed)
 
         def check(m):
             return m.content.lower() in pNumList + ['a', 'n', 'b', 's', 'x'] and m.author == ctx.author
@@ -103,18 +103,25 @@ async def subCategory(ctx: Union[commands.Context, SlashContext], bot: commands.
                     return
 
                 for subType in uInput["subType"]:
-                    if picklist[int(msg.content) - 1] not in servers[str(ctx.guild.id)][str(ctx.channel.id)][subType]:
-                        servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].append(picklist[int(msg.content) - 1])
-                        validSub = True
+                    if subType not in servers[str(ctx.guild.id)][str(ctx.channel.id)]:
+                        servers[str(ctx.guild.id)][str(ctx.channel.id)][subType] = []
+                    if subType != "twitter":
+                        if picklist[int(msg.content) - 1] not in servers[str(ctx.guild.id)][str(ctx.channel.id)][subType]:
+                            servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].append(picklist[int(msg.content) - 1])
+                            validSub = True
+                    else:
+                        if channels[picklist[int(msg.content) - 1]]["twitter"] not in servers[str(ctx.guild.id)][str(ctx.channel.id)][subType]:
+                            servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].append(channels[picklist[int(msg.content) - 1]]["twitter"])
+                            validSub = True
                 if not validSub:
                     ytch = csplit[pagepos][picklist[int(msg.content) - 1]]
-                    await listmsg.edit(content=f'This channel is already subscribed to {ytch["name"]}.', embed=None)
+                    await listmsg.edit(content=f'This channel is already subscribed to {ytch["name"]}.', embed=" ")
                     await msgDelete(ctx)
                     return
                 with open("data/servers.json", "w") as f:
                     json.dump(servers, f, indent=4)
                 ytch = csplit[pagepos][picklist[int(msg.content) - 1]]
-                await listmsg.edit(content=f'This channel is now subscribed to: {ytch["name"]}.', embed=None)
+                await listmsg.edit(content=f'This channel is now subscribed to: {ytch["name"]}.', embed=" ")
                 await msgDelete(ctx)
                 return
             elif msg.content.lower() == 'a':
@@ -139,11 +146,17 @@ async def subCategory(ctx: Union[commands.Context, SlashContext], bot: commands.
                     return
                 for subType in uInput["subType"]:
                     for ytch in ctgChannels:
-                        if ytch not in servers[str(ctx.guild.id)][str(ctx.channel.id)][subType]:
-                            servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].append(ytch)
+                        if subType not in servers[str(ctx.guild.id)][str(ctx.channel.id)]:
+                            servers[str(ctx.guild.id)][str(ctx.channel.id)][subType] = []
+                        if subType != "twitter":
+                            if ytch not in servers[str(ctx.guild.id)][str(ctx.channel.id)][subType]:
+                                servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].append(ytch)
+                        else:
+                            if channels[ytch]["twitter"] not in servers[str(ctx.guild.id)][str(ctx.channel.id)][subType]:
+                                servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].append(channels[ytch]["twitter"])
                 with open("data/servers.json", "w") as f:
                     json.dump(servers, f, indent=4)
-                await listmsg.edit(content=f'This channel is now subscribed to all {ctgPick["category"]} YouTube channels.', embed=None)
+                await listmsg.edit(content=f'This channel is now subscribed to all {ctgPick["category"]} YouTube channels.', embed=" ")
                 await msgDelete(ctx)
                 return
             elif msg.content.lower() == 'n' and pagepos < len(csplit) - 1:
@@ -232,17 +245,22 @@ async def subCustom(ctx: Union[commands.Context, SlashContext], bot: commands.Bo
         if subType not in servers[str(ctx.guild.id)][str(ctx.channel.id)]:
             servers[str(ctx.guild.id)][str(ctx.channel.id)][subType] = []
             validSub = True
-        if channelID not in servers[str(ctx.guild.id)][str(ctx.channel.id)][subType]:
-            servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].append(channelID)
-            validSub = True
+        if subType != "twitter":
+            if channelID not in servers[str(ctx.guild.id)][str(ctx.channel.id)][subType]:
+                servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].append(channelID)
+                validSub = True
+        else:
+            if channels[channelID]["twitter"] not in servers[str(ctx.guild.id)][str(ctx.channel.id)][subType]:
+                servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].append(channels[channelID]["twitter"])
+                validSub = True
     if not validSub:
-        await searchMsg.edit(content=f'This channel is already subscribed to {cInfo["name"]}.', embed=None)
+        await searchMsg.edit(content=f'This channel is already subscribed to {cInfo["name"]}.', embed=" ")
         await msgDelete(ctx)
         return
 
     with open("data/servers.json", "w") as f:
         json.dump(servers, f, indent=4)
 
-    await searchMsg.edit(content=f'This channel is now subscribed to: {cInfo["name"]}.', embed=None)
+    await searchMsg.edit(content=f'This channel is now subscribed to: {cInfo["name"]}.', embed=" ")
     await msgDelete(ctx)
     return
