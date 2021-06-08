@@ -414,7 +414,11 @@ class pageNav:
             return
 
     class minimal:
-        async def editMsg(bot: commands.Bot, msg: discord.Message, embed: discord.Embed, pages: list, pageNum: int):
+        async def editMsg(bot: commands.Bot, msg: discord.Message, embed: discord.Embed, pages: list, pageNum: int, removeText: str):
+            """
+            Edits the prompt with it's corresponding buttons.
+            Should not be used outside of the `pageNav.minimal` class.
+            """
             pageButtons = []
             if len(pages) > 1:
                 pageButtons.append([Button(label=f"Page {pageNum + 1}/{len(pages)}", disabled=True)])
@@ -427,7 +431,7 @@ class pageNav:
                 else:
                     pageButtons[0].insert(0, Button(id="back", emoji="⬅️", style=ButtonStyle.blue))
                     pageButtons[0].append(Button(id="next", emoji="➡️", style=ButtonStyle.blue))
-            pageButtons.append([Button(id="unfollow", label="Unfollow All Users", style=ButtonStyle.red), Button(id="cancel", label="Cancel", style=ButtonStyle.blue)])
+            pageButtons.append([Button(id="remove", label=removeText, style=ButtonStyle.red), Button(id="cancel", label="Cancel", style=ButtonStyle.blue)])
             await msg.edit(content=" ", embed=embed, components=pageButtons)
 
         
@@ -438,7 +442,7 @@ class pageNav:
                 return 1
             elif data.component.id == "cancel":
                 return 2
-            elif data.component.id == "unfollow":
+            elif data.component.id == "remove":
                 return 3
         
         async def processMsg(msg: discord.Message, pageData: dict):
@@ -451,14 +455,14 @@ class pageNav:
                 }
             }
 
-        async def prompt(ctx: commands.Context, bot: commands.Bot, msg: discord.Message, pages: list, title: str):
+        async def prompt(ctx: commands.Context, bot: commands.Bot, msg: discord.Message, pages: list, title: str, removeText: str):
             pageNum = 0
             embed = discord.Embed(title=title)
             embed.add_field(name="Actions", value="Pick a number correlating to the entry in the list or use the buttons below for other actions.")
 
             while True:
                 embed.description = pages[pageNum]["text"].strip()
-                await pageNav.minimal.editMsg(bot, msg, embed, pages, pageNum)
+                await pageNav.minimal.editMsg(bot, msg, embed, pages, pageNum, removeText)
                 result = await pageNav.utils.doubleCheck(ctx, bot, msg, pages, pageNum)
                 
                 if type(result) == discord_components.Interaction:
@@ -519,7 +523,7 @@ class TwitterPrompts:
             followed.append(account)
         
         pages = await TwitterPrompts.parseToPages(followed)
-        prompt = await pageNav.minimal.prompt(ctx, bot, msg, pages, "Following an account")
+        prompt = await pageNav.minimal.prompt(ctx, bot, msg, pages, "Following an account", "Unfollow All Users")
 
         if not prompt["status"]:
             await msg.delete()
