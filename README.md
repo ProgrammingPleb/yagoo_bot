@@ -17,9 +17,13 @@ After inviting the bot, use `y!sub` to bring up a list of channels to subscribe.
 To unsubscribe to a channel, use `y!unsub` to unsubscribe to a channel.  
 Follow the prompt given to (un)subscribe to the channel.
 
+## Frequently Asked Questions
+A list of general questions will be added into the wiki section of this repository and the Discord server.
+
 ## Planned Features
-The features that are upcoming on this bot can be found on the projects section of this repository.
+The features that are upcoming on this bot can be found in #upcoming-features in the Discord server.
 
 ## Contributing
 Any issues and suggestions should be put in the [Discord Server](https://discord.gg/uNgnR5g8ZR).  
+Please do use the server as a means to directly message me instead of adding me as a friend as I usually accept ones I do know.  
 If you have any code optimizations/feature implementations, feel free to make a pull request to improve the bot!
