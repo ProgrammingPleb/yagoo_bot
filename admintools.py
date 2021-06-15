@@ -84,38 +84,6 @@ def bdayInsert():
     with open("data/birthdays.json", "w") as f:
         json.dump(bdayData, f, indent=4, sort_keys=True)
 
-def initBot():
-    if not os.path.exists("data"):
-        print("Creating data directory...")
-        os.mkdir("data")
-    if not os.path.exists("data"):
-        print("Creating generated milestones directory...")
-        os.mkdir("milestone/generated")
-    if not os.path.exists("data/servers.json"):
-        shutil.copy("setup/blank.json", "data/servers.json")
-    if not os.path.exists("data/bot.json"):
-        shutil.copy("setup/blank.json", "data/bot.json")
-    if not os.path.exists("data/channels.json"):
-        shutil.copy("setup/channels.json", "data/channels.json")
-    if not os.path.exists("data/settings.yaml"):
-        shutil.copy("setup/settings.yaml", "data/settings.yaml")
-    with open("data/settings.yaml") as f:
-        settings = yaml.load(f, Loader=yaml.SafeLoader)
-    if settings["token"] is not None:
-        print("This bot is already setup!")
-        return
-    print("To get a bot token, go to https://discord.com/developers/ and make a new application.\n"
-          "Go to the application that was made, click on 'Bot' on the sidebar, and click on 'Add Bot'\n"
-          "Below 'Token' is a 'Copy' button, click on it and paste it below.")
-    settings["token"] = input("Bot Token: ")
-    print("Collecting channel data...")
-    channelscrape()
-    print("Generating birthday file...")
-    bdayInsert()
-    print("Saving settings...")
-    with open("data/settings.yaml", "w") as f:
-        yaml.dump(settings, f)
-
 def migrateData(version: str):
     if not os.path.exists("data_backup/"):
         os.mkdir("data_backup")
