@@ -236,11 +236,7 @@ if __name__ == "__main__":
     if platform.system() == "Windows":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     
-    if sys.argv[1] == "init":
-        print("Prepping initial data for bot...")
-        initBot()
-        print("Bot can now be started by launching the bot.py file.")
-    elif sys.argv[1] == "migrate":
+    if sys.argv[1] == "migrate":
         if len(sys.argv) == 3:
             print("Migrating data files to new format...")
             migrateData(sys.argv[2])
