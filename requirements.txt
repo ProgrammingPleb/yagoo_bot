@@ -10,3 +10,4 @@ rpyc == 5.0.1
 dblpy == 0.4.0
 discord-py-slash-command == 1.2.2
 discord-components == 0.5.3
+mysql-connector-python == 8.0.25
