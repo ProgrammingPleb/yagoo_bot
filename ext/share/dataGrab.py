@@ -1,7 +1,10 @@
 import json
+import yaml
 import asyncio
 import logging
 import discord
+import mysql.connector
+from typing import Union
 from discord.ext import commands
 from ext.share.prompts import botError
 from .dataWrite import genServer
@@ -163,3 +166,229 @@ async def refreshWebhook(server: discord.Guild, channel: discord.TextChannel):
 
     with open("data/servers.json", "w") as f:
         json.dump(servers, f, indent=4)
+
+class botdb:
+    async def getDB():
+        """
+        Returns a `MySQLConnection` object to be used for database queries/modifications.
+        """
+        with open("data/settings.yaml") as f:
+            db = (yaml.load(f, Loader=yaml.SafeLoader))["sql"]
+        
+        return mysql.connector.connect(
+            host=db["host"],
+            username=db["username"],
+            password=db["password"],
+            database=db["database"]
+        )
+    
+    async def changeToMany(data: tuple, dataTypes: tuple, table: str) -> list:
+        """
+        Changes multiple data in tuples to a list for use with `executemany()`.
+
+        Arguments
+        ---
+        data: A tuple containing the data that will be inserted/updated in the table.
+        dataTypes: A tuple containing all data types (ID, Name, etc.).
+        table: The table which the data will be inserted/updated in.
+
+        Returns
+        ---
+        A list which can be used with `executemany()`.
+        """
+        execList = []
+
+        for key, keyType in zip(data, dataTypes):
+            execList.append((table, keyType, key, dataTypes[0], data[0]))
+        
+        return execList
+
+    async def checkIfExists(key: str, keyType: str, table: str, db: mysql.connector.MySQLConnection = None):
+        """
+        Checks if a key exists on the database.
+
+        Arguments
+        ---
+        key: The value of a key on the row.
+        keyType: The key header of the value (ID, Name, etc.)
+        table: The table in the database that contains the row in question.
+
+        Returns
+        ---
+        `True` if the key exists, `False` if otherwise.
+        """
+        if db is None:
+            db = await botdb.getDB()
+        cursor = db.cursor()
+
+        sql = f"SELECT {keyType} FROM channels WHERE {keyType} = %s"
+        arg = (key,)
+        cursor.execute(sql, arg)
+
+        if cursor.fetchone() == None:
+            return False
+        return True
+        
+    
+    async def addData(data: tuple, dataTypes: tuple, table: str):
+        """
+        Adds data to a table in the bot's database.
+        Inserts a new row if the data does not exist, and updates the data if otherwise.
+
+        Arguments
+        ---
+        data: A tuple containing the data that will be inserted/updated in the table.
+        dataTypes: A tuple containing all data types (ID, Name, etc.).
+        table: The table which the data will be inserted/updated in.
+        """
+        db = await botdb.getDB()
+        exists = await botdb.checkIfExists(data[0], dataTypes[0], table, db)
+        cursor = db.cursor()
+
+        if exists:
+            for key, keyType in zip(data, dataTypes):
+                sql = f"UPDATE {table} SET {keyType} = %s WHERE {dataTypes[0]} = '{data[0]}'"
+                arg = (key,)
+                cursor.execute(sql, arg)
+        else:
+            sql = f"INSERT INTO {table} ("
+            for x in dataTypes:
+                sql += f"{x}, "
+            sql = sql.strip() + ") VALUES ("
+            for x in dataTypes:
+                sql += "%s, "
+            sql = sql.strip() + ")"
+            arg = data
+            cursor.execute(sql, arg)
+        
+        db.commit()
+        return
+    
+    async def addMultiData(data: list, dataTypes: tuple, table: str):
+        """
+        Performs the same actions as `addData` but commits after all insert/update queries are executed.
+
+        Arguments
+        ---
+        data: A list containing tuples which contain the data that will be inserted/updated in the table.
+        dataTypes: A tuple containing all data types (ID, Name, etc.).
+        table: The table which the data will be inserted/updated in.
+        """
+        insSQL = f"INSERT INTO {table} ("
+        for x in dataTypes:
+            insSQL += f"{x}, "
+        insSQL = insSQL.strip().strip(",") + ") VALUES ("
+        for x in dataTypes:
+            insSQL += "%s, "
+        insSQL = insSQL.strip().strip(",") + ")"
+
+        updSQL = []
+        for keyType in dataTypes:
+            updSQL.append(f"UPDATE {table} SET {keyType} = %s WHERE {dataTypes[0]} = %s")
+        
+        db = await botdb.getDB()
+        cursor = db.cursor()
+
+        for item in data:
+            exists = await botdb.checkIfExists(item[0], dataTypes[0], table, db)
+
+            if exists:
+                i = 0
+                for query in updSQL:
+                    cursor.execute(query, (str(item[i]), item[0]))
+                    i += 1
+            else:
+                cursor.execute(insSQL, item)
+        
+        db.commit()
+        return
+    
+    async def deleteData(rowKey: str, rowKeyType: str, table: str):
+        """
+        Deletes the row containing the key and it's type specified.
+
+        Arguments
+        ---
+        rowKey: Data in the column/data type specified in `rowKeyType`.
+        rowKeyType: Column/Data type which correlates to the data from `rowKey`.
+        table: Table which contains the data to be deleted.
+        """
+        db = await botdb.getDB()
+        cursor = db.cursor()
+
+        cursor.execute(f"DELETE FROM {table} WHERE {rowKeyType} = %s", (rowKey, ))
+        db.commit()
+        return
+
+    async def deleteMultiData(rowKey: list, rowKeyType: str, table: str):
+        """
+        Performs the same actions as `deleteData` but commits after all delete queries are executed.
+
+        Arguments
+        ---
+        rowKey: A list containing data keys in the column/data type specified in `rowKeyType`.
+        rowKeyType: Column/Data type which correlates to the data keys from `rowKey`.
+        table: Table which contains the data to be deleted.
+        """
+        db = await botdb.getDB()
+        cursor = db.cursor()
+
+        for key in rowKey:
+            cursor.execute(f"DELETE FROM {table} WHERE {rowKeyType} = %s", (key, ))
+        db.commit()
+        return
+    
+    async def getData(key: str, keyType: str, returnType: tuple, table: str) -> dict:
+        """
+        Gets the data related to the key given with the key types specified.
+
+        Arguments
+        ---
+        key: The key that is present on the row being retrieved.
+        keyType: The column/key type that correlates to `key`.
+        returnType: Column(s)/Key type(s) to be returned once the data is retrieved.
+        table: Table containing the data to be retrieved.
+        
+        Returns
+        ---
+        Dictionary that contains the key with the `returnType` specified.
+        """
+        db = await botdb.getDB()
+        cursor = db.cursor(dictionary=True)
+
+        sql = "SELECT "
+        for column in returnType:
+            sql += f"{column}, "
+        sql = sql.strip(", ") + f" FROM {table} WHERE {keyType} = %s"
+
+        cursor.execute(sql, (key, ))
+        return cursor.fetchone()
+    
+    async def getMultiData(keyList: list, keyType: str, returnType: tuple, table: str) -> dict:
+        """
+        Performs `getData` for multiple rows, reducing load on the database server.
+        
+        Arguments
+        ---
+        keyList: The key that is present on the row being retrieved.
+        keyType: The column/key type that correlates to `key`.
+        returnType: Column(s)/Key type(s) to be returned once the data is retrieved.
+        table: Table containing the data to be retrieved.
+        
+        Returns
+        ---
+        Dictionary with key from `keyType` as main subdict, and `returnType` keys as keys in the subdict.
+        """
+        db = await botdb.getDB()
+        cursor = db.cursor(dictionary=True)
+
+        sql = "SELECT "
+        for column in returnType:
+            sql += f"{column}, "
+        sql = sql.strip(", ") + f" FROM {table} WHERE {keyType} = %s"
+
+        finalData = {}
+        for key in keyList:
+            cursor.execute(sql, (key, ))
+            finalData[key] = cursor.fetchone()
+        return finalData
