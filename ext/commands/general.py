@@ -9,7 +9,7 @@ from discord_components import Button, ButtonStyle
 from ext.share.botVars import allSubTypes
 from ..infoscraper import FandomScrape, TwitterScrape
 from ..share.botUtils import TwitterUtils, chunks, embedContinue, getAllSubs, msgDelete, fandomTextParse, vtuberSearch
-from ..share.dataGrab import getSubType
+from ..share.dataUtils import getSubType
 from ..share.prompts import TwitterPrompts, botError, unsubCheck
 
 async def botHelp():

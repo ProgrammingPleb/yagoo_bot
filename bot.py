@@ -19,7 +19,7 @@ from ext.cogs.scrapeCycle import ScrapeCycle
 from ext.cogs.premiereCycle import PremiereCycle
 from ext.cogs.twtCycle import twtCycle
 from ext.share.botUtils import subPerms, creatorCheck, userWhitelist
-from ext.share.dataGrab import getSubType, getwebhook, refreshWebhook
+from ext.share.dataUtils import getSubType, getwebhook, refreshWebhook
 from ext.share.prompts import botError
 from ext.commands.subscribe import subCategory, subCustom
 from ext.commands.general import botHelp, botSublist, botGetInfo, botTwt, botUnsub

@@ -10,7 +10,7 @@ from tweepy.asynchronous import AsyncStream
 from ..infoscraper import TwitterScrape
 from discord.ext import commands, tasks
 from discord import AsyncWebhookAdapter, Webhook
-from ext.share.dataGrab import getwebhook
+from ext.share.dataUtils import getwebhook
 
 async def twtUpdater():
     """
