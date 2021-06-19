@@ -7,7 +7,7 @@ from discord_slash.context import SlashContext
 from typing import Union
 from ..infoscraper import FandomScrape, channelInfo
 from ..share.botUtils import chunks, msgDelete, vtuberSearch
-from ..share.dataGrab import getwebhook
+from ..share.dataUtils import getwebhook
 from ..share.prompts import ctgPicker, subCheck, searchMessage
 
 async def subCategory(ctx: Union[commands.Context, SlashContext], bot: commands.Bot):

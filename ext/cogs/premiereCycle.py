@@ -8,7 +8,7 @@ import json
 from discord.ext import commands, tasks
 from discord import Webhook, AsyncWebhookAdapter
 from ..infoscraper import channelInfo
-from ..share.dataGrab import getwebhook
+from ..share.dataUtils import getwebhook
 
 async def premiereCheck():
     with open("data/scrape.json") as f:

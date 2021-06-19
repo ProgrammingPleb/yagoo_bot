@@ -7,9 +7,30 @@ import mysql.connector
 from typing import Union
 from discord.ext import commands
 from ext.share.prompts import botError
-from .dataWrite import genServer
 from .botUtils import msgDelete, serverSubTypes
 from .botVars import allSubTypes
+
+async def genServer(servers, cserver, cchannel):
+    if str(cserver.id) not in servers:
+        logging.debug("New server! Adding to database.")
+        servers[str(cserver.id)] = {
+            str(cchannel.id): {
+                "url": "",
+                "notified": {},
+                "livestream": [],
+                "milestone": []
+            }
+        }
+    elif str(cchannel.id) not in servers[str(cserver.id)]:
+        logging.debug("New channel in server! Adding to database.")
+        servers[str(cserver.id)][str(cchannel.id)] = {
+            "url": "",
+            "notified": {},
+            "livestream": [],
+            "milestone": []
+        }
+    
+    return servers
 
 async def getSubType(ctx: commands.Context, mode, bot: commands.Bot, prompt = None):
     pEmbed = discord.Embed()
