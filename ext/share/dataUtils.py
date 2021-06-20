@@ -251,7 +251,7 @@ class botdb:
         return True
         
     
-    async def addData(data: tuple, dataTypes: tuple, table: str):
+    async def addData(data: tuple, dataTypes: tuple, table: str, db: mysql.connector.MySQLConnection = None):
         """
         Adds data to a table in the bot's database.
         Inserts a new row if the data does not exist, and updates the data if otherwise.
@@ -262,7 +262,8 @@ class botdb:
         dataTypes: A tuple containing all data types (ID, Name, etc.).
         table: The table which the data will be inserted/updated in.
         """
-        db = await botdb.getDB()
+        if db is None:
+            db = await botdb.getDB()
         exists = await botdb.checkIfExists(data[0], dataTypes[0], table, db)
         cursor = db.cursor()
 
@@ -285,7 +286,7 @@ class botdb:
         db.commit()
         return
     
-    async def addMultiData(data: list, dataTypes: tuple, table: str):
+    async def addMultiData(data: list, dataTypes: tuple, table: str, db: mysql.connector.MySQLConnection = None):
         """
         Performs the same actions as `addData` but commits after all insert/update queries are executed.
 
@@ -307,7 +308,8 @@ class botdb:
         for keyType in dataTypes:
             updSQL.append(f"UPDATE {table} SET {keyType} = %s WHERE {dataTypes[0]} = %s")
         
-        db = await botdb.getDB()
+        if db is None:
+            db = await botdb.getDB()
         cursor = db.cursor()
 
         for item in data:
@@ -324,7 +326,7 @@ class botdb:
         db.commit()
         return
     
-    async def deleteData(rowKey: str, rowKeyType: str, table: str):
+    async def deleteData(rowKey: str, rowKeyType: str, table: str, db: mysql.connector.MySQLConnection = None):
         """
         Deletes the row containing the key and it's type specified.
 
@@ -334,14 +336,15 @@ class botdb:
         rowKeyType: Column/Data type which correlates to the data from `rowKey`.
         table: Table which contains the data to be deleted.
         """
-        db = await botdb.getDB()
+        if db is None:
+            db = await botdb.getDB()
         cursor = db.cursor()
 
         cursor.execute(f"DELETE FROM {table} WHERE {rowKeyType} = %s", (rowKey, ))
         db.commit()
         return
 
-    async def deleteMultiData(rowKey: list, rowKeyType: str, table: str):
+    async def deleteMultiData(rowKey: list, rowKeyType: str, table: str, db: mysql.connector.MySQLConnection = None):
         """
         Performs the same actions as `deleteData` but commits after all delete queries are executed.
 
@@ -351,7 +354,8 @@ class botdb:
         rowKeyType: Column/Data type which correlates to the data keys from `rowKey`.
         table: Table which contains the data to be deleted.
         """
-        db = await botdb.getDB()
+        if db is None:
+            db = await botdb.getDB()
         cursor = db.cursor()
 
         for key in rowKey:
@@ -359,7 +363,7 @@ class botdb:
         db.commit()
         return
     
-    async def getData(key: str, keyType: str, returnType: tuple, table: str) -> dict:
+    async def getData(key: str, keyType: str, returnType: tuple, table: str, db: mysql.connector.MySQLConnection = None) -> dict:
         """
         Gets the data related to the key given with the key types specified.
 
@@ -374,7 +378,8 @@ class botdb:
         ---
         Dictionary that contains the key with the `returnType` specified.
         """
-        db = await botdb.getDB()
+        if db is None:
+            db = await botdb.getDB()
         cursor = db.cursor(dictionary=True)
 
         sql = "SELECT "
@@ -385,7 +390,7 @@ class botdb:
         cursor.execute(sql, (key, ))
         return cursor.fetchone()
     
-    async def getMultiData(keyList: list, keyType: str, returnType: tuple, table: str) -> dict:
+    async def getMultiData(keyList: list, keyType: str, returnType: tuple, table: str, db: mysql.connector.MySQLConnection = None) -> dict:
         """
         Performs `getData` for multiple rows, reducing load on the database server.
         
@@ -400,7 +405,8 @@ class botdb:
         ---
         Dictionary with key from `keyType` as main subdict, and `returnType` keys as keys in the subdict.
         """
-        db = await botdb.getDB()
+        if db is None:
+            db = await botdb.getDB()
         cursor = db.cursor(dictionary=True)
 
         sql = "SELECT "
