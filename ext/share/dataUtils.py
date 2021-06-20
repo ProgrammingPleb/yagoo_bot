@@ -242,7 +242,7 @@ class botdb:
             db = await botdb.getDB()
         cursor = db.cursor()
 
-        sql = f"SELECT {keyType} FROM channels WHERE {keyType} = %s"
+        sql = f"SELECT {keyType} FROM {table} WHERE {keyType} = %s"
         arg = (key,)
         cursor.execute(sql, arg)
 
@@ -251,7 +251,7 @@ class botdb:
         return True
         
     
-    async def addData(data: tuple, dataTypes: tuple, table: str, db: mysql.connector.MySQLConnection = None):
+    async def addData(data: tuple, dataTypes: tuple, table: str, db: mysql.connector.MySQLConnection = None, index = 0):
         """
         Adds data to a table in the bot's database.
         Inserts a new row if the data does not exist, and updates the data if otherwise.
@@ -264,12 +264,12 @@ class botdb:
         """
         if db is None:
             db = await botdb.getDB()
-        exists = await botdb.checkIfExists(data[0], dataTypes[0], table, db)
+        exists = await botdb.checkIfExists(data[index], dataTypes[index], table, db)
         cursor = db.cursor()
 
         if exists:
             for key, keyType in zip(data, dataTypes):
-                sql = f"UPDATE {table} SET {keyType} = %s WHERE {dataTypes[0]} = '{data[0]}'"
+                sql = f"UPDATE {table} SET {keyType} = %s WHERE {dataTypes[index]} = '{data[index]}'"
                 arg = (key,)
                 cursor.execute(sql, arg)
         else:
@@ -286,7 +286,7 @@ class botdb:
         db.commit()
         return
     
-    async def addMultiData(data: list, dataTypes: tuple, table: str, db: mysql.connector.MySQLConnection = None):
+    async def addMultiData(data: list, dataTypes: tuple, table: str, db: mysql.connector.MySQLConnection = None, index = 0):
         """
         Performs the same actions as `addData` but commits after all insert/update queries are executed.
 
@@ -306,19 +306,19 @@ class botdb:
 
         updSQL = []
         for keyType in dataTypes:
-            updSQL.append(f"UPDATE {table} SET {keyType} = %s WHERE {dataTypes[0]} = %s")
+            updSQL.append(f"UPDATE {table} SET {keyType} = %s WHERE {dataTypes[index]} = %s")
         
         if db is None:
             db = await botdb.getDB()
         cursor = db.cursor()
 
         for item in data:
-            exists = await botdb.checkIfExists(item[0], dataTypes[0], table, db)
+            exists = await botdb.checkIfExists(item[index], dataTypes[index], table, db)
 
             if exists:
                 i = 0
                 for query in updSQL:
-                    cursor.execute(query, (str(item[i]), item[0]))
+                    cursor.execute(query, (str(item[i]), item[index]))
                     i += 1
             else:
                 cursor.execute(insSQL, item)
