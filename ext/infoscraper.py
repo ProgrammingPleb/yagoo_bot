@@ -99,7 +99,6 @@ async def channelInfo(channelId: Union[str, int], scrape = False, debug: bool = 
                         channelData = {
                             "id": channelId,
                             "name": ytdata["metadata"]["channelMetadataRenderer"]["title"],
-                            "formattedName": re.split(r'([a-zA-Z\xC0-\xFF]+)', ytdata["metadata"]["channelMetadataRenderer"]["title"]),
                             "image": ytdata["metadata"]["channelMetadataRenderer"]["avatar"]["thumbnails"][0]["url"],
                             "realSubs": cSubsA,
                             "roundSubs": cSubsR,
