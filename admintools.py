@@ -196,7 +196,7 @@ async def sqlMigrate():
             
             if not found:
                 print("Creating table 'channels' as it does not exist!")
-                cursor.execute("CREATE TABLE channels (id VARCHAR(25), name VARCHAR(500), image VARCHAR(200), milestone VARCHAR(20), category VARCHAR(100), twitter VARCHAR(30))")
+                cursor.execute("CREATE TABLE channels (id VARCHAR(25), name VARCHAR(500), image VARCHAR(200), milestone INT, category VARCHAR(100), twitter VARCHAR(30))")
             
             for channel in fileData:
                 chInfo = fileData[channel]
@@ -219,17 +219,22 @@ async def sqlMigrate():
                     multiData.append((channel, chInfo["name"], chInfo["image"], chInfo["realSubs"], chInfo["roundSubs"], json.dumps(chInfo["premieres"]), chInfo["banner"], chInfo["mbanner"], None))
         elif file == "servers":
             index = 1
-            dataTypes = ("server", "channel", "notified", "subDefault", "livestream", "milestone", "premiere", "twitter", "custom")
+            dataTypes = ("server", "channel", "url", "notified", "subDefault", "livestream", "milestone", "premiere", "twitter", "custom")
             
             if not found:
                 print("Creating table 'servers' as it does not exist!")
-                cursor.execute("CREATE TABLE servers (server VARCHAR(20), channel VARCHAR(20), notified TEXT(30000), subDefault VARCHAR(200), livestream TEXT(5000), milestone TEXT(5000), premiere TEXT(5000), twitter TEXT(5000), custom TEXT(5000))")
+                cursor.execute("CREATE TABLE servers (server TEXT(20), channel TEXT(20), url TEXT(120), notified TEXT(30000), subDefault TEXT(200), livestream TEXT(5000), milestone TEXT(5000), premiere TEXT(5000), twitter TEXT(5000), custom TEXT(5000))")
             
             multiData = []
             for server in fileData:
                 serverData = []
                 for channel in fileData[server]:
                     chDict = fileData[server][channel]
+                    
+                    if "url" in chDict:
+                        whurl = chDict["url"]
+                    else:
+                        whurl = ""
                     
                     if "notified" in chDict:
                         notified = json.dumps(chDict["notified"])
@@ -266,7 +271,7 @@ async def sqlMigrate():
                     else:
                         custom = ""
                     
-                    serverData.append((server, channel, notified, subDefault, livestream, milestone, premiere, twitter, custom))
+                    serverData.append((server, channel, whurl, notified, subDefault, livestream, milestone, premiere, twitter, custom))
                 multiData += serverData
         elif file == "twitter":
             dataTypes = ("twtID", "ytID", "custom", "name", "screenName")
