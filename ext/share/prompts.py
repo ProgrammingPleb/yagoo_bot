@@ -3,11 +3,12 @@ import traceback
 import discord
 import discord_components
 import tweepy
+from types import CoroutineType
+from typing import Union
 from discord.ext import commands
 from discord_components.interaction import InteractionType
 from discord_slash.context import SlashContext
 from discord_components import Button, ButtonStyle
-from typing import Union
 from ext.share.botVars import allSubTypes
 
 async def subCheck(ctx, bot, subMsg, mode, chName):
@@ -386,6 +387,21 @@ class generalPrompts:
 class pageNav:
     class utils:
         async def doubleCheck(ctx: commands.Context, bot: commands.Bot, msg: discord.Message, pages: list, pageNum: int):
+            """
+            Checks for both a message or a button interaction from the user.
+            
+            Arguments
+            ---
+            ctx: Context from the executed command.
+            bot: The Discord bot.
+            msg: The Discord message that contains the buttons.
+            pages: A list with the pages of the Discord message.
+            pageNum: The current page position.
+            
+            Returns
+            ---
+            A Discord message or interaction if either are passed within 30 seconds, or `False` if none.
+            """
             def mCheck(m):
                 return m.content in pages[pageNum]["entries"] and m.channel.id == ctx.channel.id and m.author.id == ctx.author.id
             
@@ -409,12 +425,52 @@ class pageNav:
             
             return result
         
-        async def buttonCheck(bot: commands.Bot):
+        async def processMsg(msg: discord.Message):
+            """
+            Processes a message to get the user's choice(s).
+            
+            Arguments
+            ---
+            msg: The Discord message containing the response.
+            
+            Returns
+            ---
+            An `int` or a `list` from the user's input.
+            """
+            if "," in msg.content:
+                returnList = []
+                for option in msg.content.split(","):
+                    if option.strip() != "":
+                        returnList.append(int(option))
+                return returnList
+            else:
+                return int(msg.content)
+        
+        async def processButton(data: discord_components.Interaction, buttons: list, numReturn: list):
+            """
+            Processes the button inputs from the user.
+            
+            Arguments
+            ---
+            data: The Discord interaction correlating to the button press from the user.
+            buttons: A `list` containing the button IDs of the message.
+            numReturn: A `list` containing the responses of their respective button IDs.
+            
+            Returns
+            ---
+            Any object correlating to the linked response of the button ID.
+            """
+            i = 0
+            for x in buttons:
+                if data.component.id == x:
+                    return numReturn[i]
+                i += 1
 
-            return
-
-    class minimal:
-        async def editMsg(bot: commands.Bot, msg: discord.Message, embed: discord.Embed, pages: list, pageNum: int, removeText: str):
+    class remove:
+        """
+        A template for a message with an additional "remove all" button.
+        """
+        async def editMsg(bot: commands.Bot, msg: discord.Message, pages: list, removeText: str, embed: discord.Embed, pageNum: int):
             """
             Edits the prompt with it's corresponding buttons.
             Should not be used outside of the `pageNav.minimal` class.
@@ -433,63 +489,125 @@ class pageNav:
                     pageButtons[0].append(Button(id="next", emoji="➡️", style=ButtonStyle.blue))
             pageButtons.append([Button(id="remove", label=removeText, style=ButtonStyle.red), Button(id="cancel", label="Cancel", style=ButtonStyle.blue)])
             await msg.edit(content=" ", embed=embed, components=pageButtons)
-
         
-        async def processButton(data: discord_components.Interaction):
-            if data.component.id == "back":
-                return -1
-            elif data.component.id == "next":
-                return 1
-            elif data.component.id == "cancel":
-                return 2
-            elif data.component.id == "remove":
-                return 3
-        
-        async def processMsg(msg: discord.Message, pageData: dict):
-            return {
-                "status": True,
-                "all": False,
-                "channel": {
-                    "name": pageData["names"][int(msg.content) - 1],
-                    "id": pageData["ids"][int(msg.content) - 1]
-                }
-            }
-
-        async def prompt(ctx: commands.Context, bot: commands.Bot, msg: discord.Message, pages: list, title: str, removeText: str):
-            pageNum = 0
-            embed = discord.Embed(title=title)
-            embed.add_field(name="Actions", value="Pick a number correlating to the entry in the list or use the buttons below for other actions.")
-
-            while True:
-                embed.description = pages[pageNum]["text"].strip()
-                await pageNav.minimal.editMsg(bot, msg, embed, pages, pageNum, removeText)
-                result = await pageNav.utils.doubleCheck(ctx, bot, msg, pages, pageNum)
-                
-                if type(result) == discord_components.Interaction:
-                    await result.respond(type=InteractionType.DeferredUpdateMessage)
-                    buttonRes = await pageNav.minimal.processButton(result)
-                    if buttonRes == 2:
-                        return {
-                            "status": False,
-                            "all": False,
-                            "channel": None
-                        }
-                    elif buttonRes == 3:
-                        return {
-                            "status": True,
-                            "all": True,
-                            "channel": None
-                        }
-                    else:
-                        pageNum += buttonRes
-                elif type(result) == discord.Message:
-                    if result.content in pages[pageNum]["entries"]:
-                        await result.delete()
-                        return await pageNav.minimal.processMsg(result, pages[pageNum])
+        async def prompt(ctx: commands.Context,
+                         bot: commands.Bot,
+                         msg: discord.Message,
+                         pages: list,
+                         title: str,
+                         removeText: str):
+            """
+            Creates a prompt with the "remove" template.
+            
+            Arguments
+            ---
+            ctx: Context from the command that is executed.
+            bot: The Discord bot.
+            msg: The Discord message that will be edited for the prompt.
+            pages: A `list` containing all the pages for the prompt.
+            title: The title of the prompt.
+            removeText: The contents of the embed as a description of the message.
+            
+            Returns
+            ---
+            A `dict` with:
+            - status: `True` if the command succeeded, `False` if otherwise.
+            - all: `True` if the user wants to remove all items, `False` if otherwise.
+            - item: The item that needs to removed. (Contains the "name" and "identifier" as `dict` keys)
+            """
+            editArgs = [bot, msg, pages, removeText]
+            buttonArgs = [["back", "next", "cancel", "remove"], [-1, 1, 2, 3]]
+            result = await pageNav.message(ctx, bot, pageNav.remove, msg, pages, title, editArgs, buttonArgs)
+            if result["type"] == "button":
+                if result["res"] == 2:
+                    return {
+                        "status": False,
+                        "all": False,
+                        "item": None
+                    }
                 else:
                     return {
-                        "status": False
+                        "status": True,
+                        "all": True,
+                        "item": None
                     }
+            elif result["type"] == "message":
+                if type(result["res"]) == list:
+                    result["res"] = result["res"][0]
+                return {
+                    "status": True,
+                    "all": False,
+                    "item": {
+                        "name": pages[result["pageNum"]]["names"][result["res"] - 1],
+                        "id": pages[result["pageNum"]]["ids"][result["res"] - 1]
+                    }
+                }
+            else:
+                return {
+                    "status": False
+                }
+
+    async def message(ctx: commands.Context,
+                      bot: commands.Bot,
+                      editClass: type,
+                      msg: discord.Message,
+                      pages: list,
+                      title: str,
+                      editArgs: list,
+                      buttonArgs: list):
+        """
+        Create a prompt with the specified message edit class and it's arguments, and button responses.
+        
+        Arguments
+        ---
+        ctx: Context from the command that is executed.
+        bot: The Discord bot.
+        editClass: The class that `editMsg` is a part of.
+        msg: The Discord message that will be edited for the prompt.
+        pages: A `list` containing all the pages.
+        title: The title of the embed.
+        editArgs: A `list` containing the arguments for `editMsg`.
+        buttonArgs: A `list` containing the arguments for the button check function.
+        
+        Returns
+        ---
+        A `dict` with:
+        - type: Possible outputs are `button`, `message`, or `None`.
+        - res: The response of the interaction type.
+        - pageNum: The current page position relative to `pages`. (Only exists when type is `message`)
+        """
+        pageNum = 0
+        embed = discord.Embed(title=title)
+        embed.add_field(name="Actions", value="Pick a number correlating to the entry in the list or use the buttons below for other actions.")
+
+        while True:
+            embed.description = pages[pageNum]["text"].strip()
+            await editClass.editMsg(*editArgs, embed, pageNum)
+            result = await pageNav.utils.doubleCheck(ctx, bot, msg, pages, pageNum)
+            
+            if type(result) == discord_components.Interaction:
+                await result.respond(type=InteractionType.DeferredUpdateMessage)
+                buttonRes = await pageNav.utils.processButton(result, *buttonArgs)
+                if buttonRes in [-1, 1]:
+                    pageNum += buttonRes
+                else:
+                    return {
+                        "type": "button",
+                        "res": buttonRes
+                    }
+            elif type(result) == discord.Message:
+                if result.content in pages[pageNum]["entries"]:
+                    await result.delete()
+                    return {
+                        "type": "message",
+                        "res": await pageNav.utils.processMsg(result),
+                        "pageNum": pageNum
+                    }
+            else:
+                return {
+                    "type": None,
+                    "res": None
+                }
 
 class TwitterPrompts:
     async def parseToPages(data: list):
@@ -523,7 +641,7 @@ class TwitterPrompts:
             followed.append(account)
         
         pages = await TwitterPrompts.parseToPages(followed)
-        prompt = await pageNav.minimal.prompt(ctx, bot, msg, pages, "Following an account", "Unfollow All Users")
+        prompt = await pageNav.remove.prompt(ctx, bot, msg, pages, "Following an account", "Unfollow All Users")
 
         if not prompt["status"]:
             await msg.delete()
@@ -542,7 +660,7 @@ class TwitterPrompts:
 
             if choice["status"] and choice["choice"]:
                 if not prompt["all"]:
-                    await TwitterUtils.followActions("remove", str(ctx.guild.id), str(ctx.channel.id), prompt["channel"]["id"])
+                    await TwitterUtils.followActions("remove", str(ctx.guild.id), str(ctx.channel.id), prompt["item"]["id"])
                 else:
                     await TwitterUtils.followActions("remove", str(ctx.guild.id), str(ctx.channel.id), all=True)
                 await msg.edit(content=resultText, embed=" ", components=[])
