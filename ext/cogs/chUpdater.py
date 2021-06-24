@@ -1,4 +1,7 @@
-import json
+# NOTICE: Marking this as being deprecated
+# TODO: Create standalone channel updater
+
+"""import json
 import logging
 import traceback
 from ..infoscraper import channelInfo
@@ -67,4 +70,4 @@ class chCycle(commands.Cog):
             logging.error("Channel Update - An error has occurred in the cog!", exc_info=True)
             traceback.print_exception(type(e), e, e.__traceback__)
         else:
-            logging.info("Channel update checks done.")
+            logging.info("Channel update checks done.")"""

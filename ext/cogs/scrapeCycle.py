@@ -1,4 +1,7 @@
-import logging
+# NOTE: Marking this as deprecated.
+# TODO: Create a standalone channel scraper
+
+"""import logging
 import asyncio
 import json
 import concurrent.futures
@@ -73,4 +76,4 @@ class ScrapeCycle(commands.Cog):
             logging.info("Channel scrape done.")
 
 if __name__ == "__main__":
-    asyncio.run(channelScrape())
+    asyncio.run(channelScrape())"""
