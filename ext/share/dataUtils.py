@@ -233,6 +233,7 @@ class botdb:
         key: The value of a key on the row.
         keyType: The key header of the value (ID, Name, etc.)
         table: The table in the database that contains the row in question.
+        db: An existing MySQL connection to avoid making a new uncesssary connection.
 
         Returns
         ---
@@ -261,6 +262,8 @@ class botdb:
         data: A tuple containing the data that will be inserted/updated in the table.
         dataTypes: A tuple containing all data types (ID, Name, etc.).
         table: The table which the data will be inserted/updated in.
+        db: An existing MySQL connection to avoid making a new uncesssary connection.
+        index: Index of item to be used as existing reference on the database.
         """
         if db is None:
             db = await botdb.getDB()
@@ -295,6 +298,8 @@ class botdb:
         data: A list containing tuples which contain the data that will be inserted/updated in the table.
         dataTypes: A tuple containing all data types (ID, Name, etc.).
         table: The table which the data will be inserted/updated in.
+        db: An existing MySQL connection to avoid making a new uncesssary connection.
+        index: Index of item to be used as existing reference on the database.
         """
         insSQL = f"INSERT INTO {table} ("
         for x in dataTypes:
@@ -335,6 +340,7 @@ class botdb:
         rowKey: Data in the column/data type specified in `rowKeyType`.
         rowKeyType: Column/Data type which correlates to the data from `rowKey`.
         table: Table which contains the data to be deleted.
+        db: An existing MySQL connection to avoid making a new uncesssary connection.
         """
         if db is None:
             db = await botdb.getDB()
@@ -353,6 +359,7 @@ class botdb:
         rowKey: A list containing data keys in the column/data type specified in `rowKeyType`.
         rowKeyType: Column/Data type which correlates to the data keys from `rowKey`.
         table: Table which contains the data to be deleted.
+        db: An existing MySQL connection to avoid making a new uncesssary connection.
         """
         if db is None:
             db = await botdb.getDB()
@@ -373,6 +380,7 @@ class botdb:
         keyType: The column/key type that correlates to `key`.
         returnType: Column(s)/Key type(s) to be returned once the data is retrieved.
         table: Table containing the data to be retrieved.
+        db: An existing MySQL connection to avoid making a new uncesssary connection.
         
         Returns
         ---
@@ -400,6 +408,7 @@ class botdb:
         keyType: The column/key type that correlates to `key`.
         returnType: Column(s)/Key type(s) to be returned once the data is retrieved.
         table: Table containing the data to be retrieved.
+        db: An existing MySQL connection to avoid making a new uncesssary connection.
         
         Returns
         ---
@@ -419,3 +428,46 @@ class botdb:
             cursor.execute(sql, (key, ))
             finalData[key] = cursor.fetchone()
         return finalData
+
+    async def getAllData(table: str, keyTypes: tuple = None, filter: str = None, filterType: str = None, keyDict: str = None, db: mysql.connector.MySQLConnection = None):
+        """
+        Performs `getData` but gets all rows available in the table with te keyTypes if specified.
+        
+        Arguments
+        ---
+        table: The table containing the keys to be retrieved.
+        keyTypes: A tuple to filter key types if necessary.
+        filter: Contents of the filter key to filter needed rows.
+        filterType: The data type of the filter key.
+        keyDict: Key type to be made as main key if a dictionary is needed instead of a list or tuple.
+        db: An existing MySQL connection to avoid making a new uncesssary connection.
+        """
+        if db is None:
+            db = await botdb.getDB()
+        
+        if keyTypes == None:
+            cursor = db.cursor()
+            
+            sql = f"SELECT * FROM {table}"
+        else:
+            cursor = db.cursor(dictionary=True)
+            
+            sql = "SELECT "
+            for dataType in keyTypes:
+                sql += f"{dataType}, "
+            sql = sql.strip(", ") + f" FROM {table}"
+        
+        if filter is not None:
+            sql += f" WHERE {filterType} = %s"
+            cursor.execute(sql, (filter, ))
+        else:
+            cursor.execute(sql)
+        if keyDict:
+            result = {}
+            for item in cursor.fetchall():
+                mainKey = item[keyDict]
+                item.pop(keyDict)
+                result[mainKey] = item
+            return result
+        else:
+            return cursor.fetchall()
