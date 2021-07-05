@@ -10,7 +10,7 @@ from tweepy.asynchronous import AsyncStream
 from ..infoscraper import TwitterScrape
 from discord.ext import commands, tasks
 from discord import AsyncWebhookAdapter, Webhook
-from ext.share.dataUtils import getwebhook
+from ext.share.dataUtils import getWebhook, botdb
 
 async def twtUpdater():
     """
@@ -19,32 +19,27 @@ async def twtUpdater():
     More is fine.
     """
     write = False
-    with open("data/channels.json") as f:
-        channels = json.load(f)
-    with open("data/scrape.json") as f:
-        scrape = json.load(f)
-    if os.path.exists("data/twitter.json"):
-        with open("data/twitter.json") as f:
-            twitter = json.load(f)
-    else:
-        twitter = {}
-
+    channelUpdate = []
+    twitterUpdate = []
+    
+    db = await botdb.getDB()
+    channels = await botdb.getAllData("channels", ("id", "twitter"), db=db)
+    scrape = await botdb.getAllData("scrape", ("id", "twitter"), keyDict="id", db=db)
+    
     for channel in channels:
-        if "twitter" not in channels[channel] and "twitter" in scrape[channel]:
+        if channel["twitter"] != scrape[channel]["twitter"]:
             try:
                 twtID = await TwitterScrape.getUserID(scrape[channel]["twitter"])
                 if twtID is not None:
-                    channels[channel]["twitter"] = twtID
-                    twitter[twtID] = channel
+                    channelUpdate.append((channel, twtID))
+                    twitterUpdate.append((twtID, channel))
                     write = True
             except NotFound:
                 logging.error(f"Twitter - Could not find user @{scrape[channel]['twitter']}")
     
     if write:
-        with open("data/channels.json", "w") as f:
-            json.dump(channels, f, indent=4)
-        with open("data/twitter.json", "w") as f:
-            json.dump(twitter, f, indent=4)
+        await botdb.addMultiData(channelUpdate, ("id", "twitter"), "channel", db)
+        await botdb.addMultiData(twitterUpdate, ("twtID", "ytID"), "twitter", db)
 
 async def twtSubscribe(bot):
     """
@@ -56,19 +51,18 @@ async def twtSubscribe(bot):
     bot: An instance of `commands.Bot` from discord.py
     """
     twtUsers = []
-
-    with open("data/channels.json") as f:
-        channels = json.load(f)
-
-    with open("data/twitter.json") as f:
-        customAcc = (json.load(f))["custom"]
-
+    
+    db = await botdb.getDB()
+    channels = await botdb.getAllData("channels", ("twitter", ), db=db)
+    customAcc = await botdb.getAllData("twitter", ("twtID", ), "1", "custom", db=db)
+    
     for channel in channels:
-        if "twitter" in channels[channel]:
-            twtUsers.append(channels[channel]["twitter"])
+        if channel["twitter"] != "None":
+            twtUsers.append(channel["twitter"])
     
     for account in customAcc:
-        twtUsers.append(account)
+        if account["twtID"] != "None":
+            twtUsers.append(account["twtID"])
 
     twtCred = await TwitterScrape.getCredentials()
     stream = twtPost(bot, twtCred["apiKey"], twtCred["apiSecret"], twtCred["accessKey"], twtCred["accessSecret"])
@@ -83,7 +77,6 @@ class twtPost(AsyncStream):
         logging.info("Twitter - Connected to Twitter Tweets stream!")
 
     async def on_status(self, tweet):
-        # print(f"{tweet.user.name}:{tweet.text}")
         # Twitter URL String: f"https://twitter.com/{tweet.user.screen_name}/status/{tweet.id_str}"
         # Useful data points: User - tweet.user (dict), Tweet ID - tweet.id_str (string, no "_str" for actual number), Retweet - tweet.retweeted (boolean)
         # Retweeted Tweet - tweet.retweeted_status (Tweet Object), Quote Retweet - tweet.is_quote_status (boolean), Quoted Tweet - tweet.quoted_status (Tweet Object)
@@ -106,6 +99,7 @@ class twtPost(AsyncStream):
         else:
             twtString = f'@{tweet.user.screen_name} tweeted just now: https://twitter.com/{tweet.user.screen_name}/status/{tweet.id_str}'
 
+        # TODO: Update to getWebhook for use with SQL
         async def postTweet(ptServer, ptChannel):
             try:
                 whurl = await getwebhook(self.bot, servers, ptServer, ptChannel)

@@ -7,6 +7,7 @@ import yaml
 import rpyc
 import json
 import tweepy
+import mysql.connector
 from discord.ext import commands
 from discord_slash.context import SlashContext
 from itertools import islice
@@ -14,6 +15,7 @@ from typing import Union
 from yaml.loader import SafeLoader
 from .prompts import searchConfirm, searchPrompt
 from .botVars import allSubTypes
+
 
 def round_down(num, divisor):
     return num - (num%divisor)
@@ -373,42 +375,7 @@ async def serverSubTypes(msg: discord.Message, subDNum: list, subOptions: list) 
             "subType": None
         }
 
-async def getAllSubs(chData: dict) -> dict:
-    """
-    Gets all subscriptions from all the subscription categories
-
-    Arguments
-    ---
-    `chData`: `Dict` containing the Discord channel data.
-
-    Returns `dict` with keys in this format:
-
-    "`Channel ID`":
-        "name": "`Channel Name`",
-        "subType": [`Channel Subscription Types`]
-    """
-
-    with open("data/channels.json", encoding="utf-8") as f:
-        channels = json.load(f)
-    with open("data/twitter.json") as f:
-        twitter = json.load(f)
-
-    allCh = {}
-    for data in chData:
-        if data in allSubTypes(False):
-            for ch in chData[data]:
-                if data == "twitter":
-                    ch = twitter[ch]
-                if ch not in allCh:
-                    allCh[ch] = {
-                        "name": channels[ch]["name"],
-                        "subType": [data]
-                    }
-                else:
-                    allCh[ch]["subType"].append(data)
-    
-    return allCh
-
+# TODO: SQL rewrite
 class TwitterUtils:
     """
     Twitter-related utilities to be used by the bot's functions.

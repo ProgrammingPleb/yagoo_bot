@@ -14,12 +14,12 @@ from ext.infoscraper import channelInfo
 from ext.cogs.subCycle import StreamCycle, streamcheck
 from ext.cogs.msCycle import msCycle, milestoneNotify
 from ext.cogs.dblUpdate import guildUpdate
-from ext.cogs.chUpdater import chCycle
-from ext.cogs.scrapeCycle import ScrapeCycle
+#from ext.cogs.chUpdater import chCycle
+#from ext.cogs.scrapeCycle import ScrapeCycle
 from ext.cogs.premiereCycle import PremiereCycle
 from ext.cogs.twtCycle import twtCycle
 from ext.share.botUtils import subPerms, creatorCheck, userWhitelist
-from ext.share.dataUtils import getSubType, getwebhook, refreshWebhook
+from ext.share.dataUtils import getWebhook, refreshWebhook, botdb, dbTools
 from ext.share.prompts import botError
 from ext.commands.subscribe import subCategory, subCustom
 from ext.commands.general import botHelp, botSublist, botGetInfo, botTwt, botUnsub
@@ -75,16 +75,13 @@ async def on_ready():
 @bot.event
 async def on_guild_remove(server):
     logging.info(f'Got removed from a server, cleaning up server data for: {str(server)}')
-    with open("data/servers.json") as f:
-        servers = json.load(f)
-    servers.pop(str(server.id), None)
-    with open("data/servers.json", "w") as f:
-        json.dump(servers, f, indent=4)
+    await botdb.deleteData(server, "server", "servers")
 
 @bot.command(alias=['h'])
 async def help(ctx): # pylint: disable=redefined-builtin
     await ctx.send(embed=await botHelp())
 
+# TODO: Move command process to a part of subscribe.py
 @bot.command(aliases=['subdefault'])
 @commands.check(subPerms)
 async def subDefault(ctx):
@@ -152,9 +149,8 @@ async def unfollow(ctx):
 @bot.command()
 @commands.check(creatorCheck)
 async def test(ctx):
-    msg = await ctx.send("Test", components=[Button(label="Remove")])
-    await bot.wait_for("button_click")
-    await msg.edit("Changed to no buttons", components=[])
+    db = await botdb.getDB()
+    print(await dbTools.serverGrab(bot, str(ctx.guild.id), str(ctx.channel.id), ("livestream", "milestone", "premiere"), db))
 
 @bot.command(aliases=["livestats", "livestat"])
 @commands.check(subPerms)
@@ -188,6 +184,7 @@ async def mscheck(ctx, vtuber):
     await milestoneNotify(msDict, bot, True)
     await ctx.send(file=discord.File(f'milestone/generated/{vtuber}.png'))
 
+# NOTE: Rewrite for SQL when needed to be used later
 @bot.command()
 @commands.check(creatorCheck)
 async def nstest(ctx):
@@ -205,6 +202,7 @@ async def nstest(ctx):
             webhook = Webhook.from_url(whurl, adapter=AsyncWebhookAdapter(session))
             await webhook.send(f'New livestream from {live[livech]["name"]}!', embed=embed, username=live[livech]["name"], avatar_url=live[livech]["image"])
 
+# NOTE: Rewrite for SQL when needed to be used later
 @bot.command()
 @commands.check(creatorCheck)
 async def postas(ctx, vtuber, *, text):
@@ -256,14 +254,7 @@ async def omedetou(ctx: commands.Context):
 @bot.command()
 @commands.check(creatorCheck)
 async def ytchCount(ctx):
-    chCount = 0
-
-    with open("data/channels.json") as f:
-        channels = json.load(f)
-    for channel in channels:
-        chCount += 1
-    
-    await ctx.send(f"Yagoo Bot has {chCount} channels in the database.")
+    await ctx.send(f"Yagoo Bot has {len(await botdb.getAllData('channels'))} channels in the database.")
 
 @bot.command()
 @commands.check(subPerms)
