@@ -1,266 +1,283 @@
 import json
 import discord
 import asyncio
-import aiohttp
+import mysql.connector
 from discord.ext import commands
 from discord_slash.context import SlashContext
 from typing import Union
 from ..infoscraper import FandomScrape, channelInfo
-from ..share.botUtils import chunks, msgDelete, vtuberSearch
-from ..share.dataUtils import getwebhook
-from ..share.prompts import ctgPicker, subCheck, searchMessage
+from ..share.botUtils import msgDelete, vtuberSearch
+from ..share.dataUtils import botdb, dbTools
+from ..share.prompts import generalPrompts, subPrompts, subPrompts, subCheck
 
 async def subCategory(ctx: Union[commands.Context, SlashContext], bot: commands.Bot):
-    # TODO: Seperate the subscribe code to a function instead
-
+    """
+    Subscription prompt that uses a category and channel based selection.
+    
+    Arguments
+    ---
+    ctx: Context from the executed command.
+    bot: The Discord bot.
+    """
+    db = await botdb.getDB()
     listmsg = await ctx.send("Loading channels list...")
-
-    with open("data/channels.json", encoding="utf-8") as f:
-        channels = json.load(f)
     
-    ctgPick = await ctgPicker(ctx, bot, channels, listmsg)
-
-    if ctgPick["search"]:
-        srch = await searchMessage(ctx, bot, listmsg)
+    channels = await botdb.getAllData("channels", ("id", "category"), keyDict="id", db=db)
+    ctgPick = await subPrompts.ctgPicker(ctx, bot, channels, listmsg)
+    
+    if not ctgPick["status"]:
         await listmsg.delete()
-        if not srch["success"]:
-            await msgDelete(ctx)
-            return
-        await subCustom(ctx, bot, srch["search"])
-        return
-    elif not ctgPick["success"]:
-        await listmsg.delete()
-        await msgDelete(ctx)
+        await ctx.message.delete()
         return
     
-    ctgChannels = {}
-    for channel in channels:
-        if channels[channel]["category"] == ctgPick["category"]:
-            ctgChannels[channel] = channels[channel]
-
-    csplit = []
-    for split in chunks(ctgChannels, 9):
-        csplit.append(split)
-    pagepos = 0
-    
-    while True:
-        listembed = discord.Embed(title="Subscribing to a Channel", description="Pick a number/letter corresponding to the channel/action.\n"
-                                                                                "If the VTuber is not in this list, search the VTuber to add it to the bot's database.")
-
-        picknum = 1
-        pickstr = ""
-        picklist = []
-        pNumList = []
-        for split in csplit[pagepos]:
-            ytch = csplit[pagepos][split]
-            pickstr += f'{picknum}. {ytch["name"]}\n'
-            picklist.append(split)
-            pNumList.append(str(picknum))
-            picknum += 1
-        listembed.add_field(name="Channels", value=pickstr.strip())
-        if len(csplit) == 1:
-            listembed.add_field(name="Actions", value=f'A. Subscribe to all channels\nS. Search for a VTuber\nX. Cancel')
-        elif pagepos == 0:
-            listembed.add_field(name="Actions", value=f'A. Subscribe to all channels\nN. Go to next page\nS. Search for a VTuber\nX. Cancel')
-        elif pagepos == len(csplit) - 1:
-            listembed.add_field(name="Actions", value=f'A. Subscribe to all channels\nB. Go to previous page\nS. Search for a VTuber\nX. Cancel')
+    server = await dbTools.serverGrab(bot, str(ctx.guild.id), str(ctx.channel.id), ("subDefault", "livestream", "milestone", "premiere", "twitter"), db)
+    if ctgPick["all"]:
+        subResult = await subUtils.subAll(ctx, bot, listmsg, server, str(ctx.channel.id), db)
+        chName = None
+    elif ctgPick["search"]:
+        result = await subUtils.channelSearch(ctx, bot, listmsg)
+        if result["status"]:
+            chData = await botdb.getData(result["channelID"], "id", ("name", ), "channels", db)
+            subResult = await subUtils.subOne(ctx, bot, listmsg, server, str(ctx.channel.id), result["channelID"], chData["name"], db)
+            chName = chData["name"]
         else:
-            listembed.add_field(name="Actions", value=f'A. Subscribe to all channels\nN. Go to next page\nB. Go to previous page\nS. Search for a VTuber\nX. Cancel')
-        
-        await listmsg.edit(content=" ", embed=listembed)
-
-        def check(m):
-            return m.content.lower() in pNumList + ['a', 'n', 'b', 's', 'x'] and m.author == ctx.author
-
-        while True:
-            try:
-                msg = await bot.wait_for('message', timeout=60.0, check=check)
-            except asyncio.TimeoutError:
-                await listmsg.delete()
-                await msgDelete(ctx)
-                return
-            if msg.content in pNumList:
-                with open("data/servers.json") as f:
-                    servers = json.load(f)
-                await getwebhook(bot, servers, ctx.guild, ctx.channel)
-                with open("data/servers.json") as f:
-                    servers = json.load(f)
-                await msg.delete()
-                if "subDefault" not in servers[str(ctx.guild.id)][str(ctx.channel.id)]:
-                    uInput = await subCheck(ctx, bot, listmsg, 1, csplit[pagepos][picklist[int(msg.content) - 1]]["name"])
-                elif servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"] == []:
-                    uInput = await subCheck(ctx, bot, listmsg, 1, csplit[pagepos][picklist[int(msg.content) - 1]]["name"])
+            subResult = {
+                "status": False
+            }
+    else:
+        channels = await botdb.getAllData("channels", ("id", "name"), ctgPick["category"], "category", keyDict="id", db=db)
+        result = await subPrompts.channelPick.prompt(ctx, bot, listmsg, channels, ctgPick["category"])
+        if result["status"]:
+            if result["other"]:
+                subResult = await subUtils.subAll(ctx, bot, listmsg, server, str(ctx.channel.id), db, ctgPick["category"])
+                chName = f"all {ctgPick['category']} VTubers"
+            elif result["search"]:
+                result = await subUtils.channelSearch(ctx, bot, listmsg)
+                if result["status"]:
+                    chData = await botdb.getData(result["channelID"], "id", ("name", ), "channels", db)
+                    subResult = await subUtils.subOne(ctx, bot, listmsg, server, str(ctx.channel.id), result["channelID"], chData["name"], db)
+                    chName = chData["name"]
                 else:
-                    uInput = {
-                        "success": True,
-                        "subType": servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"]
+                    subResult = {
+                        "status": False
                     }
-                validSub = False
-
-                if not uInput["success"]:
-                    await listmsg.delete()
-                    await msgDelete(ctx)
-                    return
-
-                for subType in uInput["subType"]:
-                    if subType not in servers[str(ctx.guild.id)][str(ctx.channel.id)]:
-                        servers[str(ctx.guild.id)][str(ctx.channel.id)][subType] = []
-                    if subType != "twitter":
-                        if picklist[int(msg.content) - 1] not in servers[str(ctx.guild.id)][str(ctx.channel.id)][subType]:
-                            servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].append(picklist[int(msg.content) - 1])
-                            validSub = True
-                    else:
-                        if channels[picklist[int(msg.content) - 1]]["twitter"] not in servers[str(ctx.guild.id)][str(ctx.channel.id)][subType]:
-                            servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].append(channels[picklist[int(msg.content) - 1]]["twitter"])
-                            validSub = True
-                if not validSub:
-                    ytch = csplit[pagepos][picklist[int(msg.content) - 1]]
-                    await listmsg.edit(content=f'This channel is already subscribed to {ytch["name"]}.', embed=" ")
-                    await msgDelete(ctx)
-                    return
-                with open("data/servers.json", "w") as f:
-                    json.dump(servers, f, indent=4)
-                ytch = csplit[pagepos][picklist[int(msg.content) - 1]]
-                await listmsg.edit(content=f'This channel is now subscribed to: {ytch["name"]}.', embed=" ")
-                await msgDelete(ctx)
-                return
-            elif msg.content.lower() == 'a':
-                with open("data/servers.json") as f:
-                    servers = json.load(f)
-                await getwebhook(bot, servers, ctx.guild, ctx.channel)
-                with open("data/servers.json") as f:
-                    servers = json.load(f)
-                await msg.delete()
-                if "subDefault" not in servers[str(ctx.guild.id)][str(ctx.channel.id)]:
-                    uInput = await subCheck(ctx, bot, listmsg, 1, "Subscribing to all channels.")
-                elif servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"] == []:
-                    uInput = await subCheck(ctx, bot, listmsg, 1, f'{ctgPick["category"]} Channels')
-                else:
-                    uInput = {
-                        "success": True,
-                        "subType": servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"]
-                    }
-                if not uInput["success"]:
-                    await listmsg.delete()
-                    await msgDelete(ctx)
-                    return
-                for subType in uInput["subType"]:
-                    for ytch in ctgChannels:
-                        if subType not in servers[str(ctx.guild.id)][str(ctx.channel.id)]:
-                            servers[str(ctx.guild.id)][str(ctx.channel.id)][subType] = []
-                        if subType != "twitter":
-                            if ytch not in servers[str(ctx.guild.id)][str(ctx.channel.id)][subType]:
-                                servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].append(ytch)
-                        else:
-                            if channels[ytch]["twitter"] not in servers[str(ctx.guild.id)][str(ctx.channel.id)][subType]:
-                                servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].append(channels[ytch]["twitter"])
-                with open("data/servers.json", "w") as f:
-                    json.dump(servers, f, indent=4)
-                await listmsg.edit(content=f'This channel is now subscribed to all {ctgPick["category"]} YouTube channels.', embed=" ")
-                await msgDelete(ctx)
-                return
-            elif msg.content.lower() == 'n' and pagepos < len(csplit) - 1:
-                await msg.delete()
-                pagepos += 1
-                break
-            elif msg.content.lower() == 'b' and pagepos > 0:
-                await msg.delete()
-                pagepos -= 1
-                break
-            elif msg.content.lower() == 's':
-                await msg.delete()
-                srch = await searchMessage(ctx, bot, listmsg)
-                await listmsg.delete()
-                if not srch["success"]:
-                    await msgDelete(ctx)
-                    return
-                await subCustom(ctx, bot, srch["search"])
-                return
-            elif msg.content.lower() == 'x':
-                await msg.delete()
-                await listmsg.delete()
-                await msgDelete(ctx)
-                return
             else:
-                await msg.delete()
+                subResult = await subUtils.subOne(ctx, bot, listmsg, server, str(ctx.channel.id), result["item"]["id"], result["item"]["name"], db)
+                chName = result["item"]["name"]
+    if subResult["status"]:
+        await subPrompts.displaySubbed(listmsg, ctgPick["all"], ctgPick["category"], subResult["subbed"], chName)
+        return
+    await listmsg.delete()
+    await msgDelete(ctx)
 
 async def subCustom(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, search: str):
-    newChannel = False
-    channelID = ""
-    cInfo = None
-
-    searchMsg = await ctx.send(content="Searching for channel...")
-    chSearch = await vtuberSearch(ctx, bot, search, searchMsg, "Subscribe to")
+    """
+    Subscribes to a VTuber with the channel name provided to the user.
     
-    if not chSearch["success"]:
-        return
-
-    with open("data/channels.json") as f:
-        channels = json.load(f)
-
-    if chSearch["success"]:
-        channelID = chSearch["channelID"]
+    Arguments
+    ---
+    ctx: Context from the executed command.
+    bot: The Discord bot.
+    search: The name of the channel to search for.
+    """
+    db = await botdb.getDB()
+    searchMsg = await ctx.send("Loading channels list...")
     
-    if channelID not in channels:
-        cInfo = await channelInfo(channelID)
-        if not cInfo["success"]:
-            await searchMsg.edit(embed=discord.Embed(title="Loading...", description=f"The bot is currently getting info about {chSearch['name']}"))
-            cInfo = await channelInfo(channelID, True)
-        channels[channelID] = {
-            "name": cInfo["name"],
-            "image": cInfo["image"],
-            "milestone": cInfo["roundSubs"],
-            "category": await FandomScrape.getAffiliate(cInfo["name"])
-        }
-        newChannel = True
-    else:
-        cInfo = channels[channelID]
-    
-    if newChannel:
-        with open("data/channels.json", "w", encoding="utf-8") as f:
-            json.dump(channels, f, indent=4)
-    
-    with open("data/servers.json") as f:
-        servers = json.load(f)
-    
-    await getwebhook(bot, servers, ctx.guild, ctx.channel)
-    
-    if "subDefault" not in servers[str(ctx.guild.id)][str(ctx.channel.id)]:
-        uInput = await subCheck(ctx, bot, searchMsg, 1, cInfo["name"])
-    elif servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"] == []:
-        uInput = await subCheck(ctx, bot, searchMsg, 1, cInfo["name"])
-    else:
-        uInput = {
-            "success": True,
-            "subType": servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"]
-        }
-    validSub = False
-
-    if not uInput["success"]:
-        await searchMsg.delete()
-        await msgDelete(ctx)
-        return
-
-    for subType in uInput["subType"]:
-        if subType not in servers[str(ctx.guild.id)][str(ctx.channel.id)]:
-            servers[str(ctx.guild.id)][str(ctx.channel.id)][subType] = []
-            validSub = True
-        if subType != "twitter":
-            if channelID not in servers[str(ctx.guild.id)][str(ctx.channel.id)][subType]:
-                servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].append(channelID)
-                validSub = True
-        else:
-            if channels[channelID]["twitter"] not in servers[str(ctx.guild.id)][str(ctx.channel.id)][subType]:
-                servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].append(channels[channelID]["twitter"])
-                validSub = True
-    if not validSub:
-        await searchMsg.edit(content=f'This channel is already subscribed to {cInfo["name"]}.', embed=" ")
-        await msgDelete(ctx)
-        return
-
-    with open("data/servers.json", "w") as f:
-        json.dump(servers, f, indent=4)
-
-    await searchMsg.edit(content=f'This channel is now subscribed to: {cInfo["name"]}.', embed=" ")
+    result = await subUtils.channelSearch(ctx, bot, searchMsg, search)
+    if result["status"]:
+        server = await dbTools.serverGrab(bot, str(ctx.guild.id), str(ctx.channel.id), ("subDefault", "livestream", "milestone", "premiere", "twitter"), db)
+        subResult = await subUtils.subOne(ctx, bot, searchMsg, server, str(ctx.channel.id), result["channelID"], result["channelName"], db)
+        if subResult["status"]:
+            await subPrompts.displaySubbed(searchMsg, False, None, subResult["subbed"], result["channelName"])
+            return
+    await searchMsg.delete()
     await msgDelete(ctx)
-    return
+
+class subUtils:
+    async def checkDefault(data: dict):
+        """
+        Checks if the channel has a subscription default.
+        
+        Arguments
+        ---
+        data: The channel's data containing a `subDefault` key.
+        
+        Returns
+        ---
+        The channel's subscription defaults as a `list`, `None` if there is no default set.
+        """
+        if data is None:
+            return None
+        
+        subDefault = await botdb.listConvert(data["subDefault"])
+        if subDefault == "" or subDefault is None:
+            return None
+        else:
+            return subDefault
+    
+    async def channelSearch(ctx: commands.Context, bot: commands.Bot, msg: discord.Message, channel: str = None):
+        """
+        Searches for a channel with input from the user.
+        
+        Arguments
+        ---
+        ctx: Context from the executed command.
+        bot: The Discord bot.
+        msg: The mesasage that will be used for the prompt.
+        channel: The name of the channel if already provided by the user.
+        
+        Result
+        ---
+        A `dict` with:
+        - status: `True` if the user successfully searches for a VTuber.
+        - channelID: The channel ID of the VTuber channel.
+        - channelName: The name of the channel.
+        """
+        if channel is None:
+            result = await generalPrompts.cancel(ctx, bot, msg, "Searching for a VTuber", "Enter the name of the VTuber you want to search for.")
+        else:
+            result = {
+                "status": True,
+                "res": channel
+            }
+        
+        if result["status"]:
+            wikiName = await FandomScrape.searchChannel(result["res"])
+            
+            while True:
+                if wikiName["status"] == "Cannot Match":
+                    wikiName = await subPrompts.searchPick(ctx, bot, msg, result["res"], wikiName["results"])
+                    if not wikiName["status"]:
+                        return {
+                            "status": False
+                        }
+
+                uConfirm = await subPrompts.vtuberConfirm.prompt(ctx, bot, msg, wikiName["name"])
+                if uConfirm["status"]:
+                    if uConfirm["action"] == "confirm":
+                        break
+                    else:
+                        wikiName["status"] = "Cannot Match"
+                else:
+                    return {
+                        "status": False
+                    }
+            
+            channelId = await FandomScrape.getChannelURL(wikiName["name"])
+            if channelId["success"]:
+                return {
+                    "status": True,
+                    "channelID": channelId["channelID"],
+                    "channelName": wikiName["name"]
+                }
+        return {
+            "status": False
+        }
+    
+    async def subOne(ctx: commands.Context,
+                     bot: commands.Bot,
+                     msg: discord.Message,
+                     server: dict,
+                     channelId: str,
+                     ytChID: str,
+                     ytChName: str,
+                     db: mysql.connector.MySQLConnection):
+        """
+        Subscribes to one channel with the specified channel ID.
+        
+        Arguments
+        ---
+        ctx: Context from the executed command.
+        bot: The Discord bot.
+        msg: The message that will be used as a prompt.
+        server: The server as a `dict` containing `subDefault` and other subscription types.
+        channelId: The channel ID of the current Discord channel.
+        db: An existing MySQL connection to reduce unnecessary connections.
+        
+        Returns
+        ---
+        A `dict` with:
+        - status: `True` if the subscription command was executed successfully.
+        - subbed: A list containing the subscribed subscription types.
+        """
+        subDefault = await subUtils.checkDefault(server)
+        subbed = []
+        
+        if subDefault == [''] or subDefault is None:
+            result = await subPrompts.subTypes.prompt(ctx, bot, msg, f"Subscribing to {ytChName}",
+                                                      "Pick the notifications to be posted to this channel.\n"
+                                                      "(This prompt can be bypassed by setting a default subscription type "
+                                                      "using the `subDefault` command)")
+            if not result["status"]:
+                return {
+                    "status": False
+                }
+            subDefault = []
+            for subType in result["subTypes"]:
+                if result["subTypes"][subType]:
+                    subDefault.append(subType)
+        for subType in subDefault:
+            stData = await botdb.listConvert(server[subType])
+            if not stData:
+                stData = []
+            if ytChID not in stData:
+                stData.append(ytChID)
+                await botdb.addData((channelId, await botdb.listConvert(stData)), ("channel", subType), "servers", db)
+                subbed.append(subType)
+        return {
+            "status": True,
+            "subbed": subbed
+        }
+    
+    async def subAll(ctx: commands.Context, bot: commands.Bot, msg: discord.Message, server: dict, channelId: str, db: mysql.connector.MySQLConnection, category: str = None):
+        """
+        Subscribes to all channels (in a category if specified, every channel if otherwise).
+        
+        Arguments
+        ---
+        ctx: Context from the executed command.
+        bot: The Discord bot.
+        msg: The message that will be used for prompts.
+        server: The server as a `dict` containing `subDefault` and other subscription types.
+        channelId: The channel ID of the current Discord channel.
+        db: An existing MySQL connection to reduce unnecessary connections.
+        category: The category filter for subscribing to channels within the category.
+        
+        Returns
+        ---
+        A `dict` with:
+        - status: `True` if the subscription command was executed successfully.
+        - subbed: A list containing the subscribed subscription types.
+        """
+        channel = await botdb.getAllData("channels", ("id", ), category, "category", db=db)
+        subDefault = await subUtils.checkDefault(server)
+        channels = []
+        
+        for ch in channel:
+            channels.append(ch["id"])
+        
+        if category is None:
+            category = ""
+        else:
+            category += " "
+        
+        if subDefault == [''] or subDefault is None:
+            subDefault = []
+            result = await subPrompts.subTypes.prompt(ctx, bot, msg, f"Subscribing to all {category}VTubers",
+                                                      "Pick the notifications to be posted to this channel.\n"
+                                                      "(This prompt can be bypassed by setting a default subscription type "
+                                                      "using the `subDefault` command)")
+            if result:
+                for subType in result["subTypes"]:
+                    if result["subTypes"][subType]:
+                        subDefault.append(subType)
+        for subType in subDefault:
+            serverType = await botdb.listConvert(server[subType])
+            if serverType is None:
+                serverType = []
+            newData = list(set(serverType) | set(channels))
+            await botdb.addData((channelId, await botdb.listConvert(newData)), ("channel", subType), "servers", db)
+        return {
+            "status": True,
+            "subbed": subDefault
+        }
