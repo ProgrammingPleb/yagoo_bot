@@ -10,172 +10,67 @@ from ext.share.prompts import botError
 from .botUtils import msgDelete, serverSubTypes
 from .botVars import allSubTypes
 
-async def genServer(servers, cserver, cchannel):
-    if str(cserver.id) not in servers:
-        logging.debug("New server! Adding to database.")
-        servers[str(cserver.id)] = {
-            str(cchannel.id): {
-                "url": "",
-                "notified": {},
-                "livestream": [],
-                "milestone": []
-            }
-        }
-    elif str(cchannel.id) not in servers[str(cserver.id)]:
-        logging.debug("New channel in server! Adding to database.")
-        servers[str(cserver.id)][str(cchannel.id)] = {
-            "url": "",
-            "notified": {},
-            "livestream": [],
-            "milestone": []
-        }
+# TODO: Update getwebhook with new getWebhook for SQL change
+# NOTE: Deprecate the use of discord's Guild and Channel objects in favor of str
+async def getWebhook(bot: commands.Bot, cserver: str, cchannel: str, db: mysql.connector.MySQLConnection):
+    if db is not None:
+        db = await botdb.getDB()
     
-    return servers
-
-async def getSubType(ctx: commands.Context, mode, bot: commands.Bot, prompt = None):
-    pEmbed = discord.Embed()
-    subDNum = 1
-    subOptions = allSubTypes()
-    subChoice = []
-
-    with open("data/servers.json") as f:
-        servers = json.load(f)
-
-    if mode == 1:
-        
-        subEText = "Toggle:\n\n"
-        if "subDefault" in servers[str(ctx.guild.id)][str(ctx.channel.id)]:
-            for subType in subOptions:
-                if subType.lower() in servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"]:
-                    subEText += f"{subDNum}. {subType} Notifications 🟢\n"
-                else:
-                    subEText += f"{subDNum}. {subType} Notifications 🔴\n"
-                subChoice.append(str(subDNum))
-                subDNum += 1
-        else:
-            for subType in subOptions:
-                subEText += f"{subDNum}. {subType} Notifications 🔴\n"
-                subChoice.append(str(subDNum))
-                subDNum += 1
-        subEText += f"{subDNum}. All Notifications\nX. Cancel\n\n[Toggle multiple defaults by seperating them using commas, for example `1,3`.]"
-
-        subChoice += [str(subDNum), 'x']
-
-        pEmbed.title = "Default Channel Subscriptions"
-        pEmbed.description = subEText
-        def check(m):
-            return (m.content.lower() in subChoice or ',' in m.content) and m.author == ctx.author
-        prompt = await ctx.send(embed=pEmbed)
-    elif mode == 2:
-        subEText = "Get subscription list for:\n\n"
-
-        valid = False
-        actualSubTypes = []
-        for serverKey in servers[str(ctx.guild.id)][str(ctx.channel.id)]:
-            if serverKey.capitalize() in subOptions:
-                if servers[str(ctx.guild.id)][str(ctx.channel.id)][serverKey] != []:
-                    actualSubTypes.append(serverKey.capitalize())
-                    valid = True
-
-        if not valid:
-            await ctx.send(embed = await botError(ctx, "No Subscriptions"))
-            return {
-                "success": False
-            }
-
-        for subType in actualSubTypes:
-            subEText += f"{subDNum}. {subType} Notifications\n"
-            subChoice.append(str(subDNum))
-            subDNum += 1
-        subEText += "X. Cancel\n\n[Bypass this by setting the channel's default subscription type using `y!subdefault`.]"
-        subChoice += ['x']
-
-        pEmbed.title = "Channel Subscription Type"
-        pEmbed.description = subEText
-        def check(m):
-            return m.content.lower() in subChoice and m.author == ctx.author
-        await prompt.edit(content=" ", embed=pEmbed)
-
-    while True:
-        try:
-            msg = await bot.wait_for('message', timeout=60.0, check=check)
-        except asyncio.TimeoutError:
-            await prompt.delete()
-            await ctx.message.delete()
-            return {
-                "success": False
-            }
-        else:
-            await msg.delete()
-            if (msg.content.lower() in subChoice or "," in msg.content) and 'x' not in msg.content.lower():
-                if mode == 1:
-                    subUChoice = await serverSubTypes(msg, subChoice, subOptions)
-
-                    if subUChoice["success"]:
-                        try:
-                            for subUType in subUChoice["subType"]:
-                                if subUType not in servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"]:
-                                    servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"].append(subUType)
-                                else:
-                                    servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"].remove(subUType)
-                        except KeyError:
-                            servers = await genServer(servers, ctx.guild, ctx.channel)
-                            servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"] = subUChoice["subType"]
-                        with open("data/servers.json", "w") as f:
-                            json.dump(servers, f, indent=4)
-                        
-                        subText = ""
-                        if len(servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"]) == 2:
-                            subText = f"{servers[str(ctx.guild.id)][str(ctx.channel.id)]['subDefault'][0]} and {servers[str(ctx.guild.id)][str(ctx.channel.id)]['subDefault'][1]}"
-                        elif len(servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"]) == len(subOptions):
-                            subText = "all"
-                        elif len(servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"]) == 1:
-                            subText = servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"][0]
-                        else:
-                            subTypeCount = 1
-                            for subUType in servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"]:
-                                if subTypeCount == len(servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"]):
-                                    subText += f"and {subUType}"
-                                else:
-                                    subText += f"{subUType}, "
-
-                        await msgDelete(ctx)
-                        if len(servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"]) == 0:
-                            await prompt.edit(content=f"Subscription defaults for this channel has been removed.", embed=" ")
-                        else:
-                            await prompt.edit(content=f"This channel will now subscribe to {subText} notifications by default.", embed=" ")
-                        break
-                elif mode == 2:
-                    if "," not in msg.content:
-                        return {
-                            "success": True,
-                            "subType": actualSubTypes[int(msg.content) - 1].lower()
-                        }
-            elif msg.content.lower() == 'x':
-                await prompt.delete()
-                await ctx.message.delete()
-                return {
-                    "success": False
-                }
-
-async def getwebhook(bot, servers, cserver, cchannel):
-    if isinstance(cserver, str) and isinstance(cchannel, str):
-        cserver = bot.get_guild(int(cserver))
-        cchannel = bot.get_channel(int(cchannel))
-    try:
-        logging.debug(f"Trying to get webhook url for {cserver.id}")
-        whurl = servers[str(cserver.id)][str(cchannel.id)]["url"]
-    except KeyError:
-        logging.debug("Failed to get webhook url! Creating new webhook.")
-        servers = await genServer(servers, cserver, cchannel)
+    server = await botdb.getData(cchannel, "channel", "url", "servers", db)
+    
+    if server == None:
+        channel = await bot.get_channel(int(cchannel))
         with open("yagoo.jpg", "rb") as image:
-            webhook = await cchannel.create_webhook(name="Yagoo", avatar=image.read())
+            webhook = await channel.create_webhook(name="Yagoo", avatar=image.read())
         whurl = webhook.url
-        servers[str(cserver.id)][str(cchannel.id)]["url"] = whurl
-        with open("data/servers.json", "w") as f:
-            json.dump(servers, f, indent=4)
+        await botdb.addData((cserver, cchannel, whurl), ("server", "channel", "url"), "servers", db)
+    else:
+        whurl = server["url"]
+
     return whurl
 
+# TODO: SQL rewrite
+async def getAllSubs(chData: dict, db: mysql.connector.MySQLConnection = None) -> dict:
+    """
+    Gets all subscriptions from all the subscription categories
+
+    Arguments
+    ---
+    `chData`: `Dict` containing the Discord channel data.
+
+    Returns `dict` with keys in this format:
+
+    "`Channel ID`":
+        "name": "`Channel Name`",
+        "subType": [`Channel Subscription Types`]
+    """
+    from .dataUtils import botdb
+    
+    if db is None:
+        db = await botdb.getDB()
+    
+    with open("data/channels.json", encoding="utf-8") as f:
+        channels = json.load(f)
+    with open("data/twitter.json") as f:
+        twitter = json.load(f)
+
+    allCh = {}
+    for data in chData:
+        if data in allSubTypes(False):
+            for ch in chData[data]:
+                if data == "twitter":
+                    ch = twitter[ch]
+                if ch not in allCh:
+                    allCh[ch] = {
+                        "name": channels[ch]["name"],
+                        "subType": [data]
+                    }
+                else:
+                    allCh[ch]["subType"].append(data)
+    
+    return allCh
+
+# TODO: SQL rewrite
 async def refreshWebhook(server: discord.Guild, channel: discord.TextChannel):
     with open("data/servers.json") as f:
         servers = json.load(f)
@@ -188,7 +83,40 @@ async def refreshWebhook(server: discord.Guild, channel: discord.TextChannel):
     with open("data/servers.json", "w") as f:
         json.dump(servers, f, indent=4)
 
+class dbTools:
+    """
+    Database tools for usage in other commands.
+    """
+    async def serverGrab(bot: commands.Bot, server: str, channel: str, dataTypes: tuple, db: mysql.connector.MySQLConnection):
+        """
+        Grab the channel's data if it exists, and creates and entry in the database if otherwise.
+        
+        Arguments
+        ---
+        bot: The Discord bot.
+        server: The ID of the Discord server that executed the command.
+        channel: The ID of the Discord channel that executed the command.
+        dataTypes: The data types that should be retrieved from the database for the channel.
+        db: A MySQL connection to reduce the amount of unnecessary connections.
+        
+        Returns
+        ---
+        A `dict` with `dataTypes` as keys.
+        """
+        while True:
+            chData = await botdb.getData(channel, "channel", dataTypes, "servers", db)
+            if chData is None:
+                chObj = bot.get_channel(int(channel))
+                with open("yagoo.jpg", "rb") as image:
+                    webhook = await chObj.create_webhook(name="Yagoo", avatar=image.read(), reason="To post notifications to this channel.")
+                await botdb.addData((server, channel, webhook.url, "{}"), ("server", "channel", "url", "notified"), "servers", db, index=1)
+            else:
+                return chData
+
 class botdb:
+    """
+    Communication layer for the bot to communicate to it's MySQL database.
+    """
     async def getDB():
         """
         Returns a `MySQLConnection` object to be used for database queries/modifications.
@@ -200,7 +128,8 @@ class botdb:
             host=db["host"],
             username=db["username"],
             password=db["password"],
-            database=db["database"]
+            database=db["database"],
+            buffered=True
         )
     
     async def changeToMany(data: tuple, dataTypes: tuple, table: str) -> list:
@@ -279,10 +208,10 @@ class botdb:
             sql = f"INSERT INTO {table} ("
             for x in dataTypes:
                 sql += f"{x}, "
-            sql = sql.strip() + ") VALUES ("
+            sql = sql.strip(", ") + ") VALUES ("
             for x in dataTypes:
                 sql += "%s, "
-            sql = sql.strip() + ")"
+            sql = sql.strip(", ") + ")"
             arg = data
             cursor.execute(sql, arg)
         
@@ -471,3 +400,26 @@ class botdb:
             return result
         else:
             return cursor.fetchall()
+    
+    async def listConvert(data: Union[str, list]):
+        """
+        Converts a list to a formatted string for data updates.
+        Works in the opposite way too.
+        
+        Arguments
+        ---
+        data: Data to be converted to a formatted string or list.
+        
+        Returns
+        ---
+        The data that is converted to a formatted string or a list. 
+        `None` if no data is passed through.
+        """
+        seperator = "|yb|"
+        
+        if type(data) == list:
+            return seperator.join(data).strip("|yb|")
+        elif data is None:
+            return None
+        else:
+            return data.split(seperator)
