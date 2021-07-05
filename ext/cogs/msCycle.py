@@ -7,14 +7,15 @@ import discord
 import traceback
 import concurrent.futures
 from ..infoscraper import channelInfo
+from ..share.dataUtils import botdb
 from discord.ext import commands, tasks
 
 async def milestoneCheck():
-    with open("data/channels.json") as f:
-        channels = json.load(f)
-    
+    db = await botdb.getDB()
     milestone = {}
+    dbUpdate = []
     noWrite = True
+    channels = await botdb.getAllData("channels", ("id", "milestone"), keyDict="id")
 
     async def getSubs(channel):
         for x in range(2):
@@ -56,18 +57,16 @@ async def milestoneCheck():
         if channel != None:
             noWrite = False
             milestone[channel["id"]] = channel
-            channels[channel["id"]]["milestone"] = channel["roundSubs"]
+            dbUpdate.append((channel["id"], channel["roundSubs"]))
 
     if not noWrite:
-        with open("data/channels.json", "w") as f:
-            json.dump(channels, f, indent=4)
+        await botdb.addMultiData(dbUpdate, ("id", "milestone"), "channels", db)
     
     return milestone
 
 async def milestoneNotify(msDict, bot, test=False):
     logging.debug(f'Milestone Data: {msDict}')
-    with open("data/servers.json") as f:
-        servers = json.load(f)
+    servers = await botdb.getAllData("servers", ("server", "channel", "milestone"))
     for channel in msDict:
         logging.debug(f'Generating milestone image for id {channel}')
         if msDict[channel]["banner"] is not None:
@@ -97,9 +96,10 @@ async def milestoneNotify(msDict, bot, test=False):
                 try:
                     logging.debug(f'Accessing server id {server}')
                     for dch in servers[server]:
-                        logging.debug(f'Milestone - Channel Data: {servers[server][dch]["milestone"]}')
-                        logging.debug(f'Milestone - Channel Check Pass: {channel in servers[server][dch]["milestone"]}')
-                        if channel in servers[server][dch]["milestone"]:
+                        milestone = server["milestone"].split("|yb|")
+                        logging.debug(f'Milestone - Channel Data: {milestone}')
+                        logging.debug(f'Milestone - Channel Check Pass: {channel in milestone}')
+                        if channel in milestone:
                             logging.debug(f'Posting to {dch}...')
                             await bot.get_channel(int(dch)).send(f'{msDict[channel]["name"]} has reached {msDict[channel]["msText"].replace("Subscribers", "subscribers")}!', file=discord.File(f'milestone/generated/{channel}.png'))
                             await bot.get_channel(int(dch)).send("おめでとう！")
