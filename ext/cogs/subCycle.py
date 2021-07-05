@@ -1,3 +1,6 @@
+# NOTE: Needs a rewrite to support grabbing data from SQL instead.
+# TODO: Create a standalone video scraper
+
 import json
 import traceback
 import aiohttp
@@ -9,7 +12,7 @@ from discord import Webhook, AsyncWebhookAdapter
 from discord.ext import commands, tasks
 from ext.share.botUtils import uplThumbnail
 from ..infoscraper import streamInfo, channelInfo
-from ..share.dataUtils import getwebhook
+from ..share.dataUtils import getWebhook
 
 async def streamcheck(ctx = None, test: bool = False, loop: bool = False):
     with open("data/channels.json", encoding="utf-8") as f:

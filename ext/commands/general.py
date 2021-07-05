@@ -8,8 +8,8 @@ from discord_slash.context import SlashContext
 from discord_components import Button, ButtonStyle
 from ext.share.botVars import allSubTypes
 from ..infoscraper import FandomScrape, TwitterScrape
-from ..share.botUtils import TwitterUtils, chunks, embedContinue, getAllSubs, msgDelete, fandomTextParse, vtuberSearch
-from ..share.dataUtils import getSubType
+from ..share.botUtils import TwitterUtils, chunks, embedContinue, msgDelete, fandomTextParse, vtuberSearch
+from ..share.dataUtils import botdb, getAllSubs
 from ..share.prompts import TwitterPrompts, botError, unsubCheck
 
 async def botHelp():
@@ -41,14 +41,13 @@ async def botHelp():
 
     return hembed
 
+# TODO: SQL rewrite
+# TODO: Migrate to newer version of prompts
+# TODO: Add way to search for already subscribed VTubers
+# TODO: Move to subscribe.py
+# TODO: Create unsubUtils as a communication layer
 async def botUnsub(ctx: Union[commands.Context, SlashContext], bot: commands.Bot):
-    # TODO: Add way to search for already subscribed VTubers
-
-    with open("data/servers.json") as f:
-        servers = json.load(f)
-    with open("data/channels.json") as f:
-        channels = json.load(f)
-    
+    db = await botdb.getDB()
     unsubmsg = await ctx.send("Loading subscription list...")
 
     allCh = await getAllSubs(servers[str(ctx.guild.id)][str(ctx.channel.id)])
@@ -166,6 +165,8 @@ async def botUnsub(ctx: Union[commands.Context, SlashContext], bot: commands.Bot
             await msgDelete(ctx)
             return
 
+# TODO: SQL rewrite
+# TODO: Migrate to newer version of prompts
 async def botSublist(ctx: Union[commands.Context, SlashContext], bot: commands.Bot):
     with open("data/channels.json", encoding="utf-8") as f:
         channels = json.load(f)
@@ -321,9 +322,10 @@ async def botGetInfo(ctx: Union[commands.Context, SlashContext], bot: commands.B
                             excessLoop = False
 
 # Tasklist:
-# Create custom Twitter accounts compatibility layer
 # Create disclaimer on core unsubscribe command
-# Make Twitter cycle cog get user IDs from custom Twitter compatibility layer
+# TODO: SQL rewrite
+# TODO: Move to it's own file if possible
+# TODO: Ensure that the channel has a webhook first
 class botTwt:
     async def follow(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, accLink: str):
         twtHandle = ""
@@ -361,9 +363,9 @@ class botTwt:
                 twtData = await TwitterUtils.newAccount(twtUser)
             status = await TwitterUtils.followActions("add", str(ctx.guild.id), str(ctx.channel.id), twtUser.id_str)
             if not status:
-                await twtMsg.edit(content=f"This channel is already following @{twtUser.name}'s tweets.", embed=" ")
+                await twtMsg.edit(content=f"This channel is already following @{twtUser.name}'s tweets.", embed=" ", components=[])
             else:
-                await twtMsg.delete()
+                await twtMsg.edit(content=f"This channel is now following @{twtUser.name}'s tweets.", embed=" ", components=[])
             await msgDelete(ctx)
             return
         else:
