@@ -1,6 +1,4 @@
-import json
 import discord
-import asyncio
 import mysql.connector
 from discord.ext import commands
 from discord_slash.context import SlashContext

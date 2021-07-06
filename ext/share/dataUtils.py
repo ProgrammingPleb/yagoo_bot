@@ -1,7 +1,5 @@
 import json
 import yaml
-import asyncio
-import logging
 import discord
 import mysql.connector
 from typing import Union

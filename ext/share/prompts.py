@@ -113,7 +113,7 @@ async def unsubCheck(ctx: Union[commands.Context, SlashContext], bot: commands.B
                 "success": True,
                 "subType": [chData["subType"][int(msg.content) - 1]]
             }
-        elif "," in msg.content and "x" not in msg.content.lower():
+        if "," in msg.content and "x" not in msg.content.lower():
             valid = True
             returnData = {
                     "success": False,
@@ -171,7 +171,7 @@ async def botError(ctx, error):
         errEmbed.description = "You are missing permissions to use this bot.\n" \
                                "Ensure that you have one of these permissions for the channel/server:\n\n" \
                                " - `Administrator (Server)`\n - `Manage Webhooks (Channel/Server)`"
-    elif type(error) == tweepy.NotFound:
+    elif isinstance(error, tweepy.NotFound):
         errEmbed.description = "This user was not found on Twitter!\n" \
                                "Make sure the spelling of the user's Twitter link/screen name is correct!"
     else:
@@ -328,7 +328,7 @@ class generalPrompts:
                 return False
             return data
 
-        async def doubleCheck(ctx: commands.Context, bot: commands.Bot, msg: discord.Message, filter: list = None):
+        async def doubleCheck(ctx: commands.Context, bot: commands.Bot, msg: discord.Message, filterRes: list = None):
             """
             Checks for both a message or a button interaction from the user.
             
@@ -344,10 +344,9 @@ class generalPrompts:
             A Discord message or interaction if either are passed within 30 seconds, or `False` if none.
             """
             def mCheck(m):
-                if filter:
-                    return m.content in filter and m.channel.id == ctx.channel.id and m.author.id == ctx.author.id
-                else:
-                    return m.channel.id == ctx.channel.id and m.author.id == ctx.author.id
+                if filterRes:
+                    return m.content in filterRes and m.channel.id == ctx.channel.id and m.author.id == ctx.author.id
+                return m.channel.id == ctx.channel.id and m.author.id == ctx.author.id
             
             def bCheck(res):
                 return res.channel.id == ctx.channel.id and res.user.id == ctx.author.id and res.message.id == msg.id
@@ -363,7 +362,7 @@ class generalPrompts:
             try:
                 result = done.pop().result()
             except Exception as e:
-                if type(e) == asyncio.TimeoutError:
+                if isinstance(e, asyncio.TimeoutError):
                     return False
                 await botError(ctx, "AsyncIO Wait Error")
             
@@ -393,16 +392,15 @@ class generalPrompts:
         
         result = await generalPrompts.utils.doubleCheck(ctx, bot, msg)
         
-        if type(result) == discord_components.message.ComponentMessage:
+        if isinstance(result, discord_components.message.ComponentMessage):
             await result.delete()
             return {
                 "status": True,
                 "res": result.content
             }
-        else:
-            return {
-                "status": False
-            }
+        return {
+            "status": False
+        }
         
     async def confirm(ctx: commands.Context, bot: commands.Bot, msg: discord.Message, title: str, action: str):
         """
@@ -441,7 +439,7 @@ class generalPrompts:
                     "status": True,
                     "choice": False
                 }
-            elif result.component.id == "yes":
+            if result.component.id == "yes":
                 return {
                     "status": True,
                     "choice": True
@@ -509,7 +507,7 @@ class pageNav:
             try:
                 result = done.pop().result()
             except Exception as e:
-                if type(e) == asyncio.TimeoutError:
+                if isinstance(e, asyncio.TimeoutError):
                     return False
                 await botError(ctx, "AsyncIO Wait Error")
             
@@ -533,8 +531,7 @@ class pageNav:
                     if option.strip() != "":
                         returnList.append(int(option))
                 return returnList
-            else:
-                return int(msg.content)
+            return int(msg.content)
         
         async def processButton(data: discord_components.Interaction, buttons: list, numReturn: list):
             """
@@ -609,14 +606,13 @@ class pageNav:
                         "all": False,
                         "item": None
                     }
-                else:
-                    return {
-                        "status": True,
-                        "all": True,
-                        "item": None
-                    }
+                return {
+                    "status": True,
+                    "all": True,
+                    "item": None
+                }
             elif result["type"] == "message":
-                if type(result["res"]) == list:
+                if isinstance(result["res"], list):
                     result["res"] = result["res"][0]
                 return {
                     "status": True,
@@ -700,14 +696,14 @@ class pageNav:
                         "search": False,
                         "item": None
                     }
-                elif result["res"] == 3:
+                if result["res"] == 3:
                     return {
                         "status": True,
                         "other": True,
                         "search": False,
                         "item": None
                     }
-                elif result["res"] == 4:
+                if result["res"] == 4:
                     return {
                         "status": True,
                         "other": False,
@@ -715,7 +711,7 @@ class pageNav:
                         "item": None
                     }
             elif result["type"] == "message":
-                if type(result["res"]) == list:
+                if isinstance(result["res"], list):
                     result["res"] = result["res"][0]
                 return {
                     "status": True,
@@ -782,7 +778,7 @@ class pageNav:
             await editClass.editMsg(*editArgs, embed, pageNum)
             result = await pageNav.utils.doubleCheck(ctx, bot, msg, pages, pageNum)
             
-            if type(result) == discord_components.Interaction:
+            if isinstance(result, discord_components.Interaction):
                 await result.respond(type=InteractionType.DeferredUpdateMessage)
                 buttonRes = await pageNav.utils.processButton(result, *buttonArgs)
                 if buttonRes in [-1, 1]:
@@ -792,7 +788,7 @@ class pageNav:
                         "type": "button",
                         "res": buttonRes
                     }
-            elif type(result) == discord_components.message.ComponentMessage:
+            elif isinstance(result, discord_components.message.ComponentMessage):
                 if result.content in pages[pageNum]["entries"]:
                     await result.delete()
                     return {
@@ -910,13 +906,12 @@ class subPrompts:
                     "search": result["search"],
                     "category": result["item"]["name"]
                 }
-            else:
-                return {
-                    "status": True,
-                    "all": result["other"],
-                    "search": result["search"],
-                    "category": None
-                }
+            return {
+                "status": True,
+                "all": result["other"],
+                "search": result["search"],
+                "category": None
+            }
         else:
             return {
                 "status": False
@@ -1066,15 +1061,15 @@ class subPrompts:
         async def editMsg(subTypes: list, msg: discord.Message, embed: discord.Embed, buttonStates: dict, subText: str, subId: str):
             buttonList = []
             selected = False
-            all = True
+            allTypes = True
             for subType in subTypes:
                 if buttonStates[subType]:
                     buttonList.append([Button(label=f"{subType.capitalize()} Notifications", style=ButtonStyle.green, id=subType)])
                     selected = True
                 else:
                     buttonList.append([Button(label=f"{subType.capitalize()} Notifications", style=ButtonStyle.red, id=subType)])
-                    all = False
-            if not all:
+                    allTypes = False
+            if not allTypes:
                 allButton = Button(label="Select All", style=ButtonStyle.blue, id="all")
             else:
                 allButton = Button(label="Select None", id="all")
@@ -1179,12 +1174,12 @@ class subPrompts:
                     return {
                         "status": False
                     }
-                elif result.component.id == "results":
+                if result.component.id == "results":
                     return {
                         "status": True,
                         "action": "search"
                     }
-                elif result.component.id == "confirm":
+                if result.component.id == "confirm":
                     return {
                         "status": True,
                         "action": "confirm"
