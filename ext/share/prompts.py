@@ -10,132 +10,6 @@ from discord_slash.context import SlashContext
 from discord_components import Button, ButtonStyle
 from ext.share.botVars import allSubTypes
 
-async def subCheck(ctx, bot, subMsg, mode, chName):
-    from ext.share.botUtils import serverSubTypes
-    subOptions = allSubTypes() + ["All"]
-    subText = ""
-    subChoice = []
-    subNum = 1
-
-    for sub in subOptions:
-        subText += f"{subNum}. {sub} Notifications\n"
-        subChoice.append(str(subNum))
-        subNum += 1
-    
-    if mode == 1:
-        action = "Subscribe"
-    elif mode == 2:
-        action = "Unsubscribe"
-    else:
-        return {
-            "success": False
-        }
-    
-    subEmbed = discord.Embed(title=chName, description=f"{action} to the channel's:\n\n"
-                                                        f"{subText}X. Cancel\n\n[Bypass this by setting the channel's default subscription type using `y!subdefault`.\n"
-                                                        "Select multiple subscriptions by seperating them using commas, for example `1,3`.]")
-
-    await subMsg.edit(content=" ", embed=subEmbed)
-
-    uInput = {
-        "success": False
-    }
-
-    def check(m):
-        return (m.content.lower() in subChoice + ['x'] or "," in m.content) and m.author == ctx.author
-
-    while True:
-        try:
-            msg = await bot.wait_for('message', timeout=60.0, check=check)
-        except asyncio.TimeoutError:
-            await subMsg.delete()
-            break
-        else:
-            await msg.delete()
-            if msg.content in subChoice or ("," in msg.content and "x" not in msg.content.lower()):
-                if subChoice[-1] not in msg.content.split(","):
-                    sSubType = await serverSubTypes(msg, subChoice + ['x'], subOptions)
-                    uInput["subType"] = sSubType["subType"]
-                else:
-                    subTypes = []
-                    for sub in subOptions:
-                        if sub != subOptions[-1]:
-                            subTypes.append(sub.lower())
-                    uInput["subType"] = subTypes
-                uInput["success"] = True
-                break
-            elif msg.content.lower() == 'x':
-                break
-    
-    return uInput
-
-async def unsubCheck(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, chData: dict, unsubMsg: discord.Message):
-    """
-    Prompts the user for the choice of which subscription type to unsubscribe from.
-
-    Arguments
-    ---
-    `ctx`: A discord.py `commmands.Context` or discord-py-slash-command `SlashContext` object.
-    `bot`: A discord.py `commands.Bot` object
-    `chData`: A dict containing `"name"` for the embed title and `"subType"` for available subscription types.
-    `unsubMsg`: A discord.py `discord.Message` object.
-
-    Returns a `dict` with `"success"` for the success code and `"subType"` for the chosen subscription types to unsubscribe from.
-    """
-
-    notifCount = 1
-    embedChoice = []
-    unsubEmbed = discord.Embed(title=chData["name"], description="Unsubscribe from the channel's:\n")
-    
-    for subType in chData["subType"]:
-        unsubEmbed.description += f"{notifCount}. {subType.capitalize()} Notifications\n"
-        embedChoice.append(str(notifCount))
-        notifCount += 1
-    unsubEmbed.description += "\nX. Cancel\n[Select multiple subscriptions by seperating them using commas, for example `1,3`.]"
-
-    await unsubMsg.edit(content=" ", embed=unsubEmbed)
-
-
-    def check(m):
-        return (m.content.lower() in embedChoice + ["x"] or "," in m.content) and m.author == ctx.author
-
-    while True:
-        try:
-            msg = await bot.wait_for('message', check=check, timeout=60)
-        except asyncio.TimeoutError:
-            return {
-                "success": False,
-                "subType": None
-            }
-        await msg.delete()
-        if msg.content in embedChoice:
-            return {
-                "success": True,
-                "subType": [chData["subType"][int(msg.content) - 1]]
-            }
-        if "," in msg.content and "x" not in msg.content.lower():
-            valid = True
-            returnData = {
-                    "success": False,
-                    "subType": []
-                }
-            for subType in msg.content.split(","):
-                if valid:
-                    try:
-                        returnData["subType"].append(chData["subType"][int(subType) - 1])
-                    except Exception as e:
-                        valid = False
-                else:
-                    break
-            if valid:
-                returnData["success"] = True
-                return returnData
-        elif "x" in msg.content.lower():
-            return {
-                "success": False,
-                "subType": None
-            }
-
 async def botError(ctx, error):
     errEmbed = discord.Embed(title="An error has occurred!", color=discord.Colour.red())
     if "403 Forbidden" in str(error):
@@ -181,6 +55,7 @@ async def botError(ctx, error):
     
     return errEmbed
 
+# DEPRECATE: Use buttons to match new prompts format
 async def searchPrompt(ctx, bot, sResults: list, smsg, embedDesc):
     sEmbed = discord.Embed(title="VTuber Search", description=embedDesc)
     sDesc = ""
@@ -229,6 +104,7 @@ async def searchPrompt(ctx, bot, sResults: list, smsg, embedDesc):
         "name": pickName
     }
 
+# DEPRECATE: Use buttons to match new prompts format
 async def searchConfirm(ctx, bot, sName: str, smsg, embedDesc, accept, decline, url: bool = False):
     sEmbed = discord.Embed(title="VTuber Search", description=embedDesc)
     if not url:
@@ -271,41 +147,9 @@ async def searchConfirm(ctx, bot, sName: str, smsg, embedDesc, accept, decline, 
             }
         await msg.delete()
 
-# TODO: Use buttons to improve the prompt
-async def searchMessage(ctx, bot, srchMsg):
-    searchEmbed = discord.Embed(title="VTuber Search")
-    searchEmbed.description = "Enter a VTuber name:\n" \
-                              "[Enter `cancel` to cancel searching.]"
-
-    await srchMsg.edit(content=" ", embed=searchEmbed)
-
-    def check(m):
-        return m.author == ctx.author
-    
-    while True:
-        try:
-            msg = await bot.wait_for('message', timeout=60.0, check=check)
-        except asyncio.TimeoutError:
-            return {
-                "success": False,
-                "search": None
-            }
-        if msg.content.lower() == "cancel":
-            await msg.delete()
-            return {
-                "success": False,
-                "search": None
-            }
-        await msg.delete()
-        return {
-            "success": True,
-            "search": msg.content
-        }
-
-
 class generalPrompts:
     class utils:
-        async def buttonCheck(ctx: commands.Context, bot: commands.Bot, msg: discord.Message):
+        async def buttonCheck(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, msg: discord.Message):
             """
             Wait for a button press from the message provided.
             
@@ -328,7 +172,7 @@ class generalPrompts:
                 return False
             return data
 
-        async def doubleCheck(ctx: commands.Context, bot: commands.Bot, msg: discord.Message, filterRes: list = None):
+        async def doubleCheck(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, msg: discord.Message, filterRes: list = None):
             """
             Checks for both a message or a button interaction from the user.
             
@@ -368,7 +212,7 @@ class generalPrompts:
             
             return result
     
-    async def cancel(ctx: commands.Context, bot: commands.Bot, msg: discord.Message, title: str, description: str, allowed: list = None):
+    async def cancel(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, msg: discord.Message, title: str, description: str, allowed: list = None):
         """
         Creates a prompt with a "Cancel" button.
         
@@ -402,7 +246,7 @@ class generalPrompts:
             "status": False
         }
         
-    async def confirm(ctx: commands.Context, bot: commands.Bot, msg: discord.Message, title: str, action: str):
+    async def confirm(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, msg: discord.Message, title: str, action: str):
         """
         Creates a prompt for confirmation of an action.
         
@@ -474,7 +318,7 @@ class pageNav:
             
             return pageButtons
         
-        async def doubleCheck(ctx: commands.Context, bot: commands.Bot, msg: discord.Message, pages: list, pageNum: int):
+        async def doubleCheck(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, msg: discord.Message, pages: list, pageNum: int):
             """
             Checks for both a message or a button interaction from the user.
             
@@ -569,7 +413,7 @@ class pageNav:
             pageButtons.append([Button(id="remove", label=removeText, style=ButtonStyle.red), Button(id="cancel", label="Cancel", style=ButtonStyle.blue)])
             await msg.edit(content=" ", embed=embed, components=pageButtons)
         
-        async def prompt(ctx: commands.Context,
+        async def prompt(ctx: Union[commands.Context, SlashContext],
                          bot: commands.Bot,
                          msg: discord.Message,
                          pages: list,
@@ -651,7 +495,7 @@ class pageNav:
             pageButtons.append([Button(id="cancel", label="Cancel", style=ButtonStyle.red)])
             await msg.edit(content=" ", embed=embed, components=pageButtons)
         
-        async def prompt(ctx: commands.Context,
+        async def prompt(ctx: Union[commands.Context, SlashContext],
                          bot: commands.Bot,
                          msg: discord.Message,
                          pages: list,
@@ -680,9 +524,9 @@ class pageNav:
             Returns
             ---
             A `dict` with:
-            - status: `True` if the command succeeded, `False` if otherwise.
-            - all: `True` if the user wants to remove all items, `False` if otherwise.
-            - search: `True` if the user wants to search for something, `False` if otherwise.
+            - status: `True` if the command succeeded.
+            - other: `True` if the user clicked the other button.
+            - search: `True` if the user wants to search for something.
             - item: The item that needs to added/removed. (Contains the "name" and "id" as `dict` keys)
             """
             editArgs = [bot, msg, pages, searchText, otherText, otherId, otherColor]
@@ -727,7 +571,7 @@ class pageNav:
                     "status": False
                 }
 
-    async def message(ctx: commands.Context,
+    async def message(ctx: Union[commands.Context, SlashContext],
                       bot: commands.Bot,
                       editClass: type,
                       msg: discord.Message,
@@ -874,7 +718,7 @@ class subPrompts:
         
         return pages
     
-    async def ctgPicker(ctx: commands.Context, bot: commands.Bot, channels: dict, ctgMsg: discord.Message):
+    async def ctgPicker(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, channels: dict, ctgMsg: discord.Message):
         """
         Prompts the user for a VTuber's affiliation.
         
@@ -917,7 +761,7 @@ class subPrompts:
                 "status": False
             }
     
-    async def searchPick(ctx: commands.Context, bot: commands.Bot, msg: discord.Message, searchTerm: str, results: list):
+    async def searchPick(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, msg: discord.Message, searchTerm: str, results: list):
         """
         A prompt to pick possible search matches.
         
@@ -992,7 +836,7 @@ class subPrompts:
                 subTypes = ""
                 for subType in subbed:
                     subTypes += f"{subType.capitalize()}, "
-                embed.add_field(name="Subscription Types", value=subTypes.strip(", "))
+                embed.add_field(name="Subscription Types", value=subTypes.strip(", "), inline=False)
         await msg.edit(content=" ", embed=embed, components=[])
     
     class channelPick:
@@ -1034,7 +878,7 @@ class subPrompts:
             
             return result
         
-        async def prompt(ctx: commands.Context, bot: commands.Bot, msg: discord.Message, category: dict, catName: str):
+        async def prompt(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, msg: discord.Message, category: dict, catName: str):
             """
             Prompts the user for which VTuber to pick.
             
@@ -1058,7 +902,7 @@ class subPrompts:
             return await pageNav.search.prompt(ctx, bot, msg, pages, "Subscribing to a VTuber", "Search for a VTuber", f"Subscribe to all {catName} VTubers", "subAll")
     
     class subTypes:
-        async def editMsg(subTypes: list, msg: discord.Message, embed: discord.Embed, buttonStates: dict, subText: str, subId: str):
+        async def editMsg(subTypes: list, msg: discord.Message, embed: discord.Embed, buttonStates: dict, subText: str, subId: str, allowNone: bool):
             buttonList = []
             selected = False
             allTypes = True
@@ -1069,6 +913,8 @@ class subPrompts:
                 else:
                     buttonList.append([Button(label=f"{subType.capitalize()} Notifications", style=ButtonStyle.red, id=subType)])
                     allTypes = False
+            if allowNone:
+                selected = True
             if not allTypes:
                 allButton = Button(label="Select All", style=ButtonStyle.blue, id="all")
             else:
@@ -1077,13 +923,15 @@ class subPrompts:
             await msg.edit(content=" ", embed=embed, components=buttonList)
             return
         
-        async def prompt(ctx: commands.Context,
+        async def prompt(ctx: Union[commands.Context, SlashContext],
                          bot: commands.Bot,
                          msg: discord.Message,
                          title: str,
                          description: str,
                          buttonText: str = "Subscribe",
-                         buttonId: str = "subscribe"):
+                         buttonId: str = "subscribe",
+                         subTypes: dict = None,
+                         allowNone: bool = False):
             """
             Prompts the user for subscription types.
             
@@ -1096,6 +944,8 @@ class subPrompts:
             description: The content of the prompt.
             buttonText: The text for the subscribe button.
             buttonId: The ID for the subscribe button.
+            subTypes: Existing subscription type status as a `dict`.
+            allowNone: To allow the user to select none of the subscription types.
             
             Returns
             ---
@@ -1103,15 +953,17 @@ class subPrompts:
             - status: `True` if the user choosed any subscription types.
             - subTypes: The subscription types which were selected by the user (`dict` that contains `bool` states of subscriptions).
             """
-            subTypes = allSubTypes(False)
-            buttonStates = {}
-            for subType in subTypes:
-                buttonStates[subType] = False
+            buttonStates = subTypes
+            if not buttonStates:
+                buttonStates = {}
+                subTypes = allSubTypes(False)
+                for subType in subTypes:
+                    buttonStates[subType] = False
             
             embed = discord.Embed(title=title, description=description)
             
             while True:
-                await subPrompts.subTypes.editMsg(subTypes, msg, embed, buttonStates, buttonText, buttonId)
+                await subPrompts.subTypes.editMsg(subTypes, msg, embed, buttonStates, buttonText, buttonId, allowNone)
                 result = await generalPrompts.utils.buttonCheck(ctx, bot, msg)
                 
                 if result:
@@ -1147,7 +999,7 @@ class subPrompts:
             await msg.edit(content=" ", embed=embed, components=buttons)
             return
         
-        async def prompt(ctx: commands.Context, bot: commands.Bot, msg: discord.Message, title: str):
+        async def prompt(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, msg: discord.Message, title: str, action: str):
             """
             Prompts to either confirm the choice of VTuber, cancel, or search for another VTuber.
             
@@ -1164,7 +1016,7 @@ class subPrompts:
             - status: `True` if a user requested to search or confirms the choice.
             - action: The action that is requested by the user (`search`/`confirm`).
             """
-            embed = discord.Embed(title=title, description="Are you sure you want to subscribe to this channel?")
+            embed = discord.Embed(title=title, description=f"Are you sure you want to {action} to this channel?")
             await subPrompts.vtuberConfirm.editMsg(msg, embed)
             result = await generalPrompts.utils.buttonCheck(ctx, bot, msg)
             
@@ -1190,6 +1042,164 @@ class subPrompts:
                 }
             return
 
+    class sublistDisplay:
+        async def parseToPages(server: dict):
+            """
+            Parses the channel's subscriptions into pages that can be used by `pageNav.message`.
+            
+            Arguments
+            ---
+            server: The server's channel subscriptions, obtained from `unsubUtils.parseToSubTypes`.
+            
+            Returns
+            ---
+            A `list` following the page format in `pageNav.message`.
+            """
+            result = []
+            pos = 1
+            text = ""
+            for channel in server["channels"]:
+                text += f"{pos}. {server['channels'][channel]['name']}\n"
+                pos += 1
+                if pos == 11:
+                    result.append({"text": text.strip(), "entries": [], "ids": [], "names": []})
+                    pos = 1
+                    text = ""
+            if pos > 1:
+                result.append({"text": text.strip(), "entries": [], "ids": [], "names": []})
+            return result
+        
+        async def editMsg(msg: discord.Message, embed: discord.Embed, pages: list, pagePos: int):
+            buttons = await pageNav.utils.pageRow(pages, pagePos)
+            await msg.edit(content=" ", embed=embed, components=buttons)
+            return
+        
+        async def prompt(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, msg: discord.Message, pages: list, server: dict):
+            """
+            Show the user about the current subscriptions for the channel.
+            
+            Arguments
+            ---
+            ctx: Context from the executed command.
+            bot: The Discord bot.
+            msg: The message that will be used as the prompt.
+            pages: A `list` containing the pages of the Discord channel's subscriptions.
+            server: The server's channel subscriptions, obtained from `unsubUtils.parseToSubTypes`.
+            """
+            embed = discord.Embed(title="Current Channel Subscriptions")
+            pagePos = 0
+            subFilter = []          # TODO: (LATER) Subscription filter as a sub-update after core rewrite
+            
+            while True:
+                embed.description = pages[pagePos]["text"]
+                await subPrompts.sublistDisplay.editMsg(msg, embed, pages, pagePos)
+                result = await generalPrompts.utils.buttonCheck(ctx, bot, msg)
+                
+                if result:
+                    await result.respond(type=InteractionType.DeferredUpdateMessage)
+                    if result.component.id == "next":
+                        pagePos += 1
+                    elif result.component.id == "back":
+                        pagePos -= 1
+                else:
+                    break
+            
+            if len(server['subbed']) > 1:
+                embed.description = f"This channel is currently subscribed to {len(server['subbed'])} channels."
+            else:
+                embed.description = f"This channel is currently subscribed to 1 channel."
+            await msg.edit(content=" ", embed=embed, components=[])
+            return
+
+class unsubPrompts:
+    class removePrompt:
+        async def editMsg(msg: discord.Message, embed: discord.Embed, subTypes: dict):
+            buttons = []
+            allSubs = True
+            selected = False
+            for subType in subTypes:
+                if subTypes[subType]:
+                    buttons.append(Button(label=f"{subType.capitalize()} Notifications", id=subType, style=ButtonStyle.green))
+                    allSubs = False
+                else:
+                    buttons.append(Button(label=f"{subType.capitalize()} Notifications", id=subType))
+                    selected = True
+            if not allSubs:
+                buttons.append([Button(label="Cancel", id="cancel", style=ButtonStyle.red),
+                                Button(label="Select All", id="select", style=ButtonStyle.blue),
+                                Button(label="Unsubscribe", id="unsub", style=ButtonStyle.red, disabled=not selected)])
+            else:
+                buttons.append([Button(label="Cancel", id="cancel", style=ButtonStyle.red),
+                                Button(label="Select None", id="select"),
+                                Button(label="Unsubscribe", id="unsub", style=ButtonStyle.red, disabled=not selected)])
+            await msg.edit(content=" ", embed=embed, components=buttons)
+            return
+        
+        async def prompt(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, msg: discord.Message, name: str, subTypes: dict):
+            """
+            Prompts the user for which subscription type to unsubscribe from.
+            
+            Arguments
+            ---
+            ctx: Context from the executed command.
+            bot: The Discord bot.
+            msg: The message that will be used as the prompt.
+            name: Name of the VTuber's channel to be unsubscribed from.
+            subTypes: The current active subscriptions for the current VTuber channel.
+            
+            Returns
+            ---
+            A `dict` with:
+            - status: `True` if an option was chosen by the user.
+            - unsubbed: A `list` with subscription types to unsubscribe from.
+            """
+            embed = discord.Embed(title=f"Unsubscribing from {name}", description="Choose the subscription types to unsubscribe from.")
+            
+            while True:
+                await unsubPrompts.removePrompt.editMsg(msg, embed, subTypes)
+                result = await generalPrompts.utils.buttonCheck(ctx, bot, msg)
+                
+                if result:
+                    await result.respond(type=InteractionType.DeferredUpdateMessage)
+                    if result.component.id == "cancel":
+                        return {
+                            "status": False
+                        }
+                    if result.component.id == "unsub":
+                        unsubbed = []
+                        for subType in subTypes:
+                            if not subTypes[subType]:
+                                unsubbed.append(subType)
+                        return {
+                            "status": True,
+                            "unsubbed": unsubbed
+                        }
+                    if result.component.id == "select":
+                        allSubs = True
+                        for subType in subTypes:
+                            if subTypes[subType]:
+                                allSubs = False
+                        for subType in subTypes:
+                            subTypes[subType] = allSubs
+                    else:
+                        subTypes[result.component.id] = not subTypes[result.component.id]
+                else:
+                    return {
+                        "status": False
+                    }
+
+    async def displayResult(msg: discord.Message, name: str, subTypes: list):
+        subTypeText = ""
+        
+        embed = discord.Embed(title="Successfully Unsubscribed!",
+                              description=f"This channel is now unsubscribed from {name}.",
+                              color=discord.Colour.green())
+        for subType in subTypes:
+            subTypeText += f"{subType.capitalize()}, "
+        embed.add_field(name="Subscription Types", value=subTypeText.strip(", "), inline=False)
+        await msg.edit(content=" ", embed=embed, components=[])
+        return
+
 class TwitterPrompts:
     async def parseToPages(data: list):
         pages = []
@@ -1210,7 +1220,7 @@ class TwitterPrompts:
         
         return pages
 
-    async def unfollow(ctx: commands.Context, bot: commands.Bot, msg: discord.Message, customAcc: dict, servers: dict):
+    async def unfollow(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, msg: discord.Message, customAcc: dict, servers: dict):
         from .botUtils import chunks, msgDelete, TwitterUtils
         temp = {}
         followed = []

@@ -14,15 +14,13 @@ from ext.infoscraper import channelInfo
 from ext.cogs.subCycle import StreamCycle, streamcheck
 from ext.cogs.msCycle import msCycle, milestoneNotify
 from ext.cogs.dblUpdate import guildUpdate
-#from ext.cogs.chUpdater import chCycle
-#from ext.cogs.scrapeCycle import ScrapeCycle
 from ext.cogs.premiereCycle import PremiereCycle
 from ext.cogs.twtCycle import twtCycle
 from ext.share.botUtils import subPerms, creatorCheck, userWhitelist
-from ext.share.dataUtils import getWebhook, refreshWebhook, botdb, dbTools
+from ext.share.dataUtils import refreshWebhook, botdb, dbTools
 from ext.share.prompts import botError
-from ext.commands.subscribe import subCategory, subCustom
-from ext.commands.general import botHelp, botSublist, botGetInfo, botTwt, botUnsub
+from ext.commands.subscribe import defaultSubtype, subCategory, subCustom, sublistDisplay, unsubChannel
+from ext.commands.general import botHelp, botGetInfo, botTwt
 from ext.commands.slash import YagooSlash
 
 init = False
@@ -75,17 +73,16 @@ async def on_ready():
 @bot.event
 async def on_guild_remove(server):
     logging.info(f'Got removed from a server, cleaning up server data for: {str(server)}')
-    await botdb.deleteData(server, "server", "servers")
+    await botdb.deleteRow(server, "server", "servers")
 
 @bot.command(alias=['h'])
 async def help(ctx): # pylint: disable=redefined-builtin
     await ctx.send(embed=await botHelp())
 
-# TODO: Move command process to a part of subscribe.py
 @bot.command(aliases=['subdefault'])
 @commands.check(subPerms)
 async def subDefault(ctx):
-    await getSubType(ctx, 1, bot)
+    await defaultSubtype(ctx, bot)
 
 @subDefault.error
 async def subdef_error(ctx, error):
@@ -109,8 +106,8 @@ async def sub_error(ctx, error):
 
 @bot.command(aliases=["unsub"])
 @commands.check(subPerms)
-async def unsubscribe(ctx):
-    await botUnsub(ctx, bot)
+async def unsubscribe(ctx, *, channel = None):
+    await unsubChannel(ctx, bot, channel)
 
 @unsubscribe.error
 async def unsub_error(ctx, error):
@@ -128,7 +125,7 @@ async def info(ctx, *, name: str = None):
 @bot.command(aliases=["subs", "subslist", "subscriptions", "subscribed"])
 @commands.check(subPerms)
 async def sublist(ctx):
-    await botSublist(ctx, bot)
+    await sublistDisplay(ctx, bot)
 
 @sublist.error
 async def sublist_error(ctx, error):
@@ -272,7 +269,7 @@ async def chRefresh(ctx: commands.Context):
         await ctx.message.delete()
     else:
         if res.component.label == "Yes":
-            await refreshWebhook(ctx.guild, ctx.channel)
+            await refreshWebhook(bot, ctx.guild, ctx.channel)
             await qmsg.edit("The webhook URL has been refreshed for this channel.", components=[])
         else:
             await qmsg.delete()

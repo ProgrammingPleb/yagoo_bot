@@ -2,8 +2,8 @@ import logging
 from discord.ext import commands
 from discord_slash import cog_ext
 from discord_slash.utils.manage_commands import create_option
-from .general import botGetInfo, botHelp, botSublist, botTwt, botUnsub
-from .subscribe import subCategory, subCustom
+from .general import botGetInfo, botHelp, botTwt
+from .subscribe import subCategory, subCustom, unsubChannel, sublistDisplay
 
 class YagooSlash(commands.Cog):
     def __init__(self, bot, slash):
@@ -14,10 +14,6 @@ class YagooSlash(commands.Cog):
     @cog_ext.cog_slash(name="help", description="Shows the bot's help menu.", options=None)
     async def _help(self, ctx):
         await ctx.send(embed=await botHelp())
-    
-    @cog_ext.cog_slash(name="test", description="A test command. This should not be available to the end user!", options=None)
-    async def _test(self, ctx):
-        await ctx.send("Test command is working!")
 
     @cog_ext.cog_slash(name="info", description="Get information about a VTuber.",
                        options=[create_option(name = "name", description = "The VTuber's name to search for.", option_type = 3, required = True)])
@@ -34,11 +30,12 @@ class YagooSlash(commands.Cog):
 
     @cog_ext.cog_slash(name="sublist", description="Lists all the VTubers this channel is subscribed to.", options=None)
     async def _test(self, ctx):
-        await botSublist(ctx, self.bot)
+        await sublistDisplay(ctx, self.bot)
 
-    @cog_ext.cog_slash(name="unsubscribe", description="Unsubscribe to an existing VTuber's livestream/milestone notifications.", options=None)
-    async def _unsubscribe(self, ctx):
-        await botUnsub(ctx, self.bot)
+    @cog_ext.cog_slash(name="unsubscribe", description="Unsubscribe to an existing VTuber's livestream/milestone notifications.",
+                       options=[create_option(name = "name", description = "The VTuber's name that is being unsubscribed from.", option_type = 3, required = False)])
+    async def _unsubscribe(self, ctx, name: str = None):
+        await unsubChannel(ctx, self.bot, name)
     
     @cog_ext.cog_slash(name="follow", description="Follow a Twitter user to the channel.",
                        options=[create_option(name = "name", description = "The Twitter user's link or screen name.", option_type = 3, required = True)])
