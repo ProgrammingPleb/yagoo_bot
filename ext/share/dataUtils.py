@@ -1,16 +1,11 @@
-import json
 import yaml
 import discord
 import mysql.connector
 from typing import Union
 from discord.ext import commands
-from ext.share.prompts import botError
-from .botUtils import msgDelete, serverSubTypes
-from .botVars import allSubTypes
 
-# TODO: Update getwebhook with new getWebhook for SQL change
-# NOTE: Deprecate the use of discord's Guild and Channel objects in favor of str
-async def getWebhook(bot: commands.Bot, cserver: str, cchannel: str, db: mysql.connector.MySQLConnection):
+# DEPRECATE: Deprecate the use of getWebhook in place of dbTools.serverGrab
+async def _getWebhook(bot: commands.Bot, cserver: str, cchannel: str, db: mysql.connector.MySQLConnection):
     if db is not None:
         db = await botdb.getDB()
     
@@ -27,59 +22,20 @@ async def getWebhook(bot: commands.Bot, cserver: str, cchannel: str, db: mysql.c
 
     return whurl
 
-# TODO: SQL rewrite
-async def getAllSubs(chData: dict, db: mysql.connector.MySQLConnection = None) -> dict:
-    """
-    Gets all subscriptions from all the subscription categories
-
-    Arguments
-    ---
-    `chData`: `Dict` containing the Discord channel data.
-
-    Returns `dict` with keys in this format:
-
-    "`Channel ID`":
-        "name": "`Channel Name`",
-        "subType": [`Channel Subscription Types`]
-    """
-    from .dataUtils import botdb
-    
-    if db is None:
+async def refreshWebhook(bot: commands.Bot, server: discord.Guild, channel: discord.TextChannel, db: mysql.connector.CMySQLConnection = None):
+    if not db:
         db = await botdb.getDB()
+
+    server = await dbTools.serverGrab(bot, str(server.id), str(channel.id), ("url",), db)
+    webhooks = await channel.webhooks()
+    for webhook in webhooks:
+        if webhook.user.id == bot.user.id:
+            await webhook.delete()
     
-    with open("data/channels.json", encoding="utf-8") as f:
-        channels = json.load(f)
-    with open("data/twitter.json") as f:
-        twitter = json.load(f)
-
-    allCh = {}
-    for data in chData:
-        if data in allSubTypes(False):
-            for ch in chData[data]:
-                if data == "twitter":
-                    ch = twitter[ch]
-                if ch not in allCh:
-                    allCh[ch] = {
-                        "name": channels[ch]["name"],
-                        "subType": [data]
-                    }
-                else:
-                    allCh[ch]["subType"].append(data)
-    
-    return allCh
-
-# TODO: SQL rewrite
-async def refreshWebhook(server: discord.Guild, channel: discord.TextChannel):
-    with open("data/servers.json") as f:
-        servers = json.load(f)
-
     with open("yagoo.jpg", "rb") as image:
         webhook = await channel.create_webhook(name="Yagoo", avatar=image.read())
     
-    servers[str(server.id)][str(channel.id)]["url"] = webhook.url
-
-    with open("data/servers.json", "w") as f:
-        json.dump(servers, f, indent=4)
+    await botdb.addData((str(channel.id), webhook.url), ("channel", "url"), "servers", db)
 
 class dbTools:
     """
@@ -258,7 +214,27 @@ class botdb:
         db.commit()
         return
     
-    async def deleteData(rowKey: str, rowKeyType: str, table: str, db: mysql.connector.MySQLConnection = None):
+    async def deleteCell(cellType: str, rowKey: str, rowKeyType: str, table: str, db: mysql.connector.MySQLConnection = None):
+        """
+        Deletes the cell on the row where the key and it's type specified exists.
+
+        Arguments
+        ---
+        cellType: The column/data type of the cell to be deleted
+        rowKey: Data in the column/data type specified in `rowKeyType`.
+        rowKeyType: Column/Data type which correlates to the data from `rowKey`.
+        table: Table which contains the cell to be deleted.
+        db: An existing MySQL connection to avoid making a new uncesssary connection.
+        """
+        if db is None:
+            db = await botdb.getDB()
+        cursor = db.cursor()
+
+        cursor.execute(f"UPDATE {table} SET {cellType} = NULL WHERE {rowKeyType} = %s", (rowKey, ))
+        db.commit()
+        return
+    
+    async def deleteRow(rowKey: str, rowKeyType: str, table: str, db: mysql.connector.MySQLConnection = None):
         """
         Deletes the row containing the key and it's type specified.
 
@@ -277,7 +253,7 @@ class botdb:
         db.commit()
         return
 
-    async def deleteMultiData(rowKey: list, rowKeyType: str, table: str, db: mysql.connector.MySQLConnection = None):
+    async def deleteMultiRow(rowKey: list, rowKeyType: str, table: str, db: mysql.connector.MySQLConnection = None):
         """
         Performs the same actions as `deleteData` but commits after all delete queries are executed.
 
@@ -368,6 +344,10 @@ class botdb:
         filterType: The data type of the filter key.
         keyDict: Key type to be made as main key if a dictionary is needed instead of a list or tuple.
         db: An existing MySQL connection to avoid making a new uncesssary connection.
+        
+        Returns
+        ---
+        A `dict` or `tuple` (`dict` is supplied when `keyDict` is supplied) that contains the data.
         """
         if db is None:
             db = await botdb.getDB()
