@@ -396,12 +396,14 @@ class subUtils:
         - status: `True` if the subscription command was executed successfully.
         - subbed: A list containing the subscribed subscription types.
         """
-        channel = await botdb.getAllData("channels", ("id", ), category, "category", db=db)
+        channel = await botdb.getAllData("channels", ("id", "twitter"), category, "category", db=db)
         subDefault = await subUtils.checkDefault(server)
+        twitter = []
         channels = []
         
         for ch in channel:
             channels.append(ch["id"])
+            twitter.append(ch["twitter"])
         
         if category is None:
             category = ""
@@ -422,7 +424,10 @@ class subUtils:
             serverType = await botdb.listConvert(server[subType])
             if serverType is None:
                 serverType = []
-            newData = list(set(serverType) | set(channels))
+            if subType != "twitter":
+                newData = list(set(serverType) | set(channels))
+            else:
+                newData = list(set(serverType) | set(twitter))
             await botdb.addData((channelId, await botdb.listConvert(newData)), ("channel", subType), "servers", db)
         return {
             "status": True,
