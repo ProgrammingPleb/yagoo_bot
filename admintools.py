@@ -205,18 +205,18 @@ async def sqlMigrate():
                 else:
                     multiData.append((channel, chInfo["name"], chInfo["image"], chInfo["milestone"], chInfo["category"], None))
         elif file == "scrape":
-            dataTypes = ("id", "name", "image", "realSubs", "roundSubs", "premieres", "banner", "mbanner", "twitter")
+            dataTypes = ("id", "name", "image", "realSubs", "roundSubs", "premieres", "streams", "banner", "mbanner", "twitter")
             
             if not found:
                 print("Creating table 'scrape' as it does not exist!")
-                cursor.execute("CREATE TABLE scrape (id VARCHAR(25), name VARCHAR(500), image VARCHAR(200), realSubs INT, roundSubs INT, premieres VARCHAR(10000), banner VARCHAR(200), mbanner VARCHAR(200), twitter VARCHAR(30))")
+                cursor.execute("CREATE TABLE scrape (id VARCHAR(25), name VARCHAR(500), image VARCHAR(200), realSubs INT, roundSubs INT, premieres TEXT(10000), streams TEXT(10000), banner VARCHAR(200), mbanner VARCHAR(200), twitter VARCHAR(30))")
             
             for channel in fileData:
                 chInfo = fileData[channel]
                 if "twitter" in chInfo:
-                    multiData.append((channel, chInfo["name"], chInfo["image"], chInfo["realSubs"], chInfo["roundSubs"], json.dumps(chInfo["premieres"]), chInfo["banner"], chInfo["mbanner"], chInfo["twitter"]))
+                    multiData.append((channel, chInfo["name"], chInfo["image"], chInfo["realSubs"], chInfo["roundSubs"], json.dumps(chInfo["premieres"]), "{}", chInfo["banner"], chInfo["mbanner"], chInfo["twitter"]))
                 else:
-                    multiData.append((channel, chInfo["name"], chInfo["image"], chInfo["realSubs"], chInfo["roundSubs"], json.dumps(chInfo["premieres"]), chInfo["banner"], chInfo["mbanner"], None))
+                    multiData.append((channel, chInfo["name"], chInfo["image"], chInfo["realSubs"], chInfo["roundSubs"], json.dumps(chInfo["premieres"]), "{}", chInfo["banner"], chInfo["mbanner"], None))
         elif file == "servers":
             index = 1
             dataTypes = ("server", "channel", "url", "notified", "subDefault", "livestream", "milestone", "premiere", "twitter", "custom")
