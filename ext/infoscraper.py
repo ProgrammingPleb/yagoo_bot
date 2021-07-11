@@ -144,7 +144,7 @@ async def channelInfo(channelId: Union[str, int], scrape = False, debug: bool = 
     return channelData
 
 class FandomScrape():
-    async def searchChannel(chName, silent = False):
+    async def searchChannel(chName: str, silent: bool = False):
         """
         Searches for the channel in the VTuber Wiki.
         

@@ -11,7 +11,7 @@ from discord import Webhook, AsyncWebhookAdapter
 from discord_slash import SlashCommand
 from discord.ext import commands
 from ext.infoscraper import channelInfo
-from ext.cogs.subCycle import StreamCycle, streamcheck
+from ext.cogs.subCycle import StreamCycle
 from ext.cogs.msCycle import msCycle, milestoneNotify
 from ext.cogs.dblUpdate import guildUpdate
 from ext.cogs.premiereCycle import PremiereCycle
@@ -79,17 +79,6 @@ async def on_guild_remove(server):
 async def help(ctx): # pylint: disable=redefined-builtin
     await ctx.send(embed=await botHelp())
 
-@bot.command(aliases=['subdefault'])
-@commands.check(subPerms)
-async def subDefault(ctx):
-    await defaultSubtype(ctx, bot)
-
-@subDefault.error
-async def subdef_error(ctx, error):
-    errEmbed = await botError(ctx, error)
-    if errEmbed:
-        await ctx.send(embed=errEmbed)
-
 @bot.command(aliases=['sub'])
 @commands.check(subPerms)
 async def subscribe(ctx, *, customUser = None):
@@ -115,12 +104,16 @@ async def unsub_error(ctx, error):
     if errEmbed:
         await ctx.send(embed=errEmbed)
 
-@bot.command(aliases=["getinfo"])
-async def info(ctx, *, name: str = None):
-    if name is None:
-        await ctx.send(embed=await botError(ctx, "Missing Arguments"))
-        return
-    await botGetInfo(ctx, bot, name)
+@bot.command(aliases=['subdefault'])
+@commands.check(subPerms)
+async def subDefault(ctx):
+    await defaultSubtype(ctx, bot)
+
+@subDefault.error
+async def subdef_error(ctx, error):
+    errEmbed = await botError(ctx, error)
+    if errEmbed:
+        await ctx.send(embed=errEmbed)
 
 @bot.command(aliases=["subs", "subslist", "subscriptions", "subscribed"])
 @commands.check(subPerms)
@@ -132,16 +125,37 @@ async def sublist_error(ctx, error):
     errEmbed = await botError(ctx, error)
     if errEmbed:
         await ctx.send(embed=errEmbed)
+        
+@bot.command(aliases=["getinfo"])
+async def info(ctx, *, name: str = None):
+    if name is None:
+        await ctx.send(embed=await botError(ctx, "Missing Arguments"))
+        return
+    await botGetInfo(ctx, bot, name)
 
 @bot.command()
 @commands.check(subPerms)
-async def follow(ctx, accLink: str = ""):
+async def follow(ctx, accLink: str = None):
     await botTwt.follow(ctx, bot, accLink)
+
+@follow.error
+async def follow_error(ctx, error):
+    errEmbed = await botError(ctx, error)
+    if errEmbed:
+        await ctx.send(embed=errEmbed)
 
 @bot.command()
 @commands.check(subPerms)
 async def unfollow(ctx):
-    await botTwt.unfollow(ctx, bot)
+    await ctx.send("This command has been disabled for the time being.\n"
+                   "Sorry for the inconvenience!")
+    #await botTwt.unfollow(ctx, bot)
+
+@unfollow.error
+async def follow_error(ctx, error):
+    errEmbed = await botError(ctx, error)
+    if errEmbed:
+        await ctx.send(embed=errEmbed)
 
 @bot.command()
 @commands.check(creatorCheck)
