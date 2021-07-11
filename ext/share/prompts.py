@@ -41,17 +41,19 @@ async def botError(ctx, error):
     elif "No Twitter ID" in str(error):
         errEmbed.description = "There was no Twitter account link given!\n" \
                                "Ensure that the account's Twitter link or screen name is supplied to the command."
+    elif "50 - User not found." in str(error):
+        errEmbed.description = "This user was not found on Twitter!\n" \
+                               "Make sure the spelling of the user's Twitter link/screen name is correct!"
     elif isinstance(error, commands.CheckFailure):
         errEmbed.description = "You are missing permissions to use this bot.\n" \
                                "Ensure that you have one of these permissions for the channel/server:\n\n" \
                                " - `Administrator (Server)`\n - `Manage Webhooks (Channel/Server)`"
-    elif isinstance(error, tweepy.NotFound):
-        errEmbed.description = "This user was not found on Twitter!\n" \
-                               "Make sure the spelling of the user's Twitter link/screen name is correct!"
     else:
         print("An unknown error has occurred.")
         traceback.print_exception(type(error), error, error.__traceback__)
         print(error)
+    errEmbed.add_field(name="Found a bug?", value="Report the bug to the [support server](https://discord.gg/GJd6sdNjeQ) to ensure"
+                                                  " that the bug is fixed.")
     
     return errEmbed
 
@@ -1202,7 +1204,8 @@ class unsubPrompts:
 
 class TwitterPrompts:
     async def parseToPages(data: list):
-        pages = []
+        return
+        """pages = []
 
         for section in data:
             pos = 1
@@ -1259,4 +1262,38 @@ class TwitterPrompts:
             else:
                 await msg.delete()
                 await msgDelete(ctx)
-                return
+                return"""
+    
+    async def displayResult(msg: discord.Message, action: str, success: bool, username: str = None, all = False):
+        """
+        Display the result of the follow/unfollow action to the user.
+        
+        Arguments
+        ---
+        msg: The message that will be used as the prompt.
+        action: The Twitter action that has been done.
+        success: A `bool` that indicates if the action was successful or otherwise.
+        username: The Twitter handle of the account.
+        all: A `bool` that indicates if all Twitter accounts were unfollowed.
+        """
+        embed = discord.Embed()
+        if success:
+            embed.color = discord.Colour.green()
+            if action == "add":
+                embed.title = "Successfully Followed!"
+                embed.description = f"This channel is now following @{username}'s tweets."
+            elif action == "remove":
+                embed.title = "Successfully Unfollowed!"
+                if not all:
+                    embed.description = f"This channel has now been unfollowed from @{username}'s tweets."
+                else:
+                    embed.description = "This channel has now been unfollowed from all Twitter accounts in the list."
+        else:
+            embed.color = discord.Colour.red()
+            embed.title="An error has occurred!"
+            if action == "add":
+                embed.description = f"This channel has already been following @{username}'s tweets."
+            elif action == "remove":
+                embed.description = f"This channel has not been following @{username}'s tweets."
+        await msg.edit(content=" ", embed=embed, components=[])
+        return

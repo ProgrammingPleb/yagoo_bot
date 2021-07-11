@@ -8,7 +8,8 @@ from discord_slash.context import SlashContext
 from discord_components import Button, ButtonStyle
 from ..infoscraper import FandomScrape, TwitterScrape
 from ..share.botUtils import TwitterUtils, embedContinue, msgDelete, fandomTextParse, vtuberSearch
-from ..share.prompts import TwitterPrompts, botError
+from ..share.dataUtils import botdb, dbTools
+from ..share.prompts import TwitterPrompts, botError, generalPrompts
 
 async def botHelp():
     hembed = discord.Embed(title="Yagoo Bot Commands")
@@ -39,6 +40,7 @@ async def botHelp():
 
     return hembed
 
+# TODO: (LATER) Rewrite to use new prompts format
 async def botGetInfo(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, name: str):
     retry = True
     infoMsg = None
@@ -94,63 +96,45 @@ async def botGetInfo(ctx: Union[commands.Context, SlashContext], bot: commands.B
 
 # Tasklist:
 # Create disclaimer on core unsubscribe command
-# TODO: SQL rewrite
-# TODO: Move to it's own file if possible
+# TODO: SQL rewrite (Post-IRyS)
 # TODO: Ensure that the channel has a webhook first
 class botTwt:
     async def follow(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, accLink: str):
-        twtHandle = ""
-
-        if accLink == "":
-            return await ctx.send(embed=await botError(ctx, "No Twitter ID"))
+        db = await botdb.getDB()
+        if not accLink:
+            raise ValueError("No Twitter ID")
         
-        with open("data/twitter.json") as f:
-            twtData = json.load(f)
-        
+        twtMsg = await ctx.send("Searching for the Twitter user...")
         twtHandle = await TwitterUtils.getScreenName(accLink)
+        twtUser = await TwitterScrape.getUserDetails(twtHandle)
         
-        try:
-            twtUser = await TwitterScrape.getUserDetails(twtHandle)
-        except tweepy.NotFound as e:
-            return await ctx.send(embed=await botError(ctx, e))
-
-        if "custom" not in twtData:
-            twtData["custom"] = {}
-        twtEmbed = discord.Embed(title=f"Following {twtUser.name} to this channel", description="Are you sure to subscribe to this Twitter account?")
-        twtMsg = await ctx.send(embed=twtEmbed, components=[[Button(label="No", style=ButtonStyle.red), Button(label="Yes", style=ButtonStyle.blue)]])
+        result = await generalPrompts.confirm(ctx, bot, twtMsg,
+                                              f"Following {twtUser.name} to this channel",
+                                              "subscribe to this Twitter account")
         
-        def check(res):
-            return res.user == ctx.message.author and res.channel == ctx.channel
-        
-        try:
-            res = await bot.wait_for('button_click', check=check, timeout=60)
-        except asyncio.TimeoutError:
-            await twtMsg.delete()
-            await msgDelete(ctx)
-            return
-        if res.component.label == "Yes":
-            dbExist = await TwitterUtils.dbExists(twtUser.id_str)
+        if result["status"] and result["choice"]:
+            await dbTools.serverGrab(bot, str(ctx.guild.id), str(ctx.channel.id), ("url",), db)
+            dbExist = await TwitterUtils.dbExists(twtUser.id_str, db)
             if not dbExist["status"]:
-                twtData = await TwitterUtils.newAccount(twtUser)
-            status = await TwitterUtils.followActions("add", str(ctx.guild.id), str(ctx.channel.id), twtUser.id_str)
-            if not status:
-                await twtMsg.edit(content=f"This channel is already following @{twtUser.name}'s tweets.", embed=" ", components=[])
-            else:
-                await twtMsg.edit(content=f"This channel is now following @{twtUser.name}'s tweets.", embed=" ", components=[])
+                await TwitterUtils.newAccount(twtUser, db)
+            status = await TwitterUtils.followActions("add", str(ctx.channel.id), twtUser.id_str, db=db)
+            await TwitterPrompts.displayResult(twtMsg, "add", status, twtUser.screen_name)
             await msgDelete(ctx)
             return
-        else:
-            await twtMsg.delete()
-            await msgDelete(ctx)
-            return
+        await twtMsg.delete()
+        await msgDelete(ctx)
     
     async def unfollow(ctx: commands.Context, bot: commands.Bot):
+        db = await botdb.getDB()
         twtMsg = await ctx.send("Loading custom Twitter accounts.")
 
-        with open("data/servers.json") as f:
+        server = await botdb.getData(str(ctx.channel.id), "channel", ("custom",), "servers", db)
+        await TwitterPrompts.parseToPages(await botdb.listConvert(server["custom"]))
+
+        """with open("data/servers.json") as f:
             servers = json.load(f)
         
         with open("data/twitter.json") as f:
             twitter = json.load(f)
         
-        await TwitterPrompts.unfollow(ctx, bot, twtMsg, twitter["custom"], servers)
+        await TwitterPrompts.unfollow(ctx, bot, twtMsg, twitter["custom"], servers)"""

@@ -14,8 +14,7 @@ from itertools import islice
 from typing import Union
 from yaml.loader import SafeLoader
 from .prompts import searchConfirm, searchPrompt
-from .botVars import allSubTypes
-
+from .dataUtils import botdb, dbTools
 
 def round_down(num, divisor):
     return num - (num%divisor)
@@ -375,112 +374,94 @@ async def serverSubTypes(msg: discord.Message, subDNum: list, subOptions: list) 
             "subType": None
         }
 
-# TODO: SQL rewrite
 class TwitterUtils:
     """
     Twitter-related utilities to be used by the bot's functions.
     """
 
-    async def dbExists(twtID: str):
+    async def dbExists(twtID: str, db: mysql.connector.CMySQLConnection = None):
         """
         Checks if the supplied Twitter user ID exists in the bot's Twitter database.
         
         Arguments
         ---
-        `twtID`: A Twitter user's ID in string format.
+        twtID: A Twitter user's ID in string format.
+        db: An existing MySQL connection to avoid making a new uncesssary connection.
 
         Returns
         ---
-        A dictionary containing:
-        `status`: `True` if the user exists in the database, `False` if otherwise.
-        `user`: User's account data if `status` is `True`, `None` if otherwise.
+        A `dict` containing:
+        - status: `True` if the user exists in the database, `False` if otherwise.
+        - user: User's account data if `status` is `True`, `None` if otherwise.
         """
-        with open("data/twitter.json") as f:
-            twtDB = json.load(f)
+        if not db:
+            db = await botdb.getDB()
         
-        if "custom" not in twtDB:
-            return {
-                "status": False,
-                "user": None
-            }
-
-        if twtID in twtDB["custom"]:
+        result = await botdb.getData(twtID, "twtID", ("twtID", ), "twitter", db)
+        
+        if result:
             return {
                 "status": True,
-                "user": twtDB["custom"][twtID]
+                "user": result["twtID"]
             }
-        else:
-            return {
-                "status": False,
-                "user": None
-            }
+        return {
+            "status": False,
+            "user": None
+        }
 
-    async def newAccount(userData: tweepy.User):
+    async def newAccount(userData: tweepy.User, db: mysql.connector.CMySQLConnection = None):
         """
         Adds a new Twitter account to the bot's database.
 
         Arguments
         ---
-        `userData`: The account's data (from `tweepy.User`)
-
-        Returns
-        ---
-        `twitter.json` with the new data.
+        userData: The account's data (from `tweepy.User`)
+        db: An existing MySQL connection to avoid making a new uncesssary connection.
         """
-        with open("data/twitter.json") as f:
-            db = json.load(f)
+        if not db:
+            db = await botdb.getDB()
         
-        if "custom" not in db:
-            db["custom"] = {}
-
-        db["custom"][userData.id_str] = {
-            "name": userData.name,
-            "screen_name": userData.screen_name
-        }
-
-        with open("data/twitter.json", "w", encoding="utf-8") as f:
-            json.dump(db, f, indent=4)
-        
-        return db
+        await botdb.addData((userData.id_str, 1, userData.name, userData.screen_name),
+                            ("twtID", "custom", "name", "screenName"), "twitter", db)
     
-    async def followActions(action: str, server: str, channel: str, userID: str = None, all: bool = False):
+    async def followActions(action: str, channel: str, userID: str = None, all: bool = False, db: mysql.connector.CMySQLConnection = None):
         """
         Follow or unfollow a user based on the action argument given. Saves it inside the bot's database.
 
         Arguments
         ---
-        `action`: Can be either `add` to follow or `remove` to unfollow.
-        `server`: The server's ID in `str` type.
-        `channel`: The channel's ID in `str` type.
-        `userID`: The user's Twitter ID. Optional if `all` is set to `True`.
-        `all`: Selects all currently followed users of the channel. Can be used only if `action` is `remove`.
+        action: Can be either `add` to follow or `remove` to unfollow.
+        channel: The channel's ID in `str` type.
+        userID: The user's Twitter ID. Optional if `all` is set to `True`.
+        all: Selects all currently followed users of the channel. Can be used only if `action` is `remove`.
+        db: An existing MySQL connection to avoid making a new uncesssary connection.
 
         Returns
         ---
         `True` if the action was successful, `False` if otherwise.
         """
-        with open("data/servers.json") as f:
-            servers = json.load(f)
+        if not db:
+            db = await botdb.getDB()
         
-        if "custom" not in servers[server][channel]:
-            servers[server][channel]["custom"] = []
+        server = await botdb.getData(channel, "channel", ("custom", ), "servers", db)
+        custom = await botdb.listConvert(server["custom"])
+        if not custom:
+            custom = []
         
         if action == "add":
-            if userID not in servers[server][channel]["custom"]:
-                servers[server][channel]["custom"].append(userID)
+            if userID not in custom:
+                custom.append(userID)
             else:
                 return False
         elif action == "remove":
             if all:
-                servers[server][channel]["custom"] = []
-            elif userID in servers[server][channel]["custom"]:
-                servers[server][channel]["custom"].remove(userID)
+                custom = []
+            elif userID in custom:
+                custom.remove(userID)
             else:
                 return False
         
-        with open("data/servers.json", "w") as f:
-            json.dump(servers, f, indent=4)
-        
+        await botdb.addData((channel, await botdb.listConvert(custom)), ("channel", "custom"), "servers", db)
         return True
     
     async def getScreenName(accLink: str):
@@ -490,7 +471,7 @@ class TwitterUtils:
 
         Arguments
         ---
-        `accLink`: The string containing one of either situations above.
+        accLink: The string containing one of either situations above.
 
         Returns
         ---
