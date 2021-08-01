@@ -12,63 +12,61 @@ from discord.ext import commands, tasks
 
 async def milestoneCheck():
     db = await botdb.getDB()
+    channels = await botdb.getAllData("channels", ("id", "name", "milestone", "image"), db=db)
+    scrape = await botdb.getAllData("scrape", ("id", "roundSubs", "mbanner"), keyDict="id", db=db)
+    
+    async def getSubs(channel: tuple, scrape: dict):
+        if channel["milestone"] < scrape["roundSubs"]:
+            if scrape["roundSubs"] < 1000000:
+                subtext = f'{int(scrape["roundSubs"] / 1000)}K Subscribers'
+            else:
+                if scrape["roundSubs"] == scrape["roundSubs"] - (scrape["roundSubs"] % 1000000):
+                    subtext = f'{int(scrape["roundSubs"] / 1000000)}M Subscribers'
+                else:
+                    subtext = f'{scrape["roundSubs"] / 1000000}M Subscribers'
+            return {
+                "id": channel["id"],
+                "name": channel["name"],
+                "image": channel["image"],
+                "banner": scrape["mbanner"],
+                "msText": subtext,
+                "roundSubs": scrape["roundSubs"]
+            }
+        return None
+    
+    queue = []
+    for channel in channels:
+        if channel["id"] in scrape:
+            queue.append(getSubs(channel, scrape[channel["id"]]))
+    
     milestone = {}
     dbUpdate = []
-    noWrite = True
-    channels = await botdb.getAllData("channels", ("id", "milestone"), keyDict="id")
-
-    async def getSubs(channel):
-        for x in range(2):
-            try:
-                ytch = await channelInfo(channel)
-                logging.debug(f'Milestone - Checking channel: {ytch["name"]}')
-                if ytch["roundSubs"] > channels[channel]["milestone"]:
-                    if ytch["roundSubs"] < 1000000:
-                        subtext = f'{int(ytch["roundSubs"] / 1000)}K Subscribers'
-                    else:
-                        if ytch["roundSubs"] == ytch["roundSubs"] - (ytch["roundSubs"] % 1000000):
-                            subtext = f'{int(ytch["roundSubs"] / 1000000)}M Subscribers'
-                        else:
-                            subtext = f'{ytch["roundSubs"] / 1000000}M Subscribers'
-                    return {
-                        "id": channel,
-                        "name": ytch["name"],
-                        "image": ytch["image"],
-                        "banner": ytch["mbanner"],
-                        "msText": subtext,
-                        "roundSubs": ytch["roundSubs"]
-                    }
-                break
-            except Exception as e:
-                if x == 2:
-                    logging.error(f'Milestone - Unable to get info for {channel}!')
-                    print("An error has occurred.")
-                    traceback.print_tb(e)
-                    break
-                else:
-                    logging.warning(f'Milestone - Failed to get info for {channel}. Retrying...')
+    write = False
+    results = await asyncio.gather(*queue)
+    for result in results:
+        if result:
+            milestone[result["id"]] = result
+            dbUpdate.append((result["id"], result["roundSubs"]))
+            write = True
     
-    chList = []
-    for channel in channels:
-        chList.append(getSubs(channel))
-    msData = await asyncio.gather(*chList)
-
-    for channel in msData:
-        if channel != None:
-            noWrite = False
-            milestone[channel["id"]] = channel
-            dbUpdate.append((channel["id"], channel["roundSubs"]))
-
-    if not noWrite:
+    if write:
         await botdb.addMultiData(dbUpdate, ("id", "milestone"), "channels", db)
     
     return milestone
 
-async def milestoneNotify(msDict, bot, test=False):
-    logging.debug(f'Milestone Data: {msDict}')
-    servers = await botdb.getAllData("servers", ("server", "channel", "milestone"))
+async def milestoneNotify(msDict: dict, bot: commands.Bot):
+    db = await botdb.getDB()
+    servers = await botdb.getAllData("servers", ("channel", "milestone"), db=db)
+    queue = []
+    
+    async def postMsg(channel: str, server: tuple):
+        try:
+            await bot.get_channel(int(server["channel"])).send(f'{msDict[channel]["name"]} has reached {msDict[channel]["msText"].replace("Subscribers", "subscribers")}!', file=discord.File(f'milestone/generated/{channel}.png'))
+            await bot.get_channel(int(server["channel"])).send("おめでとう！")
+        except Exception as e:
+            logging.error("Milestone - Failed to post on a server/channel!", exc_info=True)
+    
     for channel in msDict:
-        logging.debug(f'Generating milestone image for id {channel}')
         if msDict[channel]["banner"] is not None:
             with open("milestone/milestone.html") as f:
                 msHTML = f.read()
@@ -82,29 +80,19 @@ async def milestoneNotify(msDict, bot, test=False):
             "quiet": ""
         }
         msHTML = msHTML.replace('[msBanner]', msDict[channel]["banner"]).replace('[msImage]', msDict[channel]["image"]).replace('[msName]', msDict[channel]["name"]).replace('[msSubs]', msDict[channel]["msText"])
-        logging.debug(f'Replaced HTML code')
-        with open("milestone/msTemp.html", "w", encoding="utf-8") as f:
+        with open(f"milestone/{channel}.html", "w", encoding="utf-8") as f:
             f.write(msHTML)
-        logging.debug(f'Generating image for milestone')
         if not os.path.exists("milestone/generated"):
             os.mkdir("milestone/generated")
-        imgkit.from_file("milestone/msTemp.html", f'milestone/generated/{channel}.png', options=options)
-        logging.debug(f'Removed temporary HTML file')
-        os.remove("milestone/msTemp.html")
-        if not test:
-            for server in servers:
-                try:
-                    logging.debug(f'Accessing server id {server}')
-                    for dch in servers[server]:
-                        milestone = server["milestone"].split("|yb|")
-                        logging.debug(f'Milestone - Channel Data: {milestone}')
-                        logging.debug(f'Milestone - Channel Check Pass: {channel in milestone}')
-                        if channel in milestone:
-                            logging.debug(f'Posting to {dch}...')
-                            await bot.get_channel(int(dch)).send(f'{msDict[channel]["name"]} has reached {msDict[channel]["msText"].replace("Subscribers", "subscribers")}!', file=discord.File(f'milestone/generated/{channel}.png'))
-                            await bot.get_channel(int(dch)).send("おめでとう！")
-                except Exception as e:
-                    logging.error("Milestone - Failed to post on a server/channel!", exc_info=True)
+        imgkit.from_file(f"milestone/{channel}.html", f'milestone/generated/{channel}.png', options=options)
+        os.remove(f"milestone/{channel}.html")
+        for server in servers:
+            milestone = await botdb.listConvert(server["milestone"])
+            if milestone:
+                if channel in milestone:
+                    queue.append(postMsg(channel, server))
+    
+    await asyncio.gather(*queue)
 
 def mcWrapper():
     return asyncio.run(milestoneCheck())
