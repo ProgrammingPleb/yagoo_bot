@@ -1,13 +1,12 @@
 import asyncio
 import traceback
 import discord
-import discord_components
-import tweepy
 from typing import Union
 from discord.ext import commands
-from discord_components.interaction import InteractionType
-from discord_slash.context import SlashContext
-from discord_components import Button, ButtonStyle
+import discord_slash
+from discord_slash.context import ComponentContext, SlashContext
+from discord_slash.model import ButtonStyle
+from discord_slash.utils.manage_components import create_actionrow, create_button, wait_for_component
 from ext.share.botVars import allSubTypes
 
 async def botError(ctx, error):
@@ -49,6 +48,7 @@ async def botError(ctx, error):
                                "Ensure that you have one of these permissions for the channel/server:\n\n" \
                                " - `Administrator (Server)`\n - `Manage Webhooks (Channel/Server)`"
     else:
+        errEmbed.description = "An unknown error has occurred.\nPlease report this to the support server!"
         print("An unknown error has occurred.")
         traceback.print_exception(type(error), error, error.__traceback__)
         print(error)
@@ -165,11 +165,11 @@ class generalPrompts:
             ---
             The interaction data if a button was pressed within 30 seconds, `False` if otherwise.
             """
-            def check(res):
-                return res.channel.id == ctx.channel.id and res.user.id == ctx.author.id and res.message.id == msg.id
+            def check(res: discord_slash.ComponentContext):
+                return res.channel.id == ctx.channel.id and res.author.id == ctx.author.id and res.origin_message.id == msg.id
             
             try:
-                data = await bot.wait_for("button_click", check=check, timeout=30)
+                data = await wait_for_component(bot, msg, check=check, timeout=30.0)
             except asyncio.TimeoutError:
                 return False
             return data
@@ -194,10 +194,10 @@ class generalPrompts:
                     return m.content in filterRes and m.channel.id == ctx.channel.id and m.author.id == ctx.author.id
                 return m.channel.id == ctx.channel.id and m.author.id == ctx.author.id
             
-            def bCheck(res):
-                return res.channel.id == ctx.channel.id and res.user.id == ctx.author.id and res.message.id == msg.id
+            def bCheck(res: discord_slash.ComponentContext):
+                return res.channel.id == ctx.channel.id and res.author.id == ctx.author.id and res.origin_message.id == msg.id
 
-            done, pending = await asyncio.wait([bot.wait_for("button_click", check=bCheck, timeout=30), bot.wait_for("message", check=mCheck, timeout=30)], return_when=asyncio.FIRST_COMPLETED)
+            done, pending = await asyncio.wait([wait_for_component(bot, msg, check=bCheck, timeout=30), bot.wait_for("message", check=mCheck, timeout=30)], return_when=asyncio.FIRST_COMPLETED)
 
             for future in done:
                 future.exception()
@@ -213,6 +213,21 @@ class generalPrompts:
                 await botError(ctx, "AsyncIO Wait Error")
             
             return result
+    
+        async def convertToRows(rows: list):
+            """
+            Converts a list of button rows to be used for the prompts.
+            
+            Arguments
+            ---
+            rows: A list of the button rows.
+            
+            Returns
+            ---
+            A `list` containing a list of buttons converted with `create_actionrow`.
+            """
+            rows = [create_actionrow(*row) for row in rows]
+            return rows
     
     async def cancel(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, msg: discord.Message, title: str, description: str, allowed: list = None):
         """
@@ -234,11 +249,11 @@ class generalPrompts:
         - res: The response from the user.
         """
         embed = discord.Embed(title=title, description=description)
-        await msg.edit(content=" ", embed=embed, components=[Button(label="Cancel", style=ButtonStyle.blue, id="cancel")])
+        await msg.edit(content=" ", embed=embed, components=[create_actionrow(create_button(label="Cancel", style=ButtonStyle.blue, custom_id="cancel"))])
         
         result = await generalPrompts.utils.doubleCheck(ctx, bot, msg)
         
-        if isinstance(result, discord_components.message.ComponentMessage):
+        if isinstance(result, discord_slash.ComponentMessage):
             await result.delete()
             return {
                 "status": True,
@@ -267,25 +282,26 @@ class generalPrompts:
         - choice: `True` if "Yes" was clicked, `False` if "No" was clicked.
         """
         embed = discord.Embed(title=title, description=f"Are you sure you want to {action}?")
-        await msg.edit(content=" ", embed=embed, components=[[Button(label="No", style=ButtonStyle.red, id="no"), Button(label="Yes", style=ButtonStyle.blue, id="yes")]])
+        yesno = [create_actionrow(create_button(style=ButtonStyle.blue, label="No"), create_button(style=ButtonStyle.red, label="Yes"))]
+        await msg.edit(content=" ", embed=embed, components=yesno)
 
         def check(res):
             return res.channel.id == ctx.channel.id and res.user.id == ctx.author.id and res.message.id == msg.id
 
         try:
-            result = await bot.wait_for("button_click", check=check, timeout=30)
+            result = await wait_for_component(bot, msg, yesno, check, 30)
         except asyncio.TimeoutError:
             return {
                 "status": False,
                 "choice": None
             }
         else:
-            if result.component.id == "no":
+            if result.component["label"] == "No":
                 return {
                     "status": True,
                     "choice": False
                 }
-            if result.component.id == "yes":
+            if result.component["label"] == "Yes":
                 return {
                     "status": True,
                     "choice": True
@@ -307,16 +323,16 @@ class pageNav:
             A `list` with the page navigation buttons as the first row.
             """
             pageButtons = []
-            pageButtons.append([Button(label=f"Page {pageNum + 1}/{len(pages)}", disabled=True)])
+            pageButtons.append([create_button(label=f"Page {pageNum + 1}/{len(pages)}", disabled=True, style=ButtonStyle.grey)])
             if pageNum == 0:
-                pageButtons[0].insert(0, Button(id="back", emoji="⬅️", disabled=True))
-                pageButtons[0].append(Button(id="next", emoji="➡️", style=ButtonStyle.blue))
+                pageButtons[0].insert(0, create_button(custom_id="back", emoji="⬅️", disabled=True, style=ButtonStyle.grey))
+                pageButtons[0].append(create_button(custom_id="next", emoji="➡️", style=ButtonStyle.blue))
             elif pageNum == (len(pages) - 1):
-                pageButtons[0].insert(0, Button(id="back", emoji="⬅️", style=ButtonStyle.blue))
-                pageButtons[0].append(Button(id="next", emoji="➡️", disabled=True))
+                pageButtons[0].insert(0, create_button(custom_id="back", emoji="⬅️", style=ButtonStyle.blue))
+                pageButtons[0].append(create_button(custom_id="next", emoji="➡️", disabled=True, style=ButtonStyle.grey))
             else:
-                pageButtons[0].insert(0, Button(id="back", emoji="⬅️", style=ButtonStyle.blue))
-                pageButtons[0].append(Button(id="next", emoji="➡️", style=ButtonStyle.blue))
+                pageButtons[0].insert(0, create_button(custom_id="back", emoji="⬅️", style=ButtonStyle.blue))
+                pageButtons[0].append(create_button(custom_id="next", emoji="➡️", style=ButtonStyle.blue))
             
             return pageButtons
         
@@ -339,10 +355,10 @@ class pageNav:
             def mCheck(m):
                 return m.content in pages[pageNum]["entries"] and m.channel.id == ctx.channel.id and m.author.id == ctx.author.id
             
-            def bCheck(res):
-                return res.channel.id == ctx.channel.id and res.user.id == ctx.author.id and res.message.id == msg.id
+            def bCheck(res: ComponentContext):
+                return res.channel.id == ctx.channel.id and res.author.id == ctx.author.id and res.origin_message.id == msg.id
 
-            done, pending = await asyncio.wait([bot.wait_for("button_click", check=bCheck, timeout=30), bot.wait_for("message", check=mCheck, timeout=30)], return_when=asyncio.FIRST_COMPLETED)
+            done, pending = await asyncio.wait([wait_for_component(bot, msg, check=bCheck, timeout=30), bot.wait_for("message", check=mCheck, timeout=30)], return_when=asyncio.FIRST_COMPLETED)
 
             for future in done:
                 future.exception()
@@ -379,7 +395,7 @@ class pageNav:
                 return returnList
             return int(msg.content)
         
-        async def processButton(data: discord_components.Interaction, buttons: list, numReturn: list):
+        async def processButton(data: discord_slash.ComponentContext, buttons: list, numReturn: list):
             """
             Processes the button inputs from the user.
             
@@ -395,7 +411,7 @@ class pageNav:
             """
             i = 0
             for x in buttons:
-                if data.component.id == x:
+                if data.component["custom_id"] == x:
                     return numReturn[i]
                 i += 1
             raise ValueError("The button ID does not match any key in the buttons ID list!")
@@ -412,8 +428,8 @@ class pageNav:
             pageButtons = []
             if len(pages) > 1:
                 pageButtons = await pageNav.utils.pageRow(pages, pageNum)
-            pageButtons.append([Button(id="remove", label=removeText, style=ButtonStyle.red), Button(id="cancel", label="Cancel", style=ButtonStyle.blue)])
-            await msg.edit(content=" ", embed=embed, components=pageButtons)
+            pageButtons.append([create_button(custom_id="remove", label=removeText, style=ButtonStyle.red), create_button(custom_id="cancel", label="Cancel", style=ButtonStyle.blue)])
+            await msg.edit(content=" ", embed=embed, components=await generalPrompts.utils.convertToRows(pageButtons))
         
         async def prompt(ctx: Union[commands.Context, SlashContext],
                          bot: commands.Bot,
@@ -493,9 +509,9 @@ class pageNav:
             pageButtons = []
             if len(pages) > 1:
                 pageButtons = await pageNav.utils.pageRow(pages, pageNum)
-            pageButtons.append([Button(id="search", label=searchText, style=ButtonStyle.blue), Button(id=otherId, label=otherText, style=otherColor)])
-            pageButtons.append([Button(id="cancel", label="Cancel", style=ButtonStyle.red)])
-            await msg.edit(content=" ", embed=embed, components=pageButtons)
+            pageButtons.append([create_button(custom_id="search", label=searchText, style=ButtonStyle.blue), create_button(custom_id=otherId, label=otherText, style=otherColor)])
+            pageButtons.append([create_button(custom_id="cancel", label="Cancel", style=ButtonStyle.red)])
+            await msg.edit(content=" ", embed=embed, components=await generalPrompts.utils.convertToRows(pageButtons))
         
         async def prompt(ctx: Union[commands.Context, SlashContext],
                          bot: commands.Bot,
@@ -624,8 +640,8 @@ class pageNav:
             await editClass.editMsg(*editArgs, embed, pageNum)
             result = await pageNav.utils.doubleCheck(ctx, bot, msg, pages, pageNum)
             
-            if isinstance(result, discord_components.Interaction):
-                await result.respond(type=InteractionType.DeferredUpdateMessage)
+            if isinstance(result, discord_slash.ComponentContext):
+                await result.defer(edit_origin=True)
                 buttonRes = await pageNav.utils.processButton(result, *buttonArgs)
                 if buttonRes in [-1, 1]:
                     pageNum += buttonRes
@@ -634,7 +650,7 @@ class pageNav:
                         "type": "button",
                         "res": buttonRes
                     }
-            elif isinstance(result, discord_components.message.ComponentMessage):
+            elif isinstance(result, discord_slash.ComponentMessage):
                 if result.content in pages[pageNum]["entries"]:
                     await result.delete()
                     return {
@@ -824,7 +840,7 @@ class subPrompts:
             embed.color = discord.Colour.green()
             subTypes = ""
             for subType in subbed:
-                subTypes += f"{subType}, "
+                subTypes += f"{subType.capitalize()}, "
             embed.add_field(name="Subscription Types", value=subTypes.strip(", "))
         else:
             if subbed == []:
@@ -910,19 +926,19 @@ class subPrompts:
             allTypes = True
             for subType in subTypes:
                 if buttonStates[subType]:
-                    buttonList.append([Button(label=f"{subType.capitalize()} Notifications", style=ButtonStyle.green, id=subType)])
+                    buttonList.append([create_button(label=f"{subType.capitalize()} Notifications", style=ButtonStyle.green, custom_id=subType)])
                     selected = True
                 else:
-                    buttonList.append([Button(label=f"{subType.capitalize()} Notifications", style=ButtonStyle.red, id=subType)])
+                    buttonList.append([create_button(label=f"{subType.capitalize()} Notifications", style=ButtonStyle.red, custom_id=subType)])
                     allTypes = False
             if allowNone:
                 selected = True
             if not allTypes:
-                allButton = Button(label="Select All", style=ButtonStyle.blue, id="all")
+                allButton = create_button(label="Select All", style=ButtonStyle.blue, custom_id="all")
             else:
-                allButton = Button(label="Select None", id="all")
-            buttonList.append([Button(label=f"Cancel", style=ButtonStyle.red, id="cancel"), allButton, Button(label=subText, style=ButtonStyle.green, id=subId, disabled=not selected)])
-            await msg.edit(content=" ", embed=embed, components=buttonList)
+                allButton = create_button(label="Select None", custom_id="all", style=ButtonStyle.grey)
+            buttonList.append([create_button(label=f"Cancel", style=ButtonStyle.red, custom_id="cancel"), allButton, create_button(label=subText, style=ButtonStyle.green, custom_id=subId, disabled=not selected)])
+            await msg.edit(content=" ", embed=embed, components=await generalPrompts.utils.convertToRows(buttonList))
             return
         
         async def prompt(ctx: Union[commands.Context, SlashContext],
@@ -969,17 +985,17 @@ class subPrompts:
                 result = await generalPrompts.utils.buttonCheck(ctx, bot, msg)
                 
                 if result:
-                    await result.respond(type=InteractionType.DeferredUpdateMessage)
-                    if result.component.id not in ["cancel", "all", buttonId]:
-                        buttonStates[result.component.id] = not buttonStates[result.component.id]
-                    elif result.component.id == "all":
+                    await result.defer(edit_origin=True)
+                    if result.component["custom_id"] not in ["cancel", "all", buttonId]:
+                        buttonStates[result.component["custom_id"]] = not buttonStates[result.component["custom_id"]]
+                    elif result.component["custom_id"] == "all":
                         allBool = True
                         for button in buttonStates:
                             if allBool:
                                 allBool = buttonStates[button]
                         for button in buttonStates:
                             buttonStates[button] = not allBool
-                    elif result.component.id == "cancel":
+                    elif result.component["custom_id"] == "cancel":
                         return {
                             "status": False
                         }
@@ -995,10 +1011,10 @@ class subPrompts:
     
     class vtuberConfirm:
         async def editMsg(msg: discord.Message, embed: discord.Embed):
-            buttons = [[Button(label="Cancel", style=ButtonStyle.red, id="cancel"),
-                        Button(label="Search Results", style=ButtonStyle.blue, id="results"),
-                        Button(label="Confirm", style=ButtonStyle.green, id="confirm")]]
-            await msg.edit(content=" ", embed=embed, components=buttons)
+            buttons = [[create_button(label="Cancel", style=ButtonStyle.red, custom_id="cancel"),
+                        create_button(label="Search Results", style=ButtonStyle.blue, custom_id="results"),
+                        create_button(label="Confirm", style=ButtonStyle.green, custom_id="confirm")]]
+            await msg.edit(content=" ", embed=embed, components=await generalPrompts.utils.convertToRows(buttons))
             return
         
         async def prompt(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, msg: discord.Message, title: str, action: str):
@@ -1023,17 +1039,17 @@ class subPrompts:
             result = await generalPrompts.utils.buttonCheck(ctx, bot, msg)
             
             if result:
-                await result.respond(type=InteractionType.DeferredUpdateMessage)
-                if result.component.id == "cancel":
+                await result.defer(edit_origin=True)
+                if result.component["custom_id"] == "cancel":
                     return {
                         "status": False
                     }
-                if result.component.id == "results":
+                if result.component["custom_id"] == "results":
                     return {
                         "status": True,
                         "action": "search"
                     }
-                if result.component.id == "confirm":
+                if result.component["custom_id"] == "confirm":
                     return {
                         "status": True,
                         "action": "confirm"
@@ -1072,8 +1088,10 @@ class subPrompts:
             return result
         
         async def editMsg(msg: discord.Message, embed: discord.Embed, pages: list, pagePos: int):
+            buttons = []
+            if len(pages) > 1:
             buttons = await pageNav.utils.pageRow(pages, pagePos)
-            await msg.edit(content=" ", embed=embed, components=buttons)
+            await msg.edit(content=" ", embed=embed, components=await generalPrompts.utils.convertToRows(buttons))
             return
         
         async def prompt(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, msg: discord.Message, pages: list, server: dict):
@@ -1098,10 +1116,10 @@ class subPrompts:
                 result = await generalPrompts.utils.buttonCheck(ctx, bot, msg)
                 
                 if result:
-                    await result.respond(type=InteractionType.DeferredUpdateMessage)
-                    if result.component.id == "next":
+                    await result.defer(edit_origin=True)
+                    if result.component["custom_id"] == "next":
                         pagePos += 1
-                    elif result.component.id == "back":
+                    elif result.component["custom_id"] == "back":
                         pagePos -= 1
                 else:
                     break
@@ -1121,20 +1139,20 @@ class unsubPrompts:
             selected = False
             for subType in subTypes:
                 if subTypes[subType]:
-                    buttons.append(Button(label=f"{subType.capitalize()} Notifications", id=subType, style=ButtonStyle.green))
+                    buttons.append([create_button(label=f"{subType.capitalize()} Notifications", custom_id=subType, style=ButtonStyle.green)])
                     allSubs = False
                 else:
-                    buttons.append(Button(label=f"{subType.capitalize()} Notifications", id=subType))
+                    buttons.append([create_button(label=f"{subType.capitalize()} Notifications", custom_id=subType, style=ButtonStyle.grey)])
                     selected = True
             if not allSubs:
-                buttons.append([Button(label="Cancel", id="cancel", style=ButtonStyle.red),
-                                Button(label="Select All", id="select", style=ButtonStyle.blue),
-                                Button(label="Unsubscribe", id="unsub", style=ButtonStyle.red, disabled=not selected)])
+                buttons.append([create_button(label="Cancel", custom_id="cancel", style=ButtonStyle.red),
+                                create_button(label="Select All", custom_id="select", style=ButtonStyle.blue),
+                                create_button(label="Unsubscribe", custom_id="unsub", style=ButtonStyle.red, disabled=not selected)])
             else:
-                buttons.append([Button(label="Cancel", id="cancel", style=ButtonStyle.red),
-                                Button(label="Select None", id="select"),
-                                Button(label="Unsubscribe", id="unsub", style=ButtonStyle.red, disabled=not selected)])
-            await msg.edit(content=" ", embed=embed, components=buttons)
+                buttons.append([create_button(label="Cancel", custom_id="cancel", style=ButtonStyle.red),
+                                create_button(label="Select None", custom_id="select", style=ButtonStyle.grey),
+                                create_button(label="Unsubscribe", custom_id="unsub", style=ButtonStyle.red, disabled=not selected)])
+            await msg.edit(content=" ", embed=embed, components=await generalPrompts.utils.convertToRows(buttons))
             return
         
         async def prompt(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, msg: discord.Message, name: str, subTypes: dict):
@@ -1162,12 +1180,12 @@ class unsubPrompts:
                 result = await generalPrompts.utils.buttonCheck(ctx, bot, msg)
                 
                 if result:
-                    await result.respond(type=InteractionType.DeferredUpdateMessage)
-                    if result.component.id == "cancel":
+                    await result.defer(edit_origin=True)
+                    if result.component["custom_id"] == "cancel":
                         return {
                             "status": False
                         }
-                    if result.component.id == "unsub":
+                    if result.component["custom_id"] == "unsub":
                         unsubbed = []
                         for subType in subTypes:
                             if not subTypes[subType]:
@@ -1176,7 +1194,7 @@ class unsubPrompts:
                             "status": True,
                             "unsubbed": unsubbed
                         }
-                    if result.component.id == "select":
+                    if result.component["custom_id"] == "select":
                         allSubs = True
                         for subType in subTypes:
                             if subTypes[subType]:
@@ -1184,7 +1202,7 @@ class unsubPrompts:
                         for subType in subTypes:
                             subTypes[subType] = allSubs
                     else:
-                        subTypes[result.component.id] = not subTypes[result.component.id]
+                        subTypes[result.component["custom_id"]] = not subTypes[result.component["custom_id"]]
                 else:
                     return {
                         "status": False
