@@ -5,7 +5,6 @@ import tweepy
 from typing import Union
 from discord.ext import commands
 from discord_slash.context import SlashContext
-from discord_components import Button, ButtonStyle
 from ..infoscraper import FandomScrape, TwitterScrape
 from ..share.botUtils import TwitterUtils, embedContinue, msgDelete, fandomTextParse, vtuberSearch
 from ..share.dataUtils import botdb, dbTools

@@ -2,7 +2,7 @@ import discord
 import mysql.connector
 from discord.ext import commands
 from discord_slash.context import SlashContext
-from discord_components import ButtonStyle
+from discord_slash.model import ButtonStyle
 from typing import Union
 from ..infoscraper import FandomScrape
 from ..share.botUtils import msgDelete
