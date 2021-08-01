@@ -1,5 +1,3 @@
-# NOTE: Use the wrapper to launch the scraper
-
 import json
 import yaml
 import asyncio
@@ -160,7 +158,7 @@ async def streamParse(videos: list, channel: str):
                         "status": status,
                         "thumbnail": thumbnail
                     }
-                elif live:
+                elif live and "waiting" not in status:
                     result["live"][video["gridVideoRenderer"]["videoId"]] = {
                         "title": title,
                         "status": status,
@@ -195,10 +193,12 @@ def scrapeWrapper():
     asyncio.run(queue())
 
 async def init():
+    print("Starting scraper...")
     while True:
         try:
             with concurrent.futures.ThreadPoolExecutor() as pool:
                 loop = asyncio.get_running_loop()
+                print("Scraper is now scraping channels...")
                 await loop.run_in_executor(pool, scrapeWrapper)
         except Exception as e:
             print("An error has occurred!")
