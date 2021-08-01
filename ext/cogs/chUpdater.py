@@ -1,54 +1,35 @@
-# NOTICE: Marking this as being deprecated
-# TODO: Create standalone channel updater
-
-"""import json
 import logging
 import traceback
-from ..infoscraper import channelInfo
 from discord.ext import commands, tasks
+from ..share.dataUtils import botdb
 
-async def channelCheck():
-    with open("data/channels.json") as f:
-        channels = json.load(f)
+async def channelUpdate():
+    db = await botdb.getDB()
+    updates = {}
+    scrape = await botdb.getAllData("scrape", ("id", "name", "image"), db=db)
+    channels = await botdb.getAllData("channels", ("id", "name", "image"), keyDict="id", db=db)
     
-    chUpdate = {}
-
-    for channel in channels:
-        for x in range(2):
-            try:
-                ytch = await channelInfo(channel)
-                logging.debug(f'Channel Updates - Checking channel: {ytch["name"]}')
-                for chUPart in ["name", "image"]:
-                    if channels[channel][chUPart] != ytch[chUPart]:
-                        chUpdate[channel] = {
-                            "name": ytch["name"],
-                            "image": ytch["image"],
-                            "milestone": channels[channel]["milestone"],
-                            "category": channels[channel]["category"]
-                        }
-                break
-            except Exception as e:
-                if x == 2:
-                    logging.error(f'Channel Updates - Unable to get info for {channel}!')
-                    print("An error has occurred.")
-                    traceback.print_tb(e)
-                    break
-                else:
-                    logging.warning(f'Channel Updates - Failed to get info for {channel}. Retrying...', exc_info=True)
+    for channel in scrape:
+        if channel["id"] in channels:
+            change = False
+            temp = {}
+            if channel["name"] != channels[channel["id"]]["name"]:
+                temp["name"] = channel["name"]
+                change = True
+            if channel["image"] != channels[channel["id"]]["image"]:
+                temp["image"] = channel["image"]
+                change = True
+            if change:
+                updates[channel["id"]] = temp
     
-    return chUpdate
-
-async def channelWrite(chUpdate):
-    logging.debug(f'Channel Updates Data: {chUpdate}')
-    with open("data/channels.json") as f:
-        channels = json.load(f)
-    
-    for channel in chUpdate:
-        logging.debug(f"Channel Updates - Updating data for {channel}")
-        channels[channel] = chUpdate[channel]
-    
-    with open("data/channels.json", "w", encoding="utf-8") as f:
-        json.dump(channels, f, indent=4)
+    if len(updates) > 0:
+        for channel in updates:
+            updateTypes = ["id"]
+            updateData = [channel]
+            for updateType in updates[channel]:
+                updateTypes.append(updateType)
+                updateData.append(updates[channel][updateType])
+            await botdb.addData(updateData, updateTypes, "channels", db)
 
 class chCycle(commands.Cog):
     def __init__(self, bot):
@@ -62,12 +43,9 @@ class chCycle(commands.Cog):
     async def chCheck(self):
         logging.info("Starting channel update checks.")
         try:
-            chData = await channelCheck()
-            if chData != {}:
-                logging.info("Updating channels with new data.")
-                await channelWrite(chData)
+            await channelUpdate()
         except Exception as e:
             logging.error("Channel Update - An error has occurred in the cog!", exc_info=True)
             traceback.print_exception(type(e), e, e.__traceback__)
         else:
-            logging.info("Channel update checks done.")"""
+            logging.info("Channel update checks done.")

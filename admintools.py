@@ -320,33 +320,35 @@ async def affUpdate():
         json.dump(channels, f, indent=4)
 
 async def msUpdate():
-    async def chMsGet(channel):
-        x = 1
-        try:
-            chInfo = await channelInfo(channel)
+    db = await botdb.getDB()
+    channels = await botdb.getAllData("channels", ("id", "milestone"), db=db)
+    scrape = await botdb.getAllData("scrape", ("id", "roundSubs"), keyDict="id", db=db)
+    
+    async def update(channel: tuple, scrape: dict):
+        if channel["milestone"] < scrape["roundSubs"]:
             return {
-                "channel": channel,
-                "subs": chInfo["roundSubs"]
+                "id": channel["id"],
+                "milestone": scrape["roundSubs"]
             }
-        except Exception as e:
-            if x != 3:
-                x += 1
-            else:
-                return
-
-    with open("data/channels.json") as f:
-        channels = json.load(f)
-
-    chList = []
+        return None
+    
+    queue = []
     for channel in channels:
-        chList.append(chMsGet(channel))
-    allCh = await asyncio.gather(*chList)
-
-    for channel in allCh:
-        channels[channel["channel"]]["milestone"] = channel["subs"]
-
-    with open("data/channels.json", "w") as f:
-        json.dump(channels, f, indent=4)
+        try:
+            queue.append(update(channel, scrape[channel["id"]]))
+        except Exception as e:
+            print(f"Channel \"{channel['id']}\" needs manual updating!")
+    
+    updateList = []
+    write = False
+    results = await asyncio.gather(*queue)
+    for result in results:
+        if result:
+            updateList.append((result["id"], result["milestone"]))
+            write = True
+    
+    if write:
+        await botdb.addMultiData(updateList, ("id", "milestone"), "channels", db)
 
 # To be used in programs only, not the CLI
 async def debugFile(output, filetype, filename):
