@@ -1,4 +1,3 @@
-import aiohttp
 import discord
 import asyncio
 import json
@@ -6,7 +5,6 @@ import yaml
 import logging
 import sys
 import platform
-from discord_components import DiscordComponents, Button, ButtonStyle
 from discord import Webhook, AsyncWebhookAdapter
 from discord_slash import SlashCommand
 from discord_slash.model import ButtonStyle
@@ -273,21 +271,23 @@ async def ytchCount(ctx):
 @bot.command()
 @commands.check(subPerms)
 async def chRefresh(ctx: commands.Context):
-    qmsg = await ctx.send("Are you sure to refresh this channel's webhook URL?", components=[[Button(style=ButtonStyle.blue, label="No"),
-                                                                                             Button(style=ButtonStyle.red, label="Yes")]])
+    buttonRow = create_actionrow(create_button(style=ButtonStyle.blue, label="No"), create_button(style=ButtonStyle.red, label="Yes"))
+    qmsg = await ctx.send("Are you sure to refresh this channel's webhook URL?", components=[buttonRow])
     
     def check(res):
-        return res.user == ctx.message.author and res.channel == ctx.channel
+        return res.author == ctx.message.author and res.channel == ctx.channel
 
     try:
-        res = await bot.wait_for('button_click', check=check, timeout=60)
+        res: ComponentContext = await wait_for_component(bot, qmsg, buttonRow, check, 30)
+        print(type(res))
     except asyncio.TimeoutError:
         await qmsg.delete()
         await ctx.message.delete()
     else:
-        if res.component.label == "Yes":
+        if res.component["label"] == "Yes":
+            await res.defer()
             await refreshWebhook(bot, ctx.guild, ctx.channel)
-            await qmsg.edit("The webhook URL has been refreshed for this channel.", components=[])
+            await res.edit_origin(content="The webhook URL has been refreshed for this channel.", components=[])
         else:
             await qmsg.delete()
             await ctx.message.delete()
