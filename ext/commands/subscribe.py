@@ -186,6 +186,8 @@ async def sublistDisplay(ctx: Union[commands.Context, SlashContext], bot: comman
     
     subList = await unsubUtils.parseToSubTypes(server, db)
     pages = await subPrompts.sublistDisplay.parseToPages(subList)
+    if len(pages) == 0:
+        raise ValueError("No Subscriptions")
     await subPrompts.sublistDisplay.prompt(ctx, bot, listMsg, pages, subList)
     await msgDelete(ctx)
     return
@@ -402,8 +404,10 @@ class subUtils:
         channels = []
         
         for ch in channel:
-            channels.append(ch["id"])
-            twitter.append(ch["twitter"])
+            if ch["id"]:
+                channels.append(ch["id"])
+            if ch["twitter"]:
+                twitter.append(ch["twitter"])
         
         if category is None:
             category = ""
@@ -501,7 +505,7 @@ class unsubUtils:
         
         for channel in channels:
             if channel["id"] not in subbed:
-                subbed.append(channel["id"])
+                subStatus = False
                 subbedTypes[channel["id"]] = {
                     "name": channel["name"],
                     "subTypes": {}
@@ -512,6 +516,11 @@ class unsubUtils:
                             subbedTypes[channel["id"]]["subTypes"][subType] = channel["id"] in cTypeSubbed[subType]
                         else:
                             subbedTypes[channel["id"]]["subTypes"][subType] = channel["twitter"] in cTypeSubbed[subType]
+                        subStatus = True
+                if subStatus:
+                    subbed.append(channel["id"])
+                else:
+                    subbedTypes.pop(channel["id"])
         return {
             "subbed": subbed,
             "channels": subbedTypes
@@ -538,9 +547,9 @@ class unsubUtils:
         for subType in subTypes:
             typeSubs = await botdb.listConvert(server[subType])
             if subType == "twitter":
-                twitter = await botdb.getData(channelID, "channel", ("twitter",), "channels", db)
-                if twitter in typeSubs:
-                    typeSubs.remove(twitter)
+                twitter = await botdb.getData(channelID, "id", ("twitter",), "channels", db)
+                if twitter["twitter"] in typeSubs:
+                    typeSubs.remove(twitter["twitter"])
                     await botdb.addData((serverID, await botdb.listConvert(typeSubs)), ("channel", subType), "servers", db)
             else:
                 typeSubs.remove(channelID)
