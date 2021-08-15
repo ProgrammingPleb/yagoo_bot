@@ -4,7 +4,7 @@ from discord.ext import commands
 from discord_slash.context import SlashContext
 from discord_slash.model import ButtonStyle
 from typing import Union
-from ..infoscraper import FandomScrape
+from ..infoscraper import FandomScrape, channelInfo
 from ..share.botUtils import msgDelete
 from ..share.botVars import allSubTypes
 from ..share.dataUtils import botdb, dbTools
@@ -37,9 +37,8 @@ async def subCategory(ctx: Union[commands.Context, SlashContext], bot: commands.
     elif ctgPick["search"]:
         result = await subUtils.channelSearch(ctx, bot, listmsg)
         if result["status"]:
-            chData = await botdb.getData(result["channelID"], "id", ("name", ), "channels", db)
-            subResult = await subUtils.subOne(ctx, bot, listmsg, server, str(ctx.channel.id), result["channelID"], chData["name"], db)
-            chName = chData["name"]
+            subResult = await subUtils.subOne(ctx, bot, listmsg, server, str(ctx.channel.id), result["channelID"], result["channelName"], db)
+            chName = result["channelName"]
         else:
             subResult = {
                 "status": False
@@ -54,16 +53,19 @@ async def subCategory(ctx: Union[commands.Context, SlashContext], bot: commands.
             elif result["search"]:
                 result = await subUtils.channelSearch(ctx, bot, listmsg)
                 if result["status"]:
-                    chData = await botdb.getData(result["channelID"], "id", ("name", ), "channels", db)
-                    subResult = await subUtils.subOne(ctx, bot, listmsg, server, str(ctx.channel.id), result["channelID"], chData["name"], db)
-                    chName = chData["name"]
+                    subResult = await subUtils.subOne(ctx, bot, listmsg, server, str(ctx.channel.id), result["channelID"], result["channelName"], db)
+                    chName = result["channelName"]
                 else:
                     subResult = {
                         "status": False
                     }
             else:
                 subResult = await subUtils.subOne(ctx, bot, listmsg, server, str(ctx.channel.id), result["item"]["id"], result["item"]["name"], db)
-                chName = result["item"]["name"]
+                chName = subResult["name"]
+        else:
+            subResult = {
+                "status": False
+            }
     if subResult["status"]:
         await subPrompts.displaySubbed(listmsg, ctgPick["all"], ctgPick["category"], subResult["subbed"], chName)
         await msgDelete(ctx)
@@ -89,7 +91,7 @@ async def subCustom(ctx: Union[commands.Context, SlashContext], bot: commands.Bo
         server = await dbTools.serverGrab(bot, str(ctx.guild.id), str(ctx.channel.id), tuple(["subDefault"] +  allSubTypes(False)), db)
         subResult = await subUtils.subOne(ctx, bot, searchMsg, server, str(ctx.channel.id), result["channelID"], result["channelName"], db)
         if subResult["status"]:
-            await subPrompts.displaySubbed(searchMsg, False, None, subResult["subbed"], result["channelName"])
+            await subPrompts.displaySubbed(searchMsg, False, None, subResult["subbed"], subResult["name"])
             await msgDelete(ctx)
             return
     await searchMsg.delete()
@@ -117,7 +119,8 @@ async def unsubChannel(ctx: Union[commands.Context, SlashContext], bot: commands
         result = await pageNav.search.prompt(ctx, bot, listMsg,
                                              subPages, "Unsubscribing from a Channel",
                                              "Search for a VTuber", "Unsubscribe from all VTubers",
-                                             "removeAll", ButtonStyle.red, "Choose the VTuber to be unsubscribed from:")
+                                             "removeAll", ButtonStyle.red, "Choose the VTuber to be unsubscribed from:",
+                                             True, 1, 25)
     else:
         wikiName = await subUtils.channelSearch(ctx, bot, listMsg, channel, "unsubscribe")
         if wikiName["status"]:
@@ -140,6 +143,7 @@ async def unsubChannel(ctx: Union[commands.Context, SlashContext], bot: commands
             currentSubs = {}
             for subType in allSubTypes(False):
                 currentSubs[subType] = True
+            # TODO: Change arguments
             unsubResult = await unsubPrompts.removePrompt.prompt(ctx, bot, listMsg, "all VTubers", currentSubs)
             if not unsubResult["status"]:
                 await listMsg.delete()
@@ -152,6 +156,7 @@ async def unsubChannel(ctx: Union[commands.Context, SlashContext], bot: commands
                 await listMsg.delete()
                 await msgDelete(ctx)
                 return
+            # TODO: Change arguments
             unsubResult = await unsubPrompts.removePrompt.prompt(ctx, bot, listMsg, searchResult["channelName"], subList["channels"][searchResult["channelID"]]["subTypes"])
             if not unsubResult["status"]:
                 await listMsg.delete()
@@ -159,12 +164,12 @@ async def unsubChannel(ctx: Union[commands.Context, SlashContext], bot: commands
                 return
             result = await unsubUtils.unsubOne(server, str(ctx.channel.id), searchResult["channelID"], unsubResult["unsubbed"], db)
         else:
-            unsubResult = await unsubPrompts.removePrompt.prompt(ctx, bot, listMsg, result["item"]["name"], subList["channels"][result["item"]["id"]]["subTypes"])
+            unsubResult = await unsubPrompts.removePrompt.prompt(ctx, bot, listMsg, result["item"]["id"], result["item"]["name"], subList["channels"])
             if not unsubResult["status"]:
                 await listMsg.delete()
                 await msgDelete(ctx)
                 return
-            result = await unsubUtils.unsubOne(server, str(ctx.channel.id), result["item"]["id"], unsubResult["unsubbed"], db)
+            result = await unsubUtils.unsubOne(server, str(ctx.channel.id), result["item"]["id"], result["item"]["name"], unsubResult["unsubbed"], db)
         await unsubPrompts.displayResult(listMsg, result["name"], result["subTypes"])
         await msgDelete(ctx)
         return
@@ -255,6 +260,38 @@ class subUtils:
         else:
             return subDefault
     
+    async def addChannel(channelID: str, channelName: str, returnType: tuple, db: mysql.connector.MySQLConnection):
+        """
+        Gets the YouTube channel from the ID in the database and creates a new listing if it doesn't exist.
+        
+        Arguments
+        ---
+        channelID: The channel ID of the YouTube channel.
+        channelName: The Fandom wiki name of the YouTube channel.
+        returnType: The type of data to return.
+        db: An existing MySQL connection to reduce unneccessary connections.
+        
+        Returns
+        ---
+        A `dict` of the channel's data.
+        """
+        scrape: dict = await channelInfo(channelID, True)
+        columns = ("id", "name", "image", "milestone", "category", "twitter")
+        data = []
+        for column in columns:
+            if column == "milestone":
+                data.append(scrape["roundSubs"])
+            elif column == "twitter" and "twitter" not in scrape:
+                data.append(None)
+            elif column == "category":
+                data.append(await FandomScrape.getAffiliate(channelName))
+            else:
+                data.append(scrape[column])
+        await botdb.addData(tuple(data), columns, "channels", db)
+        chData = await botdb.getData(channelID, "id", returnType, "channels", db)
+        
+        return chData
+    
     async def channelSearch(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, msg: discord.Message, channel: str = None, action: str = "subscribe"):
         """
         Searches for a channel with input from the user.
@@ -305,10 +342,17 @@ class subUtils:
             
             channelId = await FandomScrape.getChannelURL(wikiName["name"])
             if channelId["success"]:
+                db = await botdb.getDB()
+                if not await botdb.checkIfExists(channelId["channelID"], "id", "channels", db):
+                    embed = discord.Embed(title="Getting Channel Data...", description="This channel is new in the database.\nPlease wait while we're getting the channel's info.")
+                    await msg.edit(content=" ", embed=embed, components=[])
+                    chData = await subUtils.addChannel(channelId["channelID"], wikiName["name"], ("id", "name"), db)
+                else:
+                    chData = await botdb.getData(channelId["channelID"], "id", ("id", "name"), "channels", db)
                 return {
                     "status": True,
-                    "channelID": channelId["channelID"],
-                    "channelName": wikiName["name"]
+                    "channelID": [chData["id"]],
+                    "channelName": [chData["name"]]
                 }
         return {
             "status": False
@@ -319,11 +363,11 @@ class subUtils:
                      msg: discord.Message,
                      server: dict,
                      channelId: str,
-                     ytChID: str,
-                     ytChName: str,
+                     ytChID: list,
+                     chNames: list,
                      db: mysql.connector.MySQLConnection):
         """
-        Subscribes to one channel with the specified channel ID.
+        Subscribes to one/multiple channel(s) with the specified channel ID(s).
         
         Arguments
         ---
@@ -332,6 +376,7 @@ class subUtils:
         msg: The message that will be used as a prompt.
         server: The server as a `dict` containing `subDefault` and other subscription types.
         channelId: The channel ID of the current Discord channel.
+        chNames: 
         db: An existing MySQL connection to reduce unnecessary connections.
         
         Returns
@@ -343,6 +388,10 @@ class subUtils:
         subDefault = await subUtils.checkDefault(server)
         subbed = []
         
+        if len(chNames) > 1:
+            ytChName = "Multiple Channels"
+        else:
+            ytChName = chNames[0]
         if subDefault == [''] or subDefault is None:
             result = await subPrompts.subTypes.prompt(ctx, bot, msg, f"Subscribing to {ytChName}",
                                                       "Pick the notifications to be posted to this channel.\n"
@@ -356,25 +405,37 @@ class subUtils:
             for subType in result["subTypes"]:
                 if result["subTypes"][subType]:
                     subDefault.append(subType)
-        for subType in subDefault:
-            stData = await botdb.listConvert(server[subType])
-            if not stData:
-                stData = []
-            if subType == "twitter":
-                twitter = (await botdb.getData(ytChID, "id", ("twitter", ), "channels", db))["twitter"]
-                if twitter is not None:
-                    if twitter not in stData:
-                        stData.append(twitter)
+        for channel in ytChID:
+            for subType in subDefault:
+                stData = await botdb.listConvert(server[subType])
+                if not stData:
+                    stData = []
+                if subType == "twitter":
+                    twitter = (await botdb.getData(channel, "id", ("twitter", ), "channels", db))["twitter"]
+                    if twitter is not None:
+                        if twitter not in stData:
+                            stData.append(twitter)
+                            server[subType] = await botdb.listConvert(stData)
+                            await botdb.addData((channelId, await botdb.listConvert(stData)), ("channel", subType), "servers", db)
+                            if subType not in subbed:
+                                subbed.append(subType)
+                else:
+                    if channel not in stData:
+                        stData.append(channel)
+                        server[subType] = await botdb.listConvert(stData)
                         await botdb.addData((channelId, await botdb.listConvert(stData)), ("channel", subType), "servers", db)
-                        subbed.append(subType)
-            else:
-                if ytChID not in stData:
-                    stData.append(ytChID)
-                    await botdb.addData((channelId, await botdb.listConvert(stData)), ("channel", subType), "servers", db)
-                    subbed.append(subType)
+                        if subType not in subbed:
+                            subbed.append(subType)
+        if len(chNames) <= 5:
+            channels = ""
+            for channel in ytChID:
+                channels += (await botdb.getData(channel, "id", ("name", ), "channels", db))["name"] + ", "
+            channels = channels[:-2]
+        else:
+            channels = f"{len(chNames)} channels"
         return {
             "status": True,
-            "name": (await botdb.getData(ytChID, "id", ("name", ), "channels", db))["name"],
+            "name": channels,
             "subbed": subbed
         }
     
@@ -453,27 +514,14 @@ class unsubUtils:
         A `list` following the pages format specified in `pageNav.message()`.
         """
         result = []
-        text = ""
-        entries = []
-        ids = []
-        names = []
-        pos = 1
         
         for channel in server["channels"]:
-            text += f"{pos}. {server['channels'][channel]['name']}\n"
-            entries.append(str(pos))
-            ids.append(channel)
-            names.append(server['channels'][channel]['name'])
-            pos += 1
-            if pos == 10:
-                result.append({"text": text.strip(), "entries": entries, "ids": ids, "names": names})
-                text = ""
-                entries = []
-                ids = []
-                names = []
-                pos = 1
-        if pos > 1:
-            result.append({"text": text.strip(), "entries": entries, "ids": ids, "names": names})
+            if 25 < len(server["channels"][channel]["name"]) > 22:
+                name = (server["channels"][channel]["name"])[:22] + "..."
+            else:
+                name = server["channels"][channel]["name"]
+            result.append({"name": name, "id": channel})
+        
         return result
     
     async def parseToSubTypes(server: dict, db: mysql.connector.CMySQLConnection):
@@ -526,15 +574,16 @@ class unsubUtils:
             "channels": subbedTypes
         }
     
-    async def unsubOne(server: dict, serverID: str, channelID: str, subTypes: list, db: mysql.connector.CMySQLConnection):
+    async def unsubOne(server: dict, serverID: str, channelIDs: list, channelNames: list, subTypes: list, db: mysql.connector.CMySQLConnection):
         """
-        Unsubscribe from one VTuber channel from the Discord channel.
+        Unsubscribe from one or multiple VTuber channels from the Discord channel.
         
         Arguments
         ---
         server: The current channel's subscriptions as a `dict`. (subscription types as keys)
         serverID: The Discord channel's ID.
-        channelID: The VTuber channel's ID.
+        channelIDs: The VTuber channel IDs.
+        channelNames: The VTuber channel names.
         subTypes: The subscription types to unsubscribe from as a `list`.
         db: A MySQL connection to reduce the amount of unnecessary connections.
         
@@ -544,18 +593,29 @@ class unsubUtils:
         - name: The name of the VTuber being unsubscribed from.
         - subTypes: The subscription types given in the respective argument.
         """
+        data = {}
         for subType in subTypes:
-            typeSubs = await botdb.listConvert(server[subType])
-            if subType == "twitter":
-                twitter = await botdb.getData(channelID, "id", ("twitter",), "channels", db)
-                if twitter["twitter"] in typeSubs:
-                    typeSubs.remove(twitter["twitter"])
-                    await botdb.addData((serverID, await botdb.listConvert(typeSubs)), ("channel", subType), "servers", db)
-            else:
-                typeSubs.remove(channelID)
-                await botdb.addData((serverID, await botdb.listConvert(typeSubs)), ("channel", subType), "servers", db)
+            data[subType] = await botdb.listConvert(server[subType])
+        
+        for channelID in channelIDs:
+            for subType in data:
+                if subType == "twitter":
+                    twitter = await botdb.getData(channelID, "id", ("twitter",), "channels", db)
+                    if twitter["twitter"] in data[subType]:
+                        data[subType].remove(twitter["twitter"])
+                        await botdb.addData((serverID, await botdb.listConvert(data[subType])), ("channel", subType), "servers", db)
+                elif channelID in data[subType]:
+                    data[subType].remove(channelID)
+                    await botdb.addData((serverID, await botdb.listConvert(data[subType])), ("channel", subType), "servers", db)
+        
+        nameText = ""
+        if len(channelNames) <= 5:
+            for name in channelNames:
+                nameText += f"{name}, "
+        else:
+            nameText = f"{len(channelNames)} channels  "
         return {
-            "name": (await botdb.getData(channelID, "id", ("name",), "channels", db))["name"],
+            "name": nameText[:-2],
             "subTypes": subTypes
         }
     
