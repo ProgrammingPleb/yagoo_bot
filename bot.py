@@ -40,7 +40,7 @@ elif settings["logging"] == "debug":
 
 bot = commands.Bot(command_prefix=commands.when_mentioned_or(settings["prefix"]), help_command=None)
 bot.remove_command('help')
-    slash = SlashCommand(bot, True)
+slash = SlashCommand(bot, True)
 if settings["slash"]:
     bot.add_cog(YagooSlash(bot, slash))
 
@@ -175,12 +175,13 @@ async def test(ctx):
     db = await botdb.getDB()
     print(await dbTools.serverGrab(bot, str(ctx.guild.id), str(ctx.channel.id), ("livestream", "milestone", "premiere"), db))
 
-@bot.command(aliases=["livestats", "livestat"])
+# TODO: Rewrite for SQL
+"""@bot.command(aliases=["livestats", "livestat"])
 @commands.check(subPerms)
 async def livestatus(ctx):
     loadmsg = await ctx.send("Loading info...")
     await streamcheck(ctx, True)
-    await loadmsg.delete()
+    await loadmsg.delete()"""
 
 @bot.command()
 @commands.check(creatorCheck)
@@ -208,7 +209,7 @@ async def mscheck(ctx, vtuber):
     await ctx.send(file=discord.File(f'milestone/generated/{vtuber}.png'))
 
 # NOTE: Rewrite for SQL when needed to be used later
-@bot.command()
+"""@bot.command()
 @commands.check(creatorCheck)
 async def nstest(ctx):
     with open("data/servers.json") as f:
@@ -223,10 +224,10 @@ async def nstest(ctx):
             embed.description = f'Started streaming {live[livech]["timeText"]}'
             embed.set_image(url=f'https://img.youtube.com/vi/{live[livech]["videoId"]}/maxresdefault.jpg')
             webhook = Webhook.from_url(whurl, adapter=AsyncWebhookAdapter(session))
-            await webhook.send(f'New livestream from {live[livech]["name"]}!', embed=embed, username=live[livech]["name"], avatar_url=live[livech]["image"])
+            await webhook.send(f'New livestream from {live[livech]["name"]}!', embed=embed, username=live[livech]["name"], avatar_url=live[livech]["image"])"""
 
 # NOTE: Rewrite for SQL when needed to be used later
-@bot.command()
+"""@bot.command()
 @commands.check(creatorCheck)
 async def postas(ctx, vtuber, *, text):
     with open("data/channels.json", encoding="utf-8") as f:
@@ -237,7 +238,7 @@ async def postas(ctx, vtuber, *, text):
     ytch = await channelInfo(channels[vtuber]["channel"])
     async with aiohttp.ClientSession() as session:
         webhook = Webhook.from_url(whurl, adapter=AsyncWebhookAdapter(session))
-        await webhook.send(text, username=ytch["name"], avatar_url=ytch["image"])
+        await webhook.send(text, username=ytch["name"], avatar_url=ytch["image"])"""
 
 @bot.command()
 @commands.check(creatorCheck)
