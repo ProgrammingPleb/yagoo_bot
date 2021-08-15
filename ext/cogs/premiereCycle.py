@@ -24,6 +24,9 @@ async def premiereNotify():
                     webhook = Webhook.from_url(server["url"], adapter=AsyncWebhookAdapter(session))
                     await webhook.send(f'New premiere from {channel["name"]}!', embed=embed, username=channel["name"], avatar_url=channel["image"])
             except Exception as e:
+                if "429 Too Many Requests" in str(e):
+                    logging.warning(f"Too many requests for {channel['id']}! Sleeping for 10 seconds.")
+                    asyncio.sleep(10)
                 logging.error("Premieres - An error has occured while publishing a notification!", exc_info=True)
 
     queue = []

@@ -102,6 +102,9 @@ class twtPost(AsyncStream):
                     webhook = Webhook.from_url(whurl, adapter=AsyncWebhookAdapter(session))
                     await webhook.send(twtString, avatar_url=tweet.user.profile_image_url_https, username=tweet.user.name)
             except Exception as e:
+                if "429 Too Many Requests" in str(e):
+                    logging.warning(f"Too many requests for {channel['id']}! Sleeping for 10 seconds.")
+                    asyncio.sleep(10)
                 logging.error(f"Twitter - An error has occurred while publishing Twitter notification to {channel}!", exc_info=True)
 
         queue = []
