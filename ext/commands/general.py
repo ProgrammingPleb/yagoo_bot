@@ -125,8 +125,9 @@ class botTwt:
         db = await botdb.getDB()
         twtMsg = await ctx.send("Loading custom Twitter accounts.")
 
-        server = await botdb.getData(str(ctx.channel.id), "channel", ("custom",), "servers", db)
-        await TwitterPrompts.parseToPages(await botdb.listConvert(server["custom"]))
+        server = await dbTools.serverGrab(bot, str(ctx.guild.id), str(ctx.channel.id), ("custom",), db)
+        customTwt = await botdb.getAllData("twitter", ("twtID", "name", "screenName"), 1, "custom", "twtID", db)
+        await TwitterPrompts.parseToPages(await botdb.listConvert(server["custom"]), customTwt)
 
         """with open("data/servers.json") as f:
             servers = json.load(f)

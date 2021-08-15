@@ -6,7 +6,7 @@ from discord.ext import commands
 import discord_slash
 from discord_slash.context import ComponentContext, SlashContext
 from discord_slash.model import ButtonStyle
-from discord_slash.utils.manage_components import create_actionrow, create_button, wait_for_component
+from discord_slash.utils.manage_components import create_actionrow, create_button, create_select, create_select_option, wait_for_component
 from ext.share.botVars import allSubTypes
 
 async def botError(ctx, error):
@@ -213,7 +213,7 @@ class generalPrompts:
                 await botError(ctx, "AsyncIO Wait Error")
             
             return result
-    
+        
         async def convertToRows(rows: list):
             """
             Converts a list of button rows to be used for the prompts.
@@ -228,6 +228,31 @@ class generalPrompts:
             """
             rows = [create_actionrow(*row) for row in rows]
             return rows
+
+        async def convertToSelect(options: list, minItems: int, maxItems: int):
+            """
+            Converts a list of options to be used for the prompts.
+            
+            Arguments
+            ---
+            options: A list of the options.
+            
+            Returns
+            ---
+            A `list` containing a list of pages with options converted with `create_select`.
+            """
+            result = []
+            temp = []
+            for option in options:
+                if len(temp) == 25:
+                    result.append(create_select([create_select_option(label=item["name"], value=item["id"]) for item in temp], "picker", min_values=minItems, max_values=maxItems))
+                    temp = []
+                temp.append(option)
+            if len(temp) > 0:
+                if maxItems > len(temp):
+                    maxItems = len(temp)
+                result.append(create_select([create_select_option(label=item["name"], value=item["id"]) for item in temp], "picker", min_values=minItems, max_values=maxItems))
+            return result
     
     async def cancel(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, msg: discord.Message, title: str, description: str, allowed: list = None):
         """
@@ -420,13 +445,19 @@ class pageNav:
         """
         A template for a message with an additional "remove all" button.
         """
-        async def editMsg(bot: commands.Bot, msg: discord.Message, pages: list, removeText: str, embed: discord.Embed, pageNum: int):
+        async def editMsg(bot: commands.Bot,
+                          msg: discord.Message,
+                          pages: list,
+                          removeText: str,
+                          embed: discord.Embed,
+                          pageNum: int,
+                          picker: bool = False):
             """
             Edits the prompt with it's corresponding buttons.
             Should not be used outside of the `pageNav.minimal` class.
             """
             pageButtons = []
-            if len(pages) > 1:
+            if len(pages) > 1 and not picker:
                 pageButtons = await pageNav.utils.pageRow(pages, pageNum)
             pageButtons.append([create_button(custom_id="remove", label=removeText, style=ButtonStyle.red), create_button(custom_id="cancel", label="Cancel", style=ButtonStyle.blue)])
             await msg.edit(content=" ", embed=embed, components=await generalPrompts.utils.convertToRows(pageButtons))
@@ -501,14 +532,19 @@ class pageNav:
                           otherId: str,
                           otherColor: ButtonStyle,
                           embed: discord.Embed,
-                          pageNum: int):
+                          pageNum: int,
+                          picker: bool = False,
+                          minValue: int = 0,
+                          maxValue: int = 0):
             """
             Edits the prompt with it's corresponding buttons.
             Should not be used outside of the `pageNav.minimal` class.
             """
             pageButtons = []
+            if picker:
+                pageButtons.append([pages[pageNum]])
             if len(pages) > 1:
-                pageButtons = await pageNav.utils.pageRow(pages, pageNum)
+                pageButtons.append((await pageNav.utils.pageRow(pages, pageNum))[0])
             pageButtons.append([create_button(custom_id="search", label=searchText, style=ButtonStyle.blue), create_button(custom_id=otherId, label=otherText, style=otherColor)])
             pageButtons.append([create_button(custom_id="cancel", label="Cancel", style=ButtonStyle.red)])
             await msg.edit(content=" ", embed=embed, components=await generalPrompts.utils.convertToRows(pageButtons))
@@ -522,7 +558,10 @@ class pageNav:
                          otherText: str,
                          otherId: str,
                          otherColor: ButtonStyle = ButtonStyle.blue,
-                         description: str = None):
+                         description: str = None,
+                         usePicker: bool = False,
+                         minItems: int = 1,
+                         maxItems: int = 1):
             """
             Creates a prompt with the "search" template.
             
@@ -531,13 +570,16 @@ class pageNav:
             ctx: Context from the command that is executed.
             bot: The Discord bot.
             msg: The Discord message that will be edited for the prompt.
-            pages: A `list` containing all the pages for the prompt.
+            pages: A `list` containing all the pages for the prompt (or all the options if the picker is used).
             title: The title of the prompt.
             searchText: The contents of the "search" button.
             otherText: The contents of the other button.
             otherId: The ID for the other button.
             otherColor: The color of the other button. (Default is blue)
             description: An optional description to put behind the numbered list.
+            usePicker: A `bool` indicating if a picker is needed.
+            minItems: The minimum number of items that can be picked.
+            maxItems: The maximum number of items that can be picked.
             
             Returns
             ---
@@ -547,9 +589,15 @@ class pageNav:
             - search: `True` if the user wants to search for something.
             - item: The item that needs to added/removed. (Contains the "name" and "id" as `dict` keys)
             """
-            editArgs = [bot, msg, pages, searchText, otherText, otherId, otherColor]
             buttonArgs = [["back", "next", "cancel", otherId, "search"], [-1, 1, 2, 3, 4]]
-            result = await pageNav.message(ctx, bot, pageNav.search, msg, pages, title, editArgs, buttonArgs, description)
+            if not usePicker:
+                editArgs = [bot, msg, pages, searchText, otherText, otherId, otherColor]
+                result = await pageNav.message(ctx, bot, pageNav.search, msg, pages, title, editArgs, buttonArgs, description)
+            else:
+                select = await generalPrompts.utils.convertToSelect(pages, minItems, maxItems)
+                editArgs = [bot, msg, select, searchText, otherText, otherId, otherColor]
+                result = await pageNav.picker(ctx, bot, pageNav.search, pages, msg, title, editArgs, buttonArgs, description, minItems, maxItems)
+            
             if result["type"] == "button":
                 if result["res"] == 2:
                     return {
@@ -572,16 +620,14 @@ class pageNav:
                         "search": True,
                         "item": None
                     }
-            elif result["type"] == "message":
-                if isinstance(result["res"], list):
-                    result["res"] = result["res"][0]
+            elif result["type"] == "select":
                 return {
                     "status": True,
                     "other": False,
                     "search": False,
                     "item": {
-                        "name": pages[result["pageNum"]]["names"][result["res"] - 1],
-                        "id": pages[result["pageNum"]]["ids"][result["res"] - 1]
+                        "name": [item["name"] for item in result["selected"]],
+                        "id": [item["id"] for item in result["selected"]]
                     }
                 }
             else:
@@ -663,6 +709,86 @@ class pageNav:
                     "type": None,
                     "res": None
                 }
+    
+    async def picker(ctx: Union[commands.Context, SlashContext],
+                      bot: commands.Bot,
+                      editClass: type,
+                      pages: list,
+                      msg: discord.Message,
+                      title: str,
+                      editArgs: list,
+                      buttonArgs: list,
+                      description: str,
+                      minItems: int,
+                      maxItems: int):
+        """
+        Create a picker prompt with the specified message edit class and it's arguments, and button responses.
+        
+        Arguments
+        ---
+        ctx: Context from the command that is executed.
+        bot: The Discord bot.
+        editClass: The class that `editMsg` is a part of.
+        msg: The Discord message that will be edited for the prompt.
+        pages: A `list` containing all the available options.
+        title: The title of the embed.
+        editArgs: A `list` containing the arguments for `editMsg`.
+        buttonArgs: A `list` containing the arguments for the button check function.
+        minItems: The minimum number of items that can be picked.
+        maxItems: The maximum number of items that can be picked.
+        
+        Options Format
+        ---
+        Each options object must have a `dict` containing:
+        - name: The label for the option.
+        - id: The identifier for the option.
+        
+        Returns
+        ---
+        A `dict` with:
+        - type: Possible outputs are `button`, `message`, or `None`.
+        - res: The response of the interaction type.
+        """
+        pageNum = 0
+        embed = discord.Embed(title=title)
+        if maxItems > 1:
+            embedtext = "Pick the entries in the list or use the buttons below for other actions."
+        else:
+            embedtext = "Pick an entry in the list or use the buttons below for other actions."
+        embed.add_field(name="Actions", value=embedtext)
+
+        while True:
+            if description:
+                embed.description = description
+            await editClass.editMsg(*editArgs, embed, pageNum, True, minItems, maxItems)
+            result = await generalPrompts.utils.buttonCheck(ctx, bot, msg)
+            
+            if isinstance(result, discord_slash.ComponentContext):
+                await result.defer(edit_origin=True)
+                if result.component_type == 2:
+                    buttonRes = await pageNav.utils.processButton(result, *buttonArgs)
+                    if buttonRes in [-1, 1]:
+                        pageNum += buttonRes
+                    else:
+                        return {
+                            "type": "button",
+                            "res": buttonRes
+                        }
+                elif result.component_type == 3:
+                    picks = []
+                    for item in pages:
+                        if item["id"] in result.selected_options:
+                            picks.append(item)
+                    return {
+                        "type": "select",
+                        "res": result,
+                        "selected": picks
+                    }
+            else:
+                return {
+                    "type": None,
+                    "res": None
+                }
 
 class subPrompts:
     async def parseToPages(data: list, keyID: str = None):
@@ -709,32 +835,19 @@ class subPrompts:
         Arguments
         ---
         data: Data grabbed from the `channels` table.
-        """
-        pages = []
-        temp = ""
-        entries = []
-        categories = []
-        pageIDs = []
-        catCount = 1
-        for channel in data:
-            if data[channel]["category"] not in categories:
-                category = data[channel]["category"]
-                categories.append(category)
-                pageIDs.append(category)
-                temp += f"{catCount}. {category}\n"
-                entries.append(str(catCount))
-                categories.append(category)
-                catCount += 1
-            if catCount == 10:
-                pages.append({"text": temp.strip(), "entries": entries, "ids": pageIDs, "names": pageIDs})
-                temp = ""
-                entries = []
-                pageIDs = []
-                catCount = 1
-        if entries != []:
-            pages.append({"text": temp.strip(), "entries": entries, "ids": pageIDs, "names": pageIDs})
         
-        return pages
+        Returns
+        ---
+        A `list` of containing `dict` objects with the affiliations following the options specifications.
+        """
+        exists = []
+        result = []
+        for channel in data:
+            if data[channel]["category"] not in exists:
+                result.append({"name": data[channel]["category"], "id": data[channel]["category"]})
+                exists.append(data[channel]["category"])
+        
+        return result
     
     async def ctgPicker(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, channels: dict, ctgMsg: discord.Message):
         """
@@ -757,7 +870,7 @@ class subPrompts:
         """
         pages = await subPrompts.categoryPages(channels)
         description = "Pick the VTuber's affiliation:"
-        result = await pageNav.search.prompt(ctx, bot, ctgMsg, pages, "Subscribing to a VTuber", "Search for a VTuber", "Subscribe to all VTubers", "subAll", description=description)
+        result = await pageNav.search.prompt(ctx, bot, ctgMsg, pages, "Subscribing to a VTuber", "Search for a VTuber", "Subscribe to all VTubers", "subAll", description=description, usePicker=True, minItems=1, maxItems=1)
         
         if result["status"]:
             print(f"prompts.py/ctgPicker: {result}")
@@ -766,7 +879,7 @@ class subPrompts:
                     "status": True,
                     "all": result["other"],
                     "search": result["search"],
-                    "category": result["item"]["name"]
+                    "category": result["item"]["name"][0]
                 }
             return {
                 "status": True,
@@ -868,31 +981,16 @@ class subPrompts:
             
             Returns
             ---
-            A `list` following the format in `pageNav.message`.
+            A `list` following the options specifications in `pageNav.picker`.
             """
             result = []
-            text = ""
-            entries = []
-            ids = []
-            names = []
-            pos = 1
             
             for channel in category:
-                chData = category[channel]
-                text += f"{pos}. {chData['name']}\n"
-                ids.append(channel)
-                names.append(chData['name'])
-                entries.append(str(pos))
-                pos += 1
-                if pos == 10:
-                    result.append({"text": text.strip(), "entries": entries, "ids": ids, "names": names})
-                    text = ""
-                    entries = []
-                    ids = []
-                    names = []
-                    pos = 1
-            if pos > 1:
-                result.append({"text": text.strip(), "entries": entries, "ids": ids, "names": names})
+                if 25 < len(category[channel]["name"]) > 22:
+                    name = (category[channel]["name"])[:22] + "..."
+                else:
+                    name = category[channel]["name"]
+                result.append({"name": name, "id": channel})
             
             return result
         
@@ -917,7 +1015,7 @@ class subPrompts:
             - item: The VTuber that needs to added/removed. (Contains the "name" and "id" as `dict` keys)
             """
             pages = await subPrompts.channelPick.parseToPages(category)
-            return await pageNav.search.prompt(ctx, bot, msg, pages, "Subscribing to a VTuber", "Search for a VTuber", f"Subscribe to all {catName} VTubers", "subAll")
+            return await pageNav.search.prompt(ctx, bot, msg, pages, "Subscribing to a VTuber", "Search for a VTuber", f"Subscribe to all {catName} VTubers", "subAll", usePicker=True, maxItems=25)
     
     class subTypes:
         async def editMsg(subTypes: list, msg: discord.Message, embed: discord.Embed, buttonStates: dict, subText: str, subId: str, allowNone: bool):
@@ -1090,7 +1188,7 @@ class subPrompts:
         async def editMsg(msg: discord.Message, embed: discord.Embed, pages: list, pagePos: int):
             buttons = []
             if len(pages) > 1:
-            buttons = await pageNav.utils.pageRow(pages, pagePos)
+                buttons = await pageNav.utils.pageRow(pages, pagePos)
             await msg.edit(content=" ", embed=embed, components=await generalPrompts.utils.convertToRows(buttons))
             return
         
@@ -1155,7 +1253,7 @@ class unsubPrompts:
             await msg.edit(content=" ", embed=embed, components=await generalPrompts.utils.convertToRows(buttons))
             return
         
-        async def prompt(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, msg: discord.Message, name: str, subTypes: dict):
+        async def prompt(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, msg: discord.Message, ids: list, names: list, subStates: dict):
             """
             Prompts the user for which subscription type to unsubscribe from.
             
@@ -1164,8 +1262,9 @@ class unsubPrompts:
             ctx: Context from the executed command.
             bot: The Discord bot.
             msg: The message that will be used as the prompt.
-            name: Name of the VTuber's channel to be unsubscribed from.
-            subTypes: The current active subscriptions for the current VTuber channel.
+            ids: IDs of the VTuber channels to be unsubscribed from.
+            name: Names of the VTuber channels to be unsubscribed from.
+            subStates: The current active subscriptions for all the subscribed VTuber channels.
             
             Returns
             ---
@@ -1173,7 +1272,17 @@ class unsubPrompts:
             - status: `True` if an option was chosen by the user.
             - unsubbed: A `list` with subscription types to unsubscribe from.
             """
+            if len(ids) > 1:
+                name = "Multiple Channels"
+            else:
+                name = ids[0]
             embed = discord.Embed(title=f"Unsubscribing from {name}", description="Choose the subscription types to unsubscribe from.")
+            
+            subTypes = {}
+            for channel in ids:
+                for subType in subStates[channel]["subTypes"]:
+                    if subType not in subTypes:
+                        subTypes[subType] = True
             
             while True:
                 await unsubPrompts.removePrompt.editMsg(msg, embed, subTypes)
@@ -1221,7 +1330,40 @@ class unsubPrompts:
         return
 
 class TwitterPrompts:
-    async def parseToPages(data: list):
+    async def parseToPages(data: dict):
+        """
+        Parses a list of Twitter accounts into a list matching the pages specification in `pageNav.message`.
+        
+        Arguments
+        ---
+        data: A `dict` containing the Twitter accounts to be parsed.
+        
+        Returns
+        ---
+        A list containing `dict` objects matching the specification in `pageNav.message`.
+        """
+        await pageNav.message()
+        
+        pages = []
+        first = True
+        pageNum = 10
+        
+        for twtID in data:
+            if pageNum > 9:
+                if first:
+                    first = False
+                else:
+                    pages.append({"text": text, "entries": [], "ids": [], "names": []})
+                text = ""
+                entries = []
+                ids = []
+                names = []
+                pageNum = 1
+            
+            text += f"{pageNum}. {data[twtID]['name']}\n"
+            entries.append(pageNum)
+            pageNum += 1
+        
         return
         """pages = []
 
