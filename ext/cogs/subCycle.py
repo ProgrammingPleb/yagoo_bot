@@ -1,5 +1,6 @@
 import json
 import traceback
+import asyncio
 import aiohttp
 import discord
 import logging
@@ -7,11 +8,27 @@ from discord import Webhook, AsyncWebhookAdapter
 from discord.ext import commands, tasks
 from ..share.dataUtils import botdb
 
-async def streamNotify(bot):
+async def streamNotify():
     db = await botdb.getDB()
     channels = await botdb.getAllData("scrape", ("id", "name", "image", "streams"), db=db)
     servers = await botdb.getAllData("servers", ("server", "channel", "url", "livestream"), db=db)
     
+    async def postMsg(server: dict, channel: dict, video: dict, videoId: str, notified: dict):
+        if notified[channel["id"]] != video:
+            try:
+                async with aiohttp.ClientSession() as session:
+                    embed = discord.Embed(title=f'{video["title"]}', url=f'https://youtube.com/watch?v={videoId}')
+                    embed.description = f'{video["status"]}'
+                    embed.set_image(url=video["thumbnail"])
+                    webhook = Webhook.from_url(server["url"], adapter=AsyncWebhookAdapter(session))
+                    await webhook.send(f'New livestream from {channel["name"]}!', embed=embed, username=channel["name"], avatar_url=channel["image"])
+            except Exception as e:
+                if "429 Too Many Requests" in str(e):
+                    logging.warning(f"Too many requests for {channel['id']}! Sleeping for 10 seconds.")
+                    asyncio.sleep(10)
+                logging.error("Livestreams - An error has occured while publishing a notification!", exc_info=True)
+    
+    queue = []
     for channel in channels:
         if channel["streams"] != "{}":
             data = json.loads(channel["streams"])
@@ -27,15 +44,12 @@ async def streamNotify(bot):
                             if notified[channel["id"]] != video:
                                 notified[channel["id"]] = video
                                 try:
-                                    async with aiohttp.ClientSession() as session:
-                                        embed = discord.Embed(title=f'{data[video]["title"]}', url=f'https://youtube.com/watch?v={video}')
-                                        embed.description = f'{data[video]["status"]}'
-                                        embed.set_image(url=data[video]["thumbnail"])
-                                        webhook = Webhook.from_url(server["url"], adapter=AsyncWebhookAdapter(session))
-                                        await webhook.send(f'New livestream from {channel["name"]}!', embed=embed, username=channel["name"], avatar_url=channel["image"])
+                                    queue.append(postMsg(server, channel, data[video], video, notified))
                                     await botdb.addData((server["channel"], json.dumps(notified)), ("channel", "notified"), "servers", db=db)
                                 except Exception as e:
-                                    logging.error("Livestreams - An error has occured while publishing a notification!", exc_info=True)
+                                    logging.error("Livestreams - An error has occured while queueing a notification!", exc_info=True)
+    
+    await asyncio.gather(*queue)
 
 class StreamCycle(commands.Cog):
     def __init__(self, bot):
@@ -49,7 +63,7 @@ class StreamCycle(commands.Cog):
     async def timecheck(self):
         logging.info("Starting stream checks.")
         try:
-            await streamNotify(self.bot)
+            await streamNotify()
         except Exception as e:
             logging.error("Stream - An error has occurred in the cog!", exc_info=True)
             traceback.print_exception(type(e), e, e.__traceback__)
