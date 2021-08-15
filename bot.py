@@ -12,6 +12,7 @@ from discord_slash.context import ComponentContext
 from discord_slash.utils.manage_components import create_actionrow, create_button, wait_for_component
 from discord.ext import commands, tasks
 from ext.infoscraper import channelInfo
+from ext.cogs.chUpdater import chCycle
 from ext.cogs.subCycle import StreamCycle
 from ext.cogs.msCycle import msCycle, milestoneNotify
 from ext.cogs.dblUpdate import guildUpdate
@@ -39,8 +40,8 @@ elif settings["logging"] == "debug":
 
 bot = commands.Bot(command_prefix=commands.when_mentioned_or(settings["prefix"]), help_command=None)
 bot.remove_command('help')
-if settings["slash"]:
     slash = SlashCommand(bot, True)
+if settings["slash"]:
     bot.add_cog(YagooSlash(bot, slash))
 
 class updateStatus(commands.Cog):
@@ -60,7 +61,6 @@ class updateStatus(commands.Cog):
 async def on_ready():
     global init
     if not init:
-        DiscordComponents(bot)
         guildCount = 0
         for guilds in bot.guilds:
             guildCount += 1
@@ -68,8 +68,6 @@ async def on_ready():
         if settings["dblPublish"]:
             bot.add_cog(guildUpdate(bot, settings["dblToken"]))
         if settings["channel"]:
-            bot.add_cog(ScrapeCycle(bot, settings["logging"]))
-            await asyncio.sleep(30)
             bot.add_cog(chCycle(bot))
         if settings["twitter"]["enabled"]:
             bot.add_cog(twtCycle(bot))
@@ -292,7 +290,6 @@ async def chRefresh(ctx: commands.Context):
 
     try:
         res: ComponentContext = await wait_for_component(bot, qmsg, buttonRow, check, 30)
-        print(type(res))
     except asyncio.TimeoutError:
         await qmsg.delete()
         await ctx.message.delete()
