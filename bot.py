@@ -43,6 +43,19 @@ if settings["slash"]:
     slash = SlashCommand(bot, True)
     bot.add_cog(YagooSlash(bot, slash))
 
+class updateStatus(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+        self.updateStatus.start()
+    
+    def cog_unload(self):
+        self.updateStatus.stop()
+
+    @tasks.loop(minutes=5)
+    async def updateStatus(self):
+        channels = await botdb.getAllData("channels", ("id",))
+        await self.bot.change_presence(status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.watching, name=f'over {len(channels)} VTubers'))
+
 @bot.event
 async def on_ready():
     global init
@@ -52,7 +65,6 @@ async def on_ready():
         for guilds in bot.guilds:
             guildCount += 1
         print(f"Yagoo Bot now streaming in {guildCount} servers!")
-        await bot.change_presence(status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.watching, name='other Hololive members'))
         if settings["dblPublish"]:
             bot.add_cog(guildUpdate(bot, settings["dblToken"]))
         if settings["channel"]:
@@ -67,6 +79,7 @@ async def on_ready():
             bot.add_cog(PremiereCycle(bot))
         if settings["milestone"]:
             bot.add_cog(msCycle(bot))
+        bot.add_cog(updateStatus(bot))
         init = True
     else:
         print("Reconnected to Discord!")
