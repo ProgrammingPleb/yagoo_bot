@@ -1,7 +1,5 @@
 import discord
-import json
 import asyncio
-import tweepy
 from typing import Union
 from discord.ext import commands
 from discord_slash.context import SlashContext
