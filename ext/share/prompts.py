@@ -282,7 +282,7 @@ class generalPrompts:
         
         result = await generalPrompts.utils.doubleCheck(ctx, bot, msg)
         
-        if isinstance(result, discord_slash.ComponentMessage):
+        if isinstance(result, discord.Message):
             await result.delete()
             return {
                 "status": True,
@@ -1284,10 +1284,10 @@ class unsubPrompts:
             
             subTypes = {}
             if ids[0] != "channelAllUnsub":
-            for channel in ids:
-                for subType in subStates[channel]["subTypes"]:
-                    if subType not in subTypes:
-                        subTypes[subType] = True
+                for channel in ids:
+                    for subType in subStates[channel]["subTypes"]:
+                        if subType not in subTypes:
+                            subTypes[subType] = True
             else:
                 subTypes = subStates
             
