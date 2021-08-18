@@ -1263,7 +1263,7 @@ class unsubPrompts:
             bot: The Discord bot.
             msg: The message that will be used as the prompt.
             ids: IDs of the VTuber channels to be unsubscribed from.
-            name: Names of the VTuber channels to be unsubscribed from.
+            names: Names of the VTuber channels to be unsubscribed from.
             subStates: The current active subscriptions for all the subscribed VTuber channels.
             
             Returns
@@ -1275,14 +1275,17 @@ class unsubPrompts:
             if len(ids) > 1:
                 name = "Multiple Channels"
             else:
-                name = ids[0]
+                name = names[0]
             embed = discord.Embed(title=f"Unsubscribing from {name}", description="Choose the subscription types to unsubscribe from.")
             
             subTypes = {}
+            if ids[0] != "channelAllUnsub":
             for channel in ids:
                 for subType in subStates[channel]["subTypes"]:
                     if subType not in subTypes:
                         subTypes[subType] = True
+            else:
+                subTypes = subStates
             
             while True:
                 await unsubPrompts.removePrompt.editMsg(msg, embed, subTypes)

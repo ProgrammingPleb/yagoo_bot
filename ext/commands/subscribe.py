@@ -143,8 +143,7 @@ async def unsubChannel(ctx: Union[commands.Context, SlashContext], bot: commands
             currentSubs = {}
             for subType in allSubTypes(False):
                 currentSubs[subType] = True
-            # TODO: Change arguments
-            unsubResult = await unsubPrompts.removePrompt.prompt(ctx, bot, listMsg, "all VTubers", currentSubs)
+            unsubResult = await unsubPrompts.removePrompt.prompt(ctx, bot, listMsg, ["channelAllUnsub"], ["all VTubers"], currentSubs)
             if not unsubResult["status"]:
                 await listMsg.delete()
                 await msgDelete(ctx)
@@ -156,13 +155,12 @@ async def unsubChannel(ctx: Union[commands.Context, SlashContext], bot: commands
                 await listMsg.delete()
                 await msgDelete(ctx)
                 return
-            # TODO: Change arguments
-            unsubResult = await unsubPrompts.removePrompt.prompt(ctx, bot, listMsg, searchResult["channelName"], subList["channels"][searchResult["channelID"]]["subTypes"])
+            unsubResult = await unsubPrompts.removePrompt.prompt(ctx, bot, listMsg, searchResult["channelID"], searchResult["channelName"], subList["channels"])
             if not unsubResult["status"]:
                 await listMsg.delete()
                 await msgDelete(ctx)
                 return
-            result = await unsubUtils.unsubOne(server, str(ctx.channel.id), searchResult["channelID"], unsubResult["unsubbed"], db)
+            result = await unsubUtils.unsubOne(server, str(ctx.channel.id), searchResult["channelID"], searchResult["channelName"], unsubResult["unsubbed"], db)
         else:
             unsubResult = await unsubPrompts.removePrompt.prompt(ctx, bot, listMsg, result["item"]["id"], result["item"]["name"], subList["channels"])
             if not unsubResult["status"]:
