@@ -47,6 +47,10 @@ async def botError(ctx, error):
         errEmbed.description = "You are missing permissions to use this bot.\n" \
                                "Ensure that you have one of these permissions for the channel/server:\n\n" \
                                " - `Administrator (Server)`\n - `Manage Webhooks (Channel/Server)`"
+    elif isinstance(error, discord.errors.Forbidden):
+        errEmbed.description = "The bot is missing permissions for this server/channel!\n" \
+                               "Ensure that you have set these permissions for the bot to work:\n\n" \
+                               "- Manage Webhooks\n- Send Messages\n- Manage Messages"
     else:
         errEmbed.description = "An unknown error has occurred.\nPlease report this to the support server!"
         print("An unknown error has occurred.")
