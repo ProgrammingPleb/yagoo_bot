@@ -1,3 +1,5 @@
+# TODO: Split into seperate package
+
 import asyncio
 import traceback
 import discord
@@ -317,8 +319,8 @@ class generalPrompts:
         yesno = [create_actionrow(create_button(style=ButtonStyle.red, label="No"), create_button(style=ButtonStyle.green, label="Yes"))]
         await msg.edit(content=" ", embed=embed, components=yesno)
 
-        def check(res):
-            return res.channel.id == ctx.channel.id and res.user.id == ctx.author.id and res.message.id == msg.id
+        def check(res: ComponentContext):
+            return res.channel.id == ctx.channel.id and res.author.id == ctx.author.id and res.origin_message.id == msg.id
 
         try:
             result = await wait_for_component(bot, msg, yesno, check, 30)
@@ -464,8 +466,10 @@ class pageNav:
             Should not be used outside of the `pageNav.minimal` class.
             """
             pageButtons = []
-            if len(pages) > 1 and not picker:
-                pageButtons = await pageNav.utils.pageRow(pages, pageNum)
+            if picker:
+                pageButtons.append([pages[pageNum]])
+            if len(pages) > 1:
+                pageButtons.append((await pageNav.utils.pageRow(pages, pageNum))[0])
             pageButtons.append([create_button(custom_id="remove", label=removeText, style=ButtonStyle.red), create_button(custom_id="cancel", label="Cancel", style=ButtonStyle.blue)])
             await msg.edit(content=" ", embed=embed, components=await generalPrompts.utils.convertToRows(pageButtons))
         
@@ -475,7 +479,10 @@ class pageNav:
                          pages: list,
                          title: str,
                          removeText: str,
-                         description: str = None):
+                         description: str = None,
+                         usePicker: bool = False,
+                         minItems: int = 0,
+                         maxItems: int = 0):
             """
             Creates a prompt with the "remove" template.
             
@@ -496,9 +503,14 @@ class pageNav:
             - all: `True` if the user wants to remove all items, `False` if otherwise.
             - item: The item that needs to removed. (Contains the "name" and "id" as `dict` keys)
             """
-            editArgs = [bot, msg, pages, removeText]
             buttonArgs = [["back", "next", "cancel", "remove"], [-1, 1, 2, 3]]
-            result = await pageNav.message(ctx, bot, pageNav.remove, msg, pages, title, editArgs, buttonArgs, description)
+            if not usePicker:
+                editArgs = [bot, msg, pages, removeText]
+                result = await pageNav.message(ctx, bot, pageNav.remove, msg, pages, title, editArgs, buttonArgs, description)
+            else:
+                options = await generalPrompts.utils.convertToSelect(pages, minItems, maxItems)
+                editArgs = [bot, msg, options, removeText]
+                result = await pageNav.picker(ctx, bot, pageNav.remove, pages, msg, title, editArgs, buttonArgs, description, minItems, maxItems)
             if result["type"] == "button":
                 if result["res"] == 2:
                     return {
@@ -511,15 +523,13 @@ class pageNav:
                     "all": True,
                     "item": None
                 }
-            elif result["type"] == "message":
-                if isinstance(result["res"], list):
-                    result["res"] = result["res"][0]
+            elif result["type"] == "select":
                 return {
                     "status": True,
                     "all": False,
                     "item": {
-                        "name": pages[result["pageNum"]]["names"][result["res"] - 1],
-                        "id": pages[result["pageNum"]]["ids"][result["res"] - 1]
+                        "name": [item["name"] for item in result["selected"]],
+                        "id": [item["id"] for item in result["selected"]]
                     }
                 }
             else:
@@ -1342,24 +1352,21 @@ class unsubPrompts:
 class TwitterPrompts:
     class unfollow:
         async def parseToOptions(subbed: list, data: dict):
-        """
+            """
             Parses a list of Twitter accounts into a list matching the pages specification in `pageNav.picker`.
-        
-        Arguments
-        ---
+            
+            Arguments
+            ---
             subbed: A `list` containing the Twitter accounts to be parsed.
             data: A `dict` containing the Twitter custom accounts data.
-        
-        Returns
-        ---
+            
+            Returns
+            ---
             A list containing `dict` objects matching the specification in `pageNav.picker`.
-        """
+            """
             options = []
-        
-            print(data)
+            
             for twtID in subbed:
-                print(twtID)
-                print(data[twtID]["name"])
                 if 22 < len(data[twtID]["name"]) > 25:
                     name = data[twtID]["name"][:22] + "..."
                 else:
@@ -1371,18 +1378,18 @@ class TwitterPrompts:
         async def parseToPages(options: list):
             """
             Parses a list of options into select pages.
-
+            
             Arguments
             ---
             options: A `list` of all the available options.
-
+            
             Returns
             ---
             A `list` with with `list` objects up to 25 options.
             """
             pages = []
             temp = []
-        
+            
             for option in options:
                 if len(temp) == 25:
                     pages.append(temp)
@@ -1390,9 +1397,9 @@ class TwitterPrompts:
                 temp.append(option)
             if len(temp) != 0:
                 pages.append(temp)
-        
+            
             return pages
-
+        
         async def prompt(ctx: Union[SlashContext, commands.Context], bot: commands.Bot, msg: discord.Message, options: dict):
             """
             Prompts the user for which Twitter accounts to be unfollowed.
@@ -1403,7 +1410,7 @@ class TwitterPrompts:
             bot: The Discord bot.
             msg: The message that will be used as the prompt.
             options: A `dict` containing the Twitter custom accounts data.
-
+            
             Returns
             ---
             A `dict` with:

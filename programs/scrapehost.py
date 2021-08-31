@@ -4,7 +4,6 @@ import asyncio
 import aiohttp
 import concurrent.futures
 import rpyc
-import functools
 import traceback
 from bs4 import BeautifulSoup
 from dbStandalone import botdb
@@ -56,8 +55,6 @@ async def formatMilestone(msCount):
     
     return cSubsA, cSubsR
 
-# Stream: Channel ID, Video Name, Video URL, Thumbnail URL, Timestamp 
-# Scrape Cycle: Channel ID, Channel Name, Channel Image (Icon), Real Sub, Round Subs, [Stream Contents as JSON], Twitter Account
 async def scrape(channel: str):
     """
     Grabs the stream data of the channel.
