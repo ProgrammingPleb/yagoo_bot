@@ -43,6 +43,9 @@ async def botError(ctx, error):
     elif "50 - User not found." in str(error):
         errEmbed.description = "This user was not found on Twitter!\n" \
                                "Make sure the spelling of the user's Twitter link/screen name is correct!"
+    elif "No Follows" in str(error):
+        errEmbed.description = "This channel is not following any Twitter accounts.\n" \
+                               "Follow a Twitter account's tweets by using `y!follow` or `/follow` command."
     elif isinstance(error, commands.CheckFailure):
         errEmbed.description = "You are missing permissions to use this bot.\n" \
                                "Ensure that you have one of these permissions for the channel/server:\n\n" \
@@ -1337,99 +1340,97 @@ class unsubPrompts:
         return
 
 class TwitterPrompts:
-    async def parseToPages(data: dict):
+    class unfollow:
+        async def parseToOptions(subbed: list, data: dict):
         """
-        Parses a list of Twitter accounts into a list matching the pages specification in `pageNav.message`.
+            Parses a list of Twitter accounts into a list matching the pages specification in `pageNav.picker`.
         
         Arguments
         ---
-        data: A `dict` containing the Twitter accounts to be parsed.
+            subbed: A `list` containing the Twitter accounts to be parsed.
+            data: A `dict` containing the Twitter custom accounts data.
         
         Returns
         ---
-        A list containing `dict` objects matching the specification in `pageNav.message`.
+            A list containing `dict` objects matching the specification in `pageNav.picker`.
         """
-        await pageNav.message()
+            options = []
         
-        pages = []
-        first = True
-        pageNum = 10
-        
-        for twtID in data:
-            if pageNum > 9:
-                if first:
-                    first = False
+            print(data)
+            for twtID in subbed:
+                print(twtID)
+                print(data[twtID]["name"])
+                if 22 < len(data[twtID]["name"]) > 25:
+                    name = data[twtID]["name"][:22] + "..."
                 else:
-                    pages.append({"text": text, "entries": [], "ids": [], "names": []})
-                text = ""
-                entries = []
-                ids = []
-                names = []
-                pageNum = 1
+                    name = data[twtID]["name"]
+                options.append({"name": name, "id": twtID})
             
-            text += f"{pageNum}. {data[twtID]['name']}\n"
-            entries.append(pageNum)
-            pageNum += 1
+            return options
         
-        return
-        """pages = []
+        async def parseToPages(options: list):
+            """
+            Parses a list of options into select pages.
 
-        for section in data:
-            pos = 1
-            temp = ""
-            entries = []
-            id_list = []
-            names = []
-            for account in section:
-                temp += f"{pos}. {section[account]['name']} (@{section[account]['screen_name']})\n"
-                entries.append(str(pos))
-                id_list.append(account)
-                names.append(section[account]['name'])
-                pos += 1
-            pages.append({"text": temp.strip(), "entries": entries, "ids": id_list, "names": names})
+            Arguments
+            ---
+            options: A `list` of all the available options.
+
+            Returns
+            ---
+            A `list` with with `list` objects up to 25 options.
+            """
+            pages = []
+            temp = []
         
-        return pages
-
-    async def unfollow(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, msg: discord.Message, customAcc: dict, servers: dict):
-        from .botUtils import chunks, msgDelete, TwitterUtils
-        temp = {}
-        followed = []
-
-        for account in servers[str(ctx.guild.id)][str(ctx.channel.id)]["custom"]:
-            temp[account] = customAcc[account]
+            for option in options:
+                if len(temp) == 25:
+                    pages.append(temp)
+                    temp = []
+                temp.append(option)
+            if len(temp) != 0:
+                pages.append(temp)
         
-        for account in chunks(temp, SIZE=9):
-            followed.append(account)
-        
-        pages = await TwitterPrompts.parseToPages(followed)
-        prompt = await pageNav.remove.prompt(ctx, bot, msg, pages, "Unfollowing an account", "Unfollow All Users")
+            return pages
 
-        if not prompt["status"]:
-            await msg.delete()
-            await msgDelete(ctx)
-        else:
-            if not prompt["all"]:
-                choiceText = f"unfollow from {prompt['item']['name']}"
-                choiceTitle = "Unfollowing from a Twitter account"
-                resultText = f"@{prompt['item']['name']}'s tweets are now unfollowed from this channel."
-            else:
-                choiceText = "unfollow from all Twitter accounts"
-                choiceTitle = "Unfollowing from all Twitter accounts"
-                resultText = f"All custom Twitter accounts are now unfollowed from this channel."
+        async def prompt(ctx: Union[SlashContext, commands.Context], bot: commands.Bot, msg: discord.Message, options: dict):
+            """
+            Prompts the user for which Twitter accounts to be unfollowed.
             
-            choice = await generalPrompts.confirm(ctx, bot, msg, choiceTitle, choiceText)
+            Arguments
+            ---
+            ctx: Context from the executed command.
+            bot: The Discord bot.
+            msg: The message that will be used as the prompt.
+            options: A `dict` containing the Twitter custom accounts data.
 
-            if choice["status"] and choice["choice"]:
-                if not prompt["all"]:
-                    await TwitterUtils.followActions("remove", str(ctx.guild.id), str(ctx.channel.id), prompt["item"]["id"])
-                else:
-                    await TwitterUtils.followActions("remove", str(ctx.guild.id), str(ctx.channel.id), all=True)
-                await msg.edit(content=resultText, embed=" ", components=[])
-                await msgDelete(ctx)
+            Returns
+            ---
+            A `dict` with:
+            - status: `True` if an option was chosen by the user.
+            - all: A `bool` indicating whether all the Twitter accounts should be unfollowed.
+            - unfollowed: A `dict` with the Twitter accounts name and ids as keys to be unfollowed.
+            """
+            result = await pageNav.remove.prompt(ctx, bot, msg, options, "Unfollowing from Twitter Accounts", "Unfollow all accounts", "Choose the account to be unfollowed.", True, 1, 25)
+            if not result["status"]:
+                return {
+                    "status": False,
+                    "all": False,
+                    "unfollowed": {}
+                }
+            elif result["all"]:
+                return {
+                    "status": True,
+                    "all": True,
+                    "unfollowed": {}
+                }
             else:
-                await msg.delete()
-                await msgDelete(ctx)
-                return"""
+                return {
+                    "status": True,
+                    "all": False,
+                    "unfollowed": {"names": [item for item in result["item"]["name"]],
+                                   "ids": [item for item in result["item"]["id"]]},
+                }
     
     async def displayResult(msg: discord.Message, action: str, success: bool, username: str = None, all = False):
         """
@@ -1452,7 +1453,7 @@ class TwitterPrompts:
             elif action == "remove":
                 embed.title = "Successfully Unfollowed!"
                 if not all:
-                    embed.description = f"This channel has now been unfollowed from @{username}'s tweets."
+                    embed.description = f"This channel has now been unfollowed from {username} tweets."
                 else:
                     embed.description = "This channel has now been unfollowed from all Twitter accounts in the list."
         else:
