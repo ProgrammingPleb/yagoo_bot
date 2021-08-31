@@ -456,8 +456,9 @@ class TwitterUtils:
         elif action == "remove":
             if all:
                 custom = []
-            elif userID in custom:
-                custom.remove(userID)
+            elif userID != []:
+                for x in userID:
+                    custom.remove(x)
             else:
                 return False
         

@@ -159,9 +159,7 @@ async def follow_error(ctx, error):
 @bot.command()
 @commands.check(subPerms)
 async def unfollow(ctx):
-    await ctx.send("This command has been disabled for the time being.\n"
-                   "Sorry for the inconvenience!")
-    #await botTwt.unfollow(ctx, bot)
+    await botTwt.unfollow(ctx, bot)
 
 @unfollow.error
 async def follow_error(ctx, error):

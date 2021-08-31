@@ -123,16 +123,29 @@ class botTwt:
     
     async def unfollow(ctx: commands.Context, bot: commands.Bot):
         db = await botdb.getDB()
-        twtMsg = await ctx.send("Loading custom Twitter accounts.")
+        twtMsg: discord.Message = await ctx.send("Loading custom Twitter accounts.")
 
         server = await dbTools.serverGrab(bot, str(ctx.guild.id), str(ctx.channel.id), ("custom",), db)
         customTwt = await botdb.getAllData("twitter", ("twtID", "name", "screenName"), 1, "custom", "twtID", db)
-        await TwitterPrompts.parseToPages(await botdb.listConvert(server["custom"]), customTwt)
-
-        """with open("data/servers.json") as f:
-            servers = json.load(f)
-        
-        with open("data/twitter.json") as f:
-            twitter = json.load(f)
-        
-        await TwitterPrompts.unfollow(ctx, bot, twtMsg, twitter["custom"], servers)"""
+        if await botdb.listConvert(server["custom"]) == [''] or await botdb.listConvert(server["custom"]) == []:
+            raise ValueError("No Follows")
+        options = await TwitterPrompts.unfollow.parseToOptions(await botdb.listConvert(server["custom"]), customTwt)
+        userPick = await TwitterPrompts.unfollow.prompt(ctx, bot, twtMsg, options)
+        if userPick["status"]:
+            if userPick["all"]:
+                status = await TwitterUtils.followActions("remove", str(ctx.channel.id), all=True, db=db)
+                names = None
+            else:
+                status = await TwitterUtils.followActions("remove", str(ctx.channel.id), userPick["unfollowed"]["ids"], db=db)
+                names = ""
+                if len(userPick["unfollowed"]["names"]) <= 5:
+                    for userID in userPick["unfollowed"]["ids"]:
+                        names += f"@{customTwt[userID]['screenName']}, "
+                    names = names[:-2]
+                else:
+                    names = f"{len(userPick['unfollowed']['names'])} Twitter accounts'"
+            await TwitterPrompts.displayResult(twtMsg, "remove", status, names, userPick["all"])
+            await msgDelete(ctx)
+        else:
+            await twtMsg.delete()
+            await msgDelete(ctx)
