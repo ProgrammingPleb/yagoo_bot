@@ -311,7 +311,7 @@ class generalPrompts:
         - choice: `True` if "Yes" was clicked, `False` if "No" was clicked.
         """
         embed = discord.Embed(title=title, description=f"Are you sure you want to {action}?")
-        yesno = [create_actionrow(create_button(style=ButtonStyle.blue, label="No"), create_button(style=ButtonStyle.red, label="Yes"))]
+        yesno = [create_actionrow(create_button(style=ButtonStyle.red, label="No"), create_button(style=ButtonStyle.green, label="Yes"))]
         await msg.edit(content=" ", embed=embed, components=yesno)
 
         def check(res):
