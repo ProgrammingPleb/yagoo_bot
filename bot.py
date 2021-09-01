@@ -46,16 +46,21 @@ if settings["slash"]:
 
 class updateStatus(commands.Cog):
     def __init__(self, bot):
-        self.bot = bot
+        self.bot: commands.Bot = bot
         self.updateStatus.start()
     
     def cog_unload(self):
         self.updateStatus.stop()
 
-    @tasks.loop(minutes=5)
+    @tasks.loop(minutes=10)
     async def updateStatus(self):
         channels = await botdb.getAllData("channels", ("id",))
         await self.bot.change_presence(status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.watching, name=f'over {len(channels)} VTubers'))
+        await asyncio.sleep(10*60)
+        guildCount = 0
+        for guilds in self.bot.guilds:
+            guildCount += 1
+        await self.bot.change_presence(status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.watching, name=f'over {guildCount} servers'))
 
 @bot.event
 async def on_ready():
@@ -331,6 +336,6 @@ async def guildCount(ctx):
     for x in bot.guilds:
         totalGuilds += 1
     
-    await ctx.send(f"Yagoo bot is now live in {totalGuilds} servers!")
+    await ctx.send(f"Yagoo Bot is now live in {totalGuilds} servers!")
 
 bot.run(settings["token"])
