@@ -10,5 +10,4 @@ def allSubTypes(capitalize: bool = True):
     """
     if capitalize:
         return ["Livestream", "Milestone", "Premiere", "Twitter"]
-    else:
-        return ["livestream", "milestone", "premiere", "twitter"]
+    return ["livestream", "milestone", "premiere", "twitter"]

@@ -1,8 +1,6 @@
 import asyncio
 import aiohttp
-import json
 import logging
-import os
 import traceback
 import concurrent.futures
 from tweepy.errors import NotFound
@@ -85,7 +83,7 @@ class twtPost(AsyncStream):
         if tweet.is_quote_status:
             twtString = f'@{tweet.user.screen_name} just retweeted @{tweet.quoted_status.user.screen_name}\'s tweet: https://twitter.com/{tweet.user.screen_name}/status/{tweet.id_str}\n'\
                         f'Quoted Tweet: https://twitter.com/{tweet.quoted_status.user.screen_name}/status/{tweet.quoted_status.id_str}'
-        elif tweet.in_reply_to_screen_name != None:
+        elif tweet.in_reply_to_screen_name is not None:
             twtString = f'@{tweet.user.screen_name} just replied to @{tweet.in_reply_to_screen_name}\'s tweet: https://twitter.com/{tweet.user.screen_name}/status/{tweet.id_str}\n'\
                         f'Replied Tweet: https://twitter.com/{tweet.in_reply_to_screen_name}/status/{tweet.in_reply_to_status_id_str}'
         elif "retweeted_status" in tweet._json:
@@ -103,9 +101,9 @@ class twtPost(AsyncStream):
                     await webhook.send(twtString, avatar_url=tweet.user.profile_image_url_https, username=tweet.user.name)
             except Exception as e:
                 if "429 Too Many Requests" in str(e):
-                    logging.warning(f"Too many requests for {channel['id']}! Sleeping for 10 seconds.")
+                    logging.warning(f"Too many requests for {ptChannel}! Sleeping for 10 seconds.")
                     asyncio.sleep(10)
-                logging.error(f"Twitter - An error has occurred while publishing Twitter notification to {channel}!", exc_info=True)
+                logging.error(f"Twitter - An error has occurred while publishing Twitter notification to {ptChannel}!", exc_info=True)
 
         queue = []
         for channel in channels:

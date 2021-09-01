@@ -36,8 +36,7 @@ async def uplThumbnail(channelID, videoID, live=True):
             print("Stream - Couldn't upload thumbnail!")
             print(upload.value)
             return None
-        else:
-            return upload.value
+        return upload.value
 
 def round_down(num, divisor):
     return num - (num%divisor)
@@ -208,4 +207,3 @@ if __name__ == "__main__":
     asyncio.run(init())
     #print(asyncio.run(scrape("UCa_UMppcMsHIzb5LDx1u9zQ")))
     #asyncio.run(test())
-

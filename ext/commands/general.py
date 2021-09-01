@@ -6,7 +6,7 @@ from discord_slash.context import SlashContext
 from ..infoscraper import FandomScrape, TwitterScrape
 from ..share.botUtils import TwitterUtils, embedContinue, msgDelete, fandomTextParse, vtuberSearch
 from ..share.dataUtils import botdb, dbTools
-from ..share.prompts import TwitterPrompts, botError, generalPrompts
+from ..share.prompts import TwitterPrompts, generalPrompts
 
 async def botHelp():
     hembed = discord.Embed(title="Yagoo Bot Commands")
@@ -55,7 +55,7 @@ async def botGetInfo(ctx: Union[commands.Context, SlashContext], bot: commands.B
         else:
             await infoMsg.edit(embed=infoEmbed)
 
-        if excessParts == None:
+        if excessParts is None:
             return
 
         excessChoice = []
@@ -133,7 +133,7 @@ class botTwt:
         userPick = await TwitterPrompts.unfollow.prompt(ctx, bot, twtMsg, options)
         if userPick["status"]:
             if userPick["all"]:
-                status = await TwitterUtils.followActions("remove", str(ctx.channel.id), all=True, db=db)
+                status = await TwitterUtils.followActions("remove", str(ctx.channel.id), allAccounts=True, db=db)
                 names = None
             else:
                 status = await TwitterUtils.followActions("remove", str(ctx.channel.id), userPick["unfollowed"]["ids"], db=db)

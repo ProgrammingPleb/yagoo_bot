@@ -523,7 +523,7 @@ class pageNav:
                     "all": True,
                     "item": None
                 }
-            elif result["type"] == "select":
+            if result["type"] == "select":
                 return {
                     "status": True,
                     "all": False,
@@ -532,10 +532,9 @@ class pageNav:
                         "id": [item["id"] for item in result["selected"]]
                     }
                 }
-            else:
-                return {
-                    "status": False
-                }
+            return {
+                "status": False
+            }
     
     class search:
         """
@@ -890,7 +889,6 @@ class subPrompts:
         result = await pageNav.search.prompt(ctx, bot, ctgMsg, pages, "Subscribing to a VTuber", "Search for a VTuber", "Subscribe to all VTubers", "subAll", description=description, usePicker=True, minItems=1, maxItems=1)
         
         if result["status"]:
-            print(f"prompts.py/ctgPicker: {result}")
             if not result["other"] and not result["search"]:
                 return {
                     "status": True,
@@ -904,10 +902,9 @@ class subPrompts:
                 "search": result["search"],
                 "category": None
             }
-        else:
-            return {
-                "status": False
-            }
+        return {
+            "status": False
+        }
     
     async def searchPick(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, msg: discord.Message, searchTerm: str, results: list):
         """
@@ -1425,21 +1422,20 @@ class TwitterPrompts:
                     "all": False,
                     "unfollowed": {}
                 }
-            elif result["all"]:
+            if result["all"]:
                 return {
                     "status": True,
                     "all": True,
                     "unfollowed": {}
                 }
-            else:
-                return {
-                    "status": True,
-                    "all": False,
-                    "unfollowed": {"names": [item for item in result["item"]["name"]],
-                                   "ids": [item for item in result["item"]["id"]]},
-                }
+            return {
+                "status": True,
+                "all": False,
+                "unfollowed": {"names": [item for item in result["item"]["name"]],
+                                "ids": [item for item in result["item"]["id"]]},
+            }
     
-    async def displayResult(msg: discord.Message, action: str, success: bool, username: str = None, all = False):
+    async def displayResult(msg: discord.Message, action: str, success: bool, username: str = None, allAccount = False):
         """
         Display the result of the follow/unfollow action to the user.
         
@@ -1459,7 +1455,7 @@ class TwitterPrompts:
                 embed.description = f"This channel is now following @{username}'s tweets."
             elif action == "remove":
                 embed.title = "Successfully Unfollowed!"
-                if not all:
+                if not allAccount:
                     embed.description = f"This channel has now been unfollowed from {username} tweets."
                 else:
                     embed.description = "This channel has now been unfollowed from all Twitter accounts in the list."

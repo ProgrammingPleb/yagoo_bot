@@ -11,7 +11,7 @@ async def _getWebhook(bot: commands.Bot, cserver: str, cchannel: str, db: mysql.
     
     server = await botdb.getData(cchannel, "channel", "url", "servers", db)
     
-    if server == None:
+    if server is None:
         channel = await bot.get_channel(int(cchannel))
         with open("yagoo.jpg", "rb") as image:
             webhook = await channel.create_webhook(name="Yagoo", avatar=image.read())
@@ -130,7 +130,7 @@ class botdb:
         arg = (key,)
         cursor.execute(sql, arg)
 
-        if cursor.fetchone() == None:
+        if cursor.fetchone() is None:
             return False
         return True
         
@@ -332,7 +332,7 @@ class botdb:
             finalData[key] = cursor.fetchone()
         return finalData
 
-    async def getAllData(table: str, keyTypes: tuple = None, filter: str = None, filterType: str = None, keyDict: str = None, db: mysql.connector.MySQLConnection = None):
+    async def getAllData(table: str, keyTypes: tuple = None, filterKey: str = None, filterType: str = None, keyDict: str = None, db: mysql.connector.MySQLConnection = None):
         """
         Performs `getData` but gets all rows available in the table with te keyTypes if specified.
         
@@ -352,7 +352,7 @@ class botdb:
         if db is None:
             db = await botdb.getDB()
         
-        if keyTypes == None:
+        if keyTypes is None:
             cursor = db.cursor()
             
             sql = f"SELECT * FROM {table}"
@@ -364,9 +364,9 @@ class botdb:
                 sql += f"{dataType}, "
             sql = sql.strip(", ") + f" FROM {table}"
         
-        if filter is not None:
+        if filterKey is not None:
             sql += f" WHERE {filterType} = %s"
-            cursor.execute(sql, (filter, ))
+            cursor.execute(sql, (filterKey, ))
         else:
             cursor.execute(sql)
         if keyDict:
@@ -376,8 +376,7 @@ class botdb:
                 item.pop(keyDict)
                 result[mainKey] = item
             return result
-        else:
-            return cursor.fetchall()
+        return cursor.fetchall()
     
     async def listConvert(data: Union[str, list]):
         """
@@ -395,9 +394,8 @@ class botdb:
         """
         seperator = "|yb|"
         
-        if type(data) == list:
+        if isinstance(data, list):
             return seperator.join(data).strip("|yb|")
-        elif data is None:
+        if data is None:
             return None
-        else:
-            return data.split(seperator)
+        return data.split(seperator)

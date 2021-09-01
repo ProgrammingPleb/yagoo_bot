@@ -8,7 +8,7 @@ from ..infoscraper import FandomScrape, channelInfo
 from ..share.botUtils import msgDelete
 from ..share.botVars import allSubTypes
 from ..share.dataUtils import botdb, dbTools
-from ..share.prompts import generalPrompts, pageNav, subPrompts, subPrompts, unsubPrompts
+from ..share.prompts import generalPrompts, pageNav, subPrompts, unsubPrompts
 
 async def subCategory(ctx: Union[commands.Context, SlashContext], bot: commands.Bot):
     """
@@ -255,8 +255,7 @@ class subUtils:
         subDefault = await botdb.listConvert(data["subDefault"])
         if subDefault == "" or subDefault is None:
             return None
-        else:
-            return subDefault
+        return subDefault
     
     async def addChannel(channelID: str, channelName: str, returnType: tuple, db: mysql.connector.MySQLConnection):
         """
