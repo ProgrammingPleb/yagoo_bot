@@ -460,7 +460,9 @@ class pageNav:
                           removeText: str,
                           embed: discord.Embed,
                           pageNum: int,
-                          picker: bool = False):
+                          picker: bool = False,
+                          minItems: int = 1,
+                          maxItems: int = 1):
             """
             Edits the prompt with it's corresponding buttons.
             Should not be used outside of the `pageNav.minimal` class.
