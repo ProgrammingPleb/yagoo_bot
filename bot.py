@@ -5,7 +5,6 @@ import yaml
 import logging
 import sys
 import platform
-from discord import Webhook, AsyncWebhookAdapter
 from discord_slash import SlashCommand
 from discord_slash.model import ButtonStyle
 from discord_slash.context import ComponentContext
@@ -26,9 +25,6 @@ from ext.commands.general import botHelp, botGetInfo, botTwt
 from ext.commands.slash import YagooSlash
 
 init = False
-
-if platform.system() == "Windows":
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 with open("data/settings.yaml") as f:
     settings = yaml.load(f, Loader=yaml.SafeLoader)

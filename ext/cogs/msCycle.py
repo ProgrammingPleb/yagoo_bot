@@ -6,7 +6,6 @@ import imgkit
 import discord
 import traceback
 import concurrent.futures
-from ..infoscraper import channelInfo
 from ..share.dataUtils import botdb
 from discord.ext import commands, tasks
 

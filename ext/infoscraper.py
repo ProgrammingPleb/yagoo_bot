@@ -380,16 +380,16 @@ class FandomScrape():
 
         return [subPointers]
 
-    async def getSubPointers(tag):
+    async def getSubPointers(webTags):
         subPointers = None
 
-        if tag.find("ul", recursive=False) == None:
-            subPointers = re.sub(r'\[[^()]*\]', '', tag.getText()).strip()
+        if webTags.find("ul", recursive=False) is None:
+            subPointers = re.sub(r'\[[^()]*\]', '', webTags.getText()).strip()
         else:
-            subPointers = {"point": re.sub(r'\[[^()]*\]', '', tag.getText()).strip()}
+            subPointers = {"point": re.sub(r'\[[^()]*\]', '', webTags.getText()).strip()}
             tempPointers = []
-            for tag in tag.find("ul", recursive=False).find_all("li", recursive=False):
-                tempPointers.append(await FandomScrape.getSubPointers(tag))
+            for webTag in webTags.find("ul", recursive=False).find_all("li", recursive=False):
+                tempPointers.append(await FandomScrape.getSubPointers(webTag))
             for text in tempPointers:
                 if text in subPointers["point"]:
                     subPointers["point"] = subPointers["point"].replace(text, "").strip()

@@ -5,7 +5,6 @@ import asyncio
 import datetime
 import yaml
 import rpyc
-import json
 import tweepy
 import mysql.connector
 from discord.ext import commands
@@ -14,7 +13,7 @@ from itertools import islice
 from typing import Union
 from yaml.loader import SafeLoader
 from .prompts import searchConfirm, searchPrompt
-from .dataUtils import botdb, dbTools
+from .dataUtils import botdb
 
 def round_down(num, divisor):
     return num - (num%divisor)
@@ -98,13 +97,13 @@ class fandomTextParse():
     async def parseData(data):
         dataText = ""
 
-        if type(data) == list:
+        if isinstance(data, list):
             for point in data:
-                if type(point) == dict:
+                if isinstance(point, dict):
                     dataText += f'{await fandomTextParse.parseData(point)}'
                 else:
                     dataText += f"- {point}\n"
-        elif type(data) == dict:
+        elif isinstance(data, dict):
             if "point" in data and "subPoints" in data:
                 subPoints = ""
                 for subPoint in data["subPoints"]:
@@ -112,16 +111,16 @@ class fandomTextParse():
                 dataText += f'- {data["point"]}\n{subPoints.strip()}\n'
             else:
                 dataText += f'{await fandomTextParse.parseDict(data)}\n'
-        elif type(data) == str:
+        elif isinstance(data, str):
             dataText += f'{data}\n'
         
         return dataText
 
-    async def parseDict(entry: dict) -> str:
-        firstKey = list(entry.keys())[0]
+    async def parseDict(entries: dict) -> str:
+        firstKey = list(entries.keys())[0]
         dictText = f"__{firstKey}__\n"
 
-        for entry in entry[firstKey]:
+        for entry in entries[firstKey]:
             dictText += f"{await fandomTextParse.parseData(entry)}"
 
         return dictText
@@ -166,7 +165,7 @@ async def vtuberSearch(ctx: Union[commands.Context, SlashContext], bot: commands
                                     "channelID": searchTerm,
                                     "name": cInfo['name']
                                 }
-                            elif not sConfirm["success"] and not sConfirm["declined"]:
+                            if not sConfirm["success"] and not sConfirm["declined"]:
                                 await searchMsg.delete()
                                 await msgDelete(ctx)
                                 return {
@@ -185,7 +184,7 @@ async def vtuberSearch(ctx: Union[commands.Context, SlashContext], bot: commands
                     "channelID": channelID["channelID"],
                     "name": fandomSearch['name']
                 }
-            elif not sConfirm["success"] and not sConfirm["declined"]:
+            if not sConfirm["success"] and not sConfirm["declined"]:
                 await searchMsg.delete()
                 await msgDelete(ctx)
                 return {
@@ -215,11 +214,11 @@ async def embedContinue(ctx: Union[commands.Context, SlashContext], bot: command
     moveText = ""
 
     tempText = ""
-    for text in textLines:
-        if len(f"{tempText}{text}\n") > 950:
+    for textLine in textLines:
+        if len(f"{tempText}{textLine}\n") > 950:
             textFormatted.append(tempText)
             tempText = ""
-        tempText = f"{tempText}{text}\n"
+        tempText = f"{tempText}{textLine}\n"
     textFormatted.append(tempText)
 
     def check(m):
@@ -250,7 +249,7 @@ async def embedContinue(ctx: Union[commands.Context, SlashContext], bot: command
         await msg.delete()
         if msg.content.lower() == 'h':
             return True
-        elif msg.content.lower() == 'n':
+        if msg.content.lower() == 'n':
             pagePos += 1
         elif msg.content.lower() == 'p':
             pagePos -= 1
@@ -368,11 +367,10 @@ async def serverSubTypes(msg: discord.Message, subDNum: list, subOptions: list) 
             "success": True,
             "subType": subType
         }
-    else:
-        return {
-            "success": False,
-            "subType": None
-        }
+    return {
+        "success": False,
+        "subType": None
+    }
 
 class TwitterUtils:
     """
@@ -424,7 +422,7 @@ class TwitterUtils:
         await botdb.addData((userData.id_str, 1, userData.name, userData.screen_name),
                             ("twtID", "custom", "name", "screenName"), "twitter", db)
     
-    async def followActions(action: str, channel: str, userID: str = None, all: bool = False, db: mysql.connector.CMySQLConnection = None):
+    async def followActions(action: str, channel: str, userID: str = None, allAccounts: bool = False, db: mysql.connector.CMySQLConnection = None):
         """
         Follow or unfollow a user based on the action argument given. Saves it inside the bot's database.
 
@@ -454,7 +452,7 @@ class TwitterUtils:
             else:
                 return False
         elif action == "remove":
-            if all:
+            if allAccounts:
                 custom = []
             elif userID != []:
                 for x in userID:
