@@ -4,7 +4,6 @@ import json
 import yaml
 import logging
 import sys
-import platform
 from discord_slash import SlashCommand
 from discord_slash.model import ButtonStyle
 from discord_slash.context import ComponentContext
@@ -174,14 +173,6 @@ async def test(ctx):
     db = await botdb.getDB()
     print(await dbTools.serverGrab(bot, str(ctx.guild.id), str(ctx.channel.id), ("livestream", "milestone", "premiere"), db))
 
-# TODO: Rewrite for SQL
-"""@bot.command(aliases=["livestats", "livestat"])
-@commands.check(subPerms)
-async def livestatus(ctx):
-    loadmsg = await ctx.send("Loading info...")
-    await streamcheck(ctx, True)
-    await loadmsg.delete()"""
-
 @bot.command()
 @commands.check(creatorCheck)
 async def mscheck(ctx, vtuber):
@@ -206,38 +197,6 @@ async def mscheck(ctx, vtuber):
     }
     await milestoneNotify(msDict, bot, True)
     await ctx.send(file=discord.File(f'milestone/generated/{vtuber}.png'))
-
-# NOTE: Rewrite for SQL when needed to be used later
-"""@bot.command()
-@commands.check(creatorCheck)
-async def nstest(ctx):
-    with open("data/servers.json") as f:
-        servers = json.load(f)
-    
-    live = await streamcheck()
-    whurl = await getwebhook(bot, servers, ctx.guild, ctx.channel)
-
-    for livech in live:
-        async with aiohttp.ClientSession() as session:
-            embed = discord.Embed(title=f'{live[livech]["videoTitle"]}', url=f'https://youtube.com/watch?v={live[livech]["videoId"]}')
-            embed.description = f'Started streaming {live[livech]["timeText"]}'
-            embed.set_image(url=f'https://img.youtube.com/vi/{live[livech]["videoId"]}/maxresdefault.jpg')
-            webhook = Webhook.from_url(whurl, adapter=AsyncWebhookAdapter(session))
-            await webhook.send(f'New livestream from {live[livech]["name"]}!', embed=embed, username=live[livech]["name"], avatar_url=live[livech]["image"])"""
-
-# NOTE: Rewrite for SQL when needed to be used later
-"""@bot.command()
-@commands.check(creatorCheck)
-async def postas(ctx, vtuber, *, text):
-    with open("data/channels.json", encoding="utf-8") as f:
-        channels = json.load(f)
-    with open("data/servers.json") as f:
-        servers = json.load(f)
-    whurl = await getwebhook(bot, servers, ctx.guild, ctx.channel)
-    ytch = await channelInfo(channels[vtuber]["channel"])
-    async with aiohttp.ClientSession() as session:
-        webhook = Webhook.from_url(whurl, adapter=AsyncWebhookAdapter(session))
-        await webhook.send(text, username=ytch["name"], avatar_url=ytch["image"])"""
 
 @bot.command()
 @commands.check(creatorCheck)
