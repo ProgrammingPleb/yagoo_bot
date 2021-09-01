@@ -1,4 +1,4 @@
-![](https://img.ezz.moe/0115/23-29-24.PNG)
+![](https://yagoo.ezz.moe/banner.png)
 [![Discord Bots](https://top.gg/api/widget/status/786108316865658890.svg?noavatar=true)](https://top.gg/bot/786108316865658890)
 [![CodeFactor](https://www.codefactor.io/repository/github/programmingpleb/yagoo_bot/badge)](https://www.codefactor.io/repository/github/programmingpleb/yagoo_bot)  
 A VTuber-centered Discord bot that notifies a channel when a VTuber starts a livestream.
