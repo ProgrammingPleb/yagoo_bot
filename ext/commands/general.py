@@ -1,16 +1,12 @@
 import discord
-import json
 import asyncio
-import tweepy
 from typing import Union
 from discord.ext import commands
 from discord_slash.context import SlashContext
-from discord_components import Button, ButtonStyle
-from ext.share.botVars import allSubTypes
 from ..infoscraper import FandomScrape, TwitterScrape
-from ..share.botUtils import TwitterUtils, chunks, embedContinue, getAllSubs, msgDelete, fandomTextParse, vtuberSearch
-from ..share.dataGrab import getSubType
-from ..share.prompts import TwitterPrompts, botError, unsubCheck
+from ..share.botUtils import TwitterUtils, embedContinue, msgDelete, fandomTextParse, vtuberSearch
+from ..share.dataUtils import botdb, dbTools
+from ..share.prompts import TwitterPrompts, generalPrompts
 
 async def botHelp():
     hembed = discord.Embed(title="Yagoo Bot Commands")
@@ -41,232 +37,7 @@ async def botHelp():
 
     return hembed
 
-async def botUnsub(ctx: Union[commands.Context, SlashContext], bot: commands.Bot):
-    # TODO: Add way to search for already subscribed VTubers
-
-    with open("data/servers.json") as f:
-        servers = json.load(f)
-    with open("data/channels.json") as f:
-        channels = json.load(f)
-    
-    unsubmsg = await ctx.send("Loading subscription list...")
-
-    allCh = await getAllSubs(servers[str(ctx.guild.id)][str(ctx.channel.id)])
-    chPages = []
-    for section in chunks(allCh, 9):
-        chPages.append(section)
-
-    pageNum = 1
-    while True:
-        dcEmbed = discord.Embed(title="Unsubscribing from Existing Channels", description="YouTube channels this Discord channel is currently subscribed to: ")
-        chNum = 1
-        chChoice = []
-        chChannels = []
-        chEmbedText = ""
-        for channel in chPages[pageNum - 1]:
-            chEmbedText += f"{chNum}. {chPages[pageNum - 1][channel]['name']}\n"
-            chChoice.append(str(chNum))
-            chChannels.append(channel)
-            chNum += 1
-
-        embedNav = ""
-        if pageNum > 1:
-            embedNav += "B. Go to the previous page\n"
-            chChoice.append("b")
-        if pageNum < len(chPages):
-            embedNav += "N. Go to the next page\n"
-            chChoice.append("n")
-        embedNav += "A. Unsubscribe from all existing channels\nX. Cancel" # Add "S. Search for a subscribed channel []\n" when search implementation is good
-        chChoice += ["s", "a", "x"]
-
-        dcEmbed.add_field(name="Channels", value=chEmbedText, inline=False)
-        dcEmbed.add_field(name="Actions", value=embedNav, inline=False)
-        await unsubmsg.edit(content=" ", embed=dcEmbed)
-
-        def check(m):
-            return m.content.lower() in chChoice and m.author == ctx.author
-        
-        try:
-            msg = await bot.wait_for('message', check=check, timeout=60)
-        except asyncio.TimeoutError:
-            await unsubmsg.delete()
-            await msgDelete(ctx)
-            return
-        await msg.delete()
-        if msg.content in ['1', '2', '3', '4', '5', '6', '7', '8', '9']:
-            chUnsub = await unsubCheck(ctx, bot, chPages[pageNum - 1][chChannels[int(msg.content) - 1]], unsubmsg)
-            
-            if not chUnsub["success"]:
-                await unsubmsg.delete()
-                await msgDelete(ctx)
-                return
-
-            subRemove = ""
-            with open("data/servers.json") as f:
-                servers = json.load(f)
-            for subType in chUnsub["subType"]:
-                if subType != "twitter":
-                    servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].remove(chChannels[int(msg.content) - 1])
-                else:
-                    servers[str(ctx.guild.id)][str(ctx.channel.id)][subType].remove(channels[chChannels[int(msg.content) - 1]]["twitter"])
-                if len(chUnsub["subType"]) > 2:
-                    subRemove += f"{subType}, "
-                elif len(chUnsub["subType"]) == 2:
-                    if "and" in subRemove:
-                        subRemove += subType
-                    else:
-                        subRemove += f"{subType} and "
-                else:
-                    subRemove = subType
-            with open("data/servers.json", "w") as f:
-                json.dump(servers, f, indent=4)
-
-            await unsubmsg.edit(content=f"This channel has now been unsubscribed from {chPages[pageNum - 1][chChannels[int(msg.content) - 1]]['name']}. (Types: {subRemove.strip(', ')})", embed=" ")
-            await msgDelete(ctx)
-            return
-        elif msg.content.lower() == "a":
-            unsubData = {
-                "name": "All Channels",
-                "subType": allSubTypes(False)
-            }
-            unsubTypes = await unsubCheck(ctx, bot, unsubData, unsubmsg)
-            
-            if not unsubTypes["success"]:
-                await unsubmsg.delete()
-                await msgDelete(ctx)
-                return
-
-            subRemove = ""
-            for unsubType in unsubTypes["subType"]:
-                servers[str(ctx.guild.id)][str(ctx.channel.id)][unsubType] = []
-                if len(unsubTypes["subType"]) > 2:
-                    subRemove += f"{unsubType}, "
-                elif len(unsubTypes["subType"]) == 2:
-                    if "and" in subRemove:
-                        subRemove += unsubType
-                    else:
-                        subRemove += f"{unsubTypes} and "
-                else:
-                    subRemove = unsubType
-            
-            with open("data/servers.json", "w") as f:
-                json.dump(servers, f, indent=4)
-
-            await unsubmsg.edit(content=f"This channel has now been unsubscribed from all channels. (Types: {subRemove.strip(', ')})", embed=" ")
-            return
-        elif msg.content.lower() == "b":
-            pageNum -= 1
-        elif msg.content.lower() == "n":
-            pageNum += 1
-        elif msg.content.lower() == "S": # Change this back later to lowercase S when can use
-            # TODO: Check if current search function can be used here
-            continue
-        elif msg.content.lower() == "x":
-            await unsubmsg.delete()
-            await msgDelete(ctx)
-            return
-
-async def botSublist(ctx: Union[commands.Context, SlashContext], bot: commands.Bot):
-    with open("data/channels.json", encoding="utf-8") as f:
-        channels = json.load(f)
-    with open("data/servers.json") as f:
-        servers = json.load(f)
-    
-    subsmsg = await ctx.send("Loading subscription list...")
-
-    if "subDefault" not in servers[str(ctx.guild.id)][str(ctx.channel.id)]:
-        uInput = await getSubType(ctx, 2, bot, subsmsg)
-    else:
-        if len(servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"]) > 1:
-            uInput = {
-                "success": True,
-                "subType": servers[str(ctx.guild.id)][str(ctx.channel.id)]["subDefault"][0]
-            }
-        else:
-            uInput = await getSubType(ctx, 2, bot, subsmsg)
-
-    if not uInput["success"]:
-        return
-    
-    try:
-        len(servers[str(ctx.guild.id)][str(ctx.channel.id)][uInput["subType"]])
-    except KeyError:
-        await subsmsg.edit(content="There are no subscriptions on this channel.", embed=" ")
-        return
-
-    multi = False
-    sublist = []
-    templist = []
-    if len(servers[str(ctx.guild.id)][str(ctx.channel.id)][uInput["subType"]]) > 10:
-        for sub in servers[str(ctx.guild.id)][str(ctx.channel.id)][uInput["subType"]]:
-            if len(templist) < 10:
-                templist.append(sub)
-            else:
-                sublist.append(templist)
-                templist = [sub]
-        sublist.append(templist)
-        multi = True
-    elif len(servers[str(ctx.guild.id)][str(ctx.channel.id)][uInput["subType"]]) > 0 and len(servers[str(ctx.guild.id)][str(ctx.channel.id)][uInput["subType"]]) < 11:
-        for sub in servers[str(ctx.guild.id)][str(ctx.channel.id)][uInput["subType"]]:
-            sublist.append(sub)
-    else:
-        await subsmsg.edit(content="There are no subscriptions on this channel.", embed=" ")
-        return
-    
-    pagepos = 0
-    realnum = 1
-    while True:
-        dispstring = ""
-        if multi:
-            subProc = sublist[pagepos]
-            for sub in subProc:
-                ytch = channels[sub]
-                dispstring += f'{realnum}. {ytch["name"]}\n'
-                realnum += 1
-            if pagepos == 0:
-                dispstring += f'\nN. Go to next page\nX. Remove this message'
-            elif pagepos == len(sublist) - 1:
-                dispstring += f'\nB. Go to previous page\nX. Remove this message'
-            else:
-                dispstring += f'\nN. Go to next page\nB. Go to previous page\nX. Remove this message'
-        else:
-            subProc = sublist
-            for sub in sublist:
-                ytch = channels[sub]
-                dispstring += f'{realnum}. {ytch["name"]}\n'
-                realnum += 1
-            dispstring += f'\nX. Remove this message'
-        
-        subsembed = discord.Embed(title="Currently subscribed channels:", description=dispstring)
-        await subsmsg.edit(content=" ", embed=subsembed)
-
-        def check(m):
-            return m.content.lower() in ['n', 'b', 'x'] and m.author == ctx.author
-
-        while True:
-            try:
-                msg = await bot.wait_for('message', timeout=60.0, check=check)
-            except asyncio.TimeoutError:
-                return
-            else:
-                if msg.content.lower() == 'x':
-                    await msg.delete()
-                    await subsmsg.delete()
-                    await msgDelete(ctx)
-                    return
-                if multi:
-                    if msg.content.lower() == 'n' and pagepos < len(sublist) - 1:
-                        await msg.delete()
-                        pagepos += 1
-                        break
-                    elif msg.content.lower() == 'b' and pagepos > 0:
-                        await msg.delete()
-                        pagepos -= 1
-                        realnum -= 20
-                        break
-                else:
-                    await msg.delete()
-
+# TODO: (LATER) Rewrite to use new prompts format
 async def botGetInfo(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, name: str):
     retry = True
     infoMsg = None
@@ -284,7 +55,7 @@ async def botGetInfo(ctx: Union[commands.Context, SlashContext], bot: commands.B
         else:
             await infoMsg.edit(embed=infoEmbed)
 
-        if excessParts == None:
+        if excessParts is None:
             return
 
         excessChoice = []
@@ -321,63 +92,60 @@ async def botGetInfo(ctx: Union[commands.Context, SlashContext], bot: commands.B
                             excessLoop = False
 
 # Tasklist:
-# Create custom Twitter accounts compatibility layer
 # Create disclaimer on core unsubscribe command
-# Make Twitter cycle cog get user IDs from custom Twitter compatibility layer
+# TODO: SQL rewrite (Post-IRyS)
+# TODO: Ensure that the channel has a webhook first
 class botTwt:
     async def follow(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, accLink: str):
-        twtHandle = ""
-
-        if accLink == "":
-            return await ctx.send(embed=await botError(ctx, "No Twitter ID"))
+        db = await botdb.getDB()
+        if not accLink:
+            raise ValueError("No Twitter ID")
         
-        with open("data/twitter.json") as f:
-            twtData = json.load(f)
-        
+        twtMsg = await ctx.send("Searching for the Twitter user...")
         twtHandle = await TwitterUtils.getScreenName(accLink)
+        twtUser = await TwitterScrape.getUserDetails(twtHandle)
         
-        try:
-            twtUser = await TwitterScrape.getUserDetails(twtHandle)
-        except tweepy.NotFound as e:
-            return await ctx.send(embed=await botError(ctx, e))
-
-        if "custom" not in twtData:
-            twtData["custom"] = {}
-        twtEmbed = discord.Embed(title=f"Following {twtUser.name} to this channel", description="Are you sure to subscribe to this Twitter account?")
-        twtMsg = await ctx.send(embed=twtEmbed, components=[[Button(label="No", style=ButtonStyle.red), Button(label="Yes", style=ButtonStyle.blue)]])
+        result = await generalPrompts.confirm(ctx, bot, twtMsg,
+                                              f"Following {twtUser.name} to this channel",
+                                              "subscribe to this Twitter account")
         
-        def check(res):
-            return res.user == ctx.message.author and res.channel == ctx.channel
-        
-        try:
-            res = await bot.wait_for('button_click', check=check, timeout=60)
-        except asyncio.TimeoutError:
-            await twtMsg.delete()
-            await msgDelete(ctx)
-            return
-        if res.component.label == "Yes":
-            dbExist = await TwitterUtils.dbExists(twtUser.id_str)
+        if result["status"] and result["choice"]:
+            await dbTools.serverGrab(bot, str(ctx.guild.id), str(ctx.channel.id), ("url",), db)
+            dbExist = await TwitterUtils.dbExists(twtUser.id_str, db)
             if not dbExist["status"]:
-                twtData = await TwitterUtils.newAccount(twtUser)
-            status = await TwitterUtils.followActions("add", str(ctx.guild.id), str(ctx.channel.id), twtUser.id_str)
-            if not status:
-                await twtMsg.edit(content=f"This channel is already following @{twtUser.name}'s tweets.", embed=" ")
-            else:
-                await twtMsg.delete()
+                await TwitterUtils.newAccount(twtUser, db)
+            status = await TwitterUtils.followActions("add", str(ctx.channel.id), twtUser.id_str, db=db)
+            await TwitterPrompts.displayResult(twtMsg, "add", status, twtUser.screen_name)
             await msgDelete(ctx)
             return
+        await twtMsg.delete()
+        await msgDelete(ctx)
+    
+    async def unfollow(ctx: commands.Context, bot: commands.Bot):
+        db = await botdb.getDB()
+        twtMsg: discord.Message = await ctx.send("Loading custom Twitter accounts.")
+
+        server = await dbTools.serverGrab(bot, str(ctx.guild.id), str(ctx.channel.id), ("custom",), db)
+        customTwt = await botdb.getAllData("twitter", ("twtID", "name", "screenName"), 1, "custom", "twtID", db)
+        if await botdb.listConvert(server["custom"]) == [''] or await botdb.listConvert(server["custom"]) == []:
+            raise ValueError("No Follows")
+        options = await TwitterPrompts.unfollow.parseToOptions(await botdb.listConvert(server["custom"]), customTwt)
+        userPick = await TwitterPrompts.unfollow.prompt(ctx, bot, twtMsg, options)
+        if userPick["status"]:
+            if userPick["all"]:
+                status = await TwitterUtils.followActions("remove", str(ctx.channel.id), allAccounts=True, db=db)
+                names = None
+            else:
+                status = await TwitterUtils.followActions("remove", str(ctx.channel.id), userPick["unfollowed"]["ids"], db=db)
+                names = ""
+                if len(userPick["unfollowed"]["names"]) <= 5:
+                    for userID in userPick["unfollowed"]["ids"]:
+                        names += f"@{customTwt[userID]['screenName']}, "
+                    names = names[:-2]
+                else:
+                    names = f"{len(userPick['unfollowed']['names'])} Twitter accounts'"
+            await TwitterPrompts.displayResult(twtMsg, "remove", status, names, userPick["all"])
+            await msgDelete(ctx)
         else:
             await twtMsg.delete()
             await msgDelete(ctx)
-            return
-    
-    async def unfollow(ctx: commands.Context, bot: commands.Bot):
-        twtMsg = await ctx.send("Loading custom Twitter accounts.")
-
-        with open("data/servers.json") as f:
-            servers = json.load(f)
-        
-        with open("data/twitter.json") as f:
-            twitter = json.load(f)
-        
-        await TwitterPrompts.unfollow(ctx, bot, twtMsg, twitter["custom"], servers)

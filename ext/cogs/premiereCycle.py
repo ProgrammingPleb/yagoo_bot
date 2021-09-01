@@ -1,5 +1,4 @@
-from datetime import datetime
-from ext.share.botUtils import uplThumbnail
+import asyncio
 import logging
 import aiohttp
 import discord
@@ -7,67 +6,50 @@ import traceback
 import json
 from discord.ext import commands, tasks
 from discord import Webhook, AsyncWebhookAdapter
-from ..infoscraper import channelInfo
-from ..share.dataGrab import getwebhook
+from datetime import datetime
+from ..share.dataUtils import botdb
 
-async def premiereCheck():
-    with open("data/scrape.json") as f:
-        channels = json.load(f)
-    channelWrite = False
-    
-    pInfo = {}
-    
-    for channel in channels:
-        for x in range(3):
+async def premiereNotify():
+    db = await botdb.getDB()
+    servers = await botdb.getAllData("servers", ("server", "channel", "url", "premiere"), db=db)
+    channels = await botdb.getAllData("scrape", ("id", "name", "image", "premieres"), db=db)
+
+    async def postMsg(server: dict, channel: dict, video: dict, videoId: str, notified: dict):
+        if notified[channel["id"]] != video:
             try:
-                cInfo = await channelInfo(channel)
-                if cInfo["premieres"] != {}:
-                    for video in cInfo["premieres"]:
-                        vURL = ""
-                        if (cInfo["premieres"][video]["time"] - datetime.now().timestamp()) < 60:
-                            vURL = await uplThumbnail(channel, video, False)
-                        if (cInfo["premieres"][video]["time"] - datetime.now().timestamp()) < 10:
-                            pInfo[channel] = {
-                                "channel": cInfo["name"],
-                                "image": cInfo["image"],
-                                "title": cInfo["premieres"][video]["title"],
-                                "videoID": video,
-                                "thumbnail": vURL
-                            }
-                            channels[channel]["premieres"].pop(video, "")
-                            channelWrite = True
-                    break
-                else:
-                    break
+                async with aiohttp.ClientSession() as session:
+                    embed = discord.Embed(title=f'{video["title"]}', url=f'https://youtube.com/watch?v={videoId}')
+                    embed.description = f'Premiering Now'
+                    embed.set_image(url=video["thumbnail"])
+                    webhook = Webhook.from_url(server["url"], adapter=AsyncWebhookAdapter(session))
+                    await webhook.send(f'New premiere from {channel["name"]}!', embed=embed, username=channel["name"], avatar_url=channel["image"])
             except Exception as e:
-                if x == 2:
-                    logging.error(f"Premiere Scrape - Unable to get premieres data for {channel}!", exc_info=True)
-    
-    if channelWrite:
-        with open("data/scrape.json", "w", encoding="utf-8") as f:
-            json.dump(channels, f, indent=4)
-    
-    return pInfo
+                if "429 Too Many Requests" in str(e):
+                    logging.warning(f"Too many requests for {channel['id']}! Sleeping for 10 seconds.")
+                    asyncio.sleep(10)
+                logging.error("Premieres - An error has occured while publishing a notification!", exc_info=True)
 
-async def premiereNotify(bot, pData):
-    with open("data/servers.json") as f:
-        servers = json.load(f)
-
-    for ytch in pData:
-        for server in servers:
-            for channel in servers[server]:
-                if ytch in servers[server][channel]["livestream"]:
-                    try:
-                        whurl = await getwebhook(bot, servers, server, channel)
-                        async with aiohttp.ClientSession() as session:
-                            embed = discord.Embed(title=f'{pData[ytch]["title"]}', url=f'https://youtube.com/watch?v={pData[ytch]["videoID"]}')
-                            embed.description = f'Premiering Now'
-                            embed.set_image(url=pData[ytch]["thumbnail"])
-                            webhook = Webhook.from_url(whurl, adapter=AsyncWebhookAdapter(session))
-                            await webhook.send(f'New premiere from {pData[ytch]["channel"]}!', embed=embed, username=pData[ytch]["channel"], avatar_url=pData[ytch]["image"])
-                    except Exception as e:
-                        logging.error(f"Stream - An error has occurred while publishing premiere notification to {channel}!", exc_info=True)
-                        break
+    queue = []
+    for channel in channels:
+        if channel["premieres"] != "{}":
+            premieres = json.loads(channel["premieres"])
+            for server in servers:
+                subList = await botdb.listConvert(server["premiere"])
+                if subList:
+                    if channel["id"] in subList:
+                        notifiedData = (await botdb.getData(server["channel"], "channel", ("notified",), "servers", db))["notified"]
+                        notified = json.loads(notifiedData)
+                        
+                        for video in premieres:
+                            if int(premieres[video]["upcoming"]) < datetime.now().timestamp():
+                                if channel["id"] not in notified:
+                                    notified[channel["id"]] = ""
+                                if notified[channel["id"]] != video:
+                                    queue.append(postMsg(server, channel, premieres[video], video, notified))
+                                    notified[channel["id"]] = video
+                                    await botdb.addData((server["channel"], json.dumps(notified)), ("channel", "notified"), "servers", db)
+    
+    await asyncio.gather(*queue)
 
 class PremiereCycle(commands.Cog):
     def __init__(self, bot):
@@ -81,10 +63,7 @@ class PremiereCycle(commands.Cog):
     async def timecheck(self):
         logging.debug("Starting premiere checks.")
         try:
-            pData = await premiereCheck()
-            if pData != {}:
-                logging.info("Premieres - Notifying channels.")
-                await premiereNotify(self.bot, pData)
+            await premiereNotify()
         except Exception as e:
             logging.error("Premieres - An error has occurred in the cog!", exc_info=True)
             traceback.print_exception(type(e), e, e.__traceback__)

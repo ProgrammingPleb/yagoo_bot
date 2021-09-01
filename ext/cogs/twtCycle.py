@@ -1,8 +1,6 @@
 import asyncio
 import aiohttp
-import json
 import logging
-import os
 import traceback
 import concurrent.futures
 from tweepy.errors import NotFound
@@ -10,7 +8,7 @@ from tweepy.asynchronous import AsyncStream
 from ..infoscraper import TwitterScrape
 from discord.ext import commands, tasks
 from discord import AsyncWebhookAdapter, Webhook
-from ext.share.dataGrab import getwebhook
+from ext.share.dataUtils import botdb, dbTools
 
 async def twtUpdater():
     """
@@ -19,32 +17,27 @@ async def twtUpdater():
     More is fine.
     """
     write = False
-    with open("data/channels.json") as f:
-        channels = json.load(f)
-    with open("data/scrape.json") as f:
-        scrape = json.load(f)
-    if os.path.exists("data/twitter.json"):
-        with open("data/twitter.json") as f:
-            twitter = json.load(f)
-    else:
-        twitter = {}
-
+    channelUpdate = []
+    twitterUpdate = []
+    
+    db = await botdb.getDB()
+    channels = await botdb.getAllData("channels", ("id", "twitter"), db=db)
+    scrape = await botdb.getAllData("scrape", ("id", "twitter"), keyDict="id", db=db)
+    
     for channel in channels:
-        if "twitter" not in channels[channel] and "twitter" in scrape[channel]:
-            try:
-                twtID = await TwitterScrape.getUserID(scrape[channel]["twitter"])
+        try:
+            if channel["twitter"] != scrape[channel["id"]]["twitter"]:
+                twtID = await TwitterScrape.getUserID(scrape[channel["id"]]["twitter"])
                 if twtID is not None:
-                    channels[channel]["twitter"] = twtID
-                    twitter[twtID] = channel
+                    channelUpdate.append((channel["id"], twtID))
+                    twitterUpdate.append((twtID, channel["id"]))
                     write = True
-            except NotFound:
-                logging.error(f"Twitter - Could not find user @{scrape[channel]['twitter']}")
+        except (NotFound, KeyError) as e:
+            logging.error(f"Twitter - Could not find user @{channel['twitter']}")
     
     if write:
-        with open("data/channels.json", "w") as f:
-            json.dump(channels, f, indent=4)
-        with open("data/twitter.json", "w") as f:
-            json.dump(twitter, f, indent=4)
+        await botdb.addMultiData(channelUpdate, ("id", "twitter"), "channels", db)
+        await botdb.addMultiData(twitterUpdate, ("twtID", "ytID"), "twitter", db)
 
 async def twtSubscribe(bot):
     """
@@ -56,19 +49,14 @@ async def twtSubscribe(bot):
     bot: An instance of `commands.Bot` from discord.py
     """
     twtUsers = []
-
-    with open("data/channels.json") as f:
-        channels = json.load(f)
-
-    with open("data/twitter.json") as f:
-        customAcc = (json.load(f))["custom"]
-
-    for channel in channels:
-        if "twitter" in channels[channel]:
-            twtUsers.append(channels[channel]["twitter"])
+    
+    db = await botdb.getDB()
+    customAcc = await botdb.getAllData("twitter", ("twtID", ), db=db)
     
     for account in customAcc:
-        twtUsers.append(account)
+        if account["twtID"]:
+            if account["twtID"] != "None":
+                twtUsers.append(account["twtID"])
 
     twtCred = await TwitterScrape.getCredentials()
     stream = twtPost(bot, twtCred["apiKey"], twtCred["apiSecret"], twtCred["accessKey"], twtCred["accessSecret"])
@@ -83,20 +71,19 @@ class twtPost(AsyncStream):
         logging.info("Twitter - Connected to Twitter Tweets stream!")
 
     async def on_status(self, tweet):
-        # print(f"{tweet.user.name}:{tweet.text}")
         # Twitter URL String: f"https://twitter.com/{tweet.user.screen_name}/status/{tweet.id_str}"
         # Useful data points: User - tweet.user (dict), Tweet ID - tweet.id_str (string, no "_str" for actual number), Retweet - tweet.retweeted (boolean)
         # Retweeted Tweet - tweet.retweeted_status (Tweet Object), Quote Retweet - tweet.is_quote_status (boolean), Quoted Tweet - tweet.quoted_status (Tweet Object)
         # Like - tweet.favorited (boolean)
         # Wrap the url in "<>" to ensure no embeds are loaded (Which is probably not going to be used as we cannot send two embeds in one message)
-
-        with open("data/servers.json") as f:
-            servers = json.load(f)
+        
+        db = await botdb.getDB()
+        channels = await botdb.getAllData("servers", ("server", "channel", "twitter", "custom"), keyDict="channel", db=db)
 
         if tweet.is_quote_status:
             twtString = f'@{tweet.user.screen_name} just retweeted @{tweet.quoted_status.user.screen_name}\'s tweet: https://twitter.com/{tweet.user.screen_name}/status/{tweet.id_str}\n'\
                         f'Quoted Tweet: https://twitter.com/{tweet.quoted_status.user.screen_name}/status/{tweet.quoted_status.id_str}'
-        elif tweet.in_reply_to_screen_name != None:
+        elif tweet.in_reply_to_screen_name is not None:
             twtString = f'@{tweet.user.screen_name} just replied to @{tweet.in_reply_to_screen_name}\'s tweet: https://twitter.com/{tweet.user.screen_name}/status/{tweet.id_str}\n'\
                         f'Replied Tweet: https://twitter.com/{tweet.in_reply_to_screen_name}/status/{tweet.in_reply_to_status_id_str}'
         elif "retweeted_status" in tweet._json:
@@ -106,23 +93,29 @@ class twtPost(AsyncStream):
         else:
             twtString = f'@{tweet.user.screen_name} tweeted just now: https://twitter.com/{tweet.user.screen_name}/status/{tweet.id_str}'
 
-        async def postTweet(ptServer, ptChannel):
+        async def postTweet(ptServer, ptChannel, db):
             try:
-                whurl = await getwebhook(self.bot, servers, ptServer, ptChannel)
+                whurl = (await dbTools.serverGrab(self.bot, ptServer, ptChannel, ("url",), db))["url"]
                 async with aiohttp.ClientSession() as session:
                     webhook = Webhook.from_url(whurl, adapter=AsyncWebhookAdapter(session))
                     await webhook.send(twtString, avatar_url=tweet.user.profile_image_url_https, username=tweet.user.name)
             except Exception as e:
-                logging.error(f"Twitter - An error has occurred while publishing stream notification to {channel}!", exc_info=True)
+                if "429 Too Many Requests" in str(e):
+                    logging.warning(f"Too many requests for {ptChannel}! Sleeping for 10 seconds.")
+                    asyncio.sleep(10)
+                logging.error(f"Twitter - An error has occurred while publishing Twitter notification to {ptChannel}!", exc_info=True)
 
-        for server in servers:
-            for channel in servers[server]:
-                if "twitter" in servers[server][channel]:
-                    if tweet.user.id_str in servers[server][channel]["twitter"]:
-                        await postTweet(server, channel)
-                if "custom" in servers[server][channel]:
-                    if tweet.user.id_str in servers[server][channel]["custom"]:
-                        await postTweet(server, channel)
+        queue = []
+        for channel in channels:
+            twitter = await botdb.listConvert(channels[channel]["twitter"])
+            custom = await botdb.listConvert(channels[channel]["custom"])
+            if twitter:
+                if tweet.user.id_str in twitter:
+                    queue.append(postTweet(channels[channel]["server"], channel, db))
+            if custom:
+                if tweet.user.id_str in custom:
+                    queue.append(postTweet(channels[channel]["server"], channel, db))
+        await asyncio.gather(*queue)
 
     async def on_error(self, status):
         logging.error(f"Twitter - An error has occured!\nTweepy Error: {status}")

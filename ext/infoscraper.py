@@ -9,6 +9,7 @@ import tweepy
 from bs4 import BeautifulSoup
 from typing import Union
 from .share.botUtils import formatMilestone, premiereScrape
+from .share.dataUtils import botdb
 
 async def streamInfo(channelId: Union[str, int]):
     output = None
@@ -99,7 +100,6 @@ async def channelInfo(channelId: Union[str, int], scrape = False, debug: bool = 
                         channelData = {
                             "id": channelId,
                             "name": ytdata["metadata"]["channelMetadataRenderer"]["title"],
-                            "formattedName": re.split(r'([a-zA-Z\xC0-\xFF]+)', ytdata["metadata"]["channelMetadataRenderer"]["title"]),
                             "image": ytdata["metadata"]["channelMetadataRenderer"]["avatar"]["thumbnails"][0]["url"],
                             "realSubs": cSubsA,
                             "roundSubs": cSubsR,
@@ -133,10 +133,7 @@ async def channelInfo(channelId: Union[str, int], scrape = False, debug: bool = 
                     logging.warn(f"Unable to get ytInitialData for {channelId}!")
     else:
         try:
-            with open("data/scrape.json", encoding="utf-8") as f:
-                channels = json.load(f)
-
-            channelData = channels[channelId]
+            channelData = await botdb.getData(channelId, "id", "*", "channels")
         except Exception as e:
             logging.error("Info Scraper - An error has occurred!", exc_info=True)
 
@@ -147,7 +144,22 @@ async def channelInfo(channelId: Union[str, int], scrape = False, debug: bool = 
     return channelData
 
 class FandomScrape():
-    async def searchChannel(chName, silent = False):
+    async def searchChannel(chName: str, silent: bool = False):
+        """
+        Searches for the channel in the VTuber Wiki.
+        
+        Arguments
+        ---
+        chName: The name of the channel.
+        silent: Automatically falls back to picking the first channel if a match is unable to be found.
+        
+        Returns
+        ---
+        A `dict` with:
+        - status: `Success` if a match was found, `Cannot Match` if silent is `False` and no match was found.
+        - name: The wiki page name associated with the name of the channel.
+        - results: A list of search results from the wiki.
+        """
         chNSplit = chName.split()
 
         async with aiohttp.ClientSession() as session:
@@ -230,6 +242,19 @@ class FandomScrape():
         return outputData
 
     async def getChannelURL(chLink):
+        """
+        Gets the channel ID from the wiki page for the channel.
+        
+        Arguments
+        ---
+        chLink: The name of the wiki page for the channel.
+        
+        Returns
+        ---
+        A `dict` with:
+        - success: `True` if a channel ID was successfully obtained.
+        - channelID: The channel ID for the channel.
+        """
         channelID = None
 
         async with aiohttp.ClientSession() as session:
@@ -355,16 +380,16 @@ class FandomScrape():
 
         return [subPointers]
 
-    async def getSubPointers(tag):
+    async def getSubPointers(webTags):
         subPointers = None
 
-        if tag.find("ul", recursive=False) == None:
-            subPointers = re.sub(r'\[[^()]*\]', '', tag.getText()).strip()
+        if webTags.find("ul", recursive=False) is None:
+            subPointers = re.sub(r'\[[^()]*\]', '', webTags.getText()).strip()
         else:
-            subPointers = {"point": re.sub(r'\[[^()]*\]', '', tag.getText()).strip()}
+            subPointers = {"point": re.sub(r'\[[^()]*\]', '', webTags.getText()).strip()}
             tempPointers = []
-            for tag in tag.find("ul", recursive=False).find_all("li", recursive=False):
-                tempPointers.append(await FandomScrape.getSubPointers(tag))
+            for webTag in webTags.find("ul", recursive=False).find_all("li", recursive=False):
+                tempPointers.append(await FandomScrape.getSubPointers(webTag))
             for text in tempPointers:
                 if text in subPointers["point"]:
                     subPointers["point"] = subPointers["point"].replace(text, "").strip()

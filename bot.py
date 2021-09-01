@@ -1,34 +1,29 @@
-import aiohttp
 import discord
 import asyncio
 import json
 import yaml
 import logging
 import sys
-import platform
-from discord_components import DiscordComponents, Button, ButtonStyle
-from discord import Webhook, AsyncWebhookAdapter
 from discord_slash import SlashCommand
-from discord.ext import commands
+from discord_slash.model import ButtonStyle
+from discord_slash.context import ComponentContext
+from discord_slash.utils.manage_components import create_actionrow, create_button, wait_for_component
+from discord.ext import commands, tasks
 from ext.infoscraper import channelInfo
-from ext.cogs.subCycle import StreamCycle, streamcheck
+from ext.cogs.chUpdater import chCycle
+from ext.cogs.subCycle import StreamCycle
 from ext.cogs.msCycle import msCycle, milestoneNotify
 from ext.cogs.dblUpdate import guildUpdate
-from ext.cogs.chUpdater import chCycle
-from ext.cogs.scrapeCycle import ScrapeCycle
 from ext.cogs.premiereCycle import PremiereCycle
 from ext.cogs.twtCycle import twtCycle
 from ext.share.botUtils import subPerms, creatorCheck, userWhitelist
-from ext.share.dataGrab import getSubType, getwebhook, refreshWebhook
+from ext.share.dataUtils import refreshWebhook, botdb, dbTools
 from ext.share.prompts import botError
-from ext.commands.subscribe import subCategory, subCustom
-from ext.commands.general import botHelp, botSublist, botGetInfo, botTwt, botUnsub
+from ext.commands.subscribe import defaultSubtype, subCategory, subCustom, sublistDisplay, unsubChannel
+from ext.commands.general import botHelp, botGetInfo, botTwt
 from ext.commands.slash import YagooSlash
 
 init = False
-
-if platform.system() == "Windows":
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 with open("data/settings.yaml") as f:
     settings = yaml.load(f, Loader=yaml.SafeLoader)
@@ -40,25 +35,39 @@ elif settings["logging"] == "debug":
 
 bot = commands.Bot(command_prefix=commands.when_mentioned_or(settings["prefix"]), help_command=None)
 bot.remove_command('help')
+slash = SlashCommand(bot, True)
 if settings["slash"]:
-    slash = SlashCommand(bot, True)
     bot.add_cog(YagooSlash(bot, slash))
+
+class updateStatus(commands.Cog):
+    def __init__(self, bot):
+        self.bot: commands.Bot = bot
+        self.updateStatus.start()
+    
+    def cog_unload(self):
+        self.updateStatus.stop()
+
+    @tasks.loop(minutes=10)
+    async def updateStatus(self):
+        channels = await botdb.getAllData("channels", ("id",))
+        await self.bot.change_presence(status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.watching, name=f'over {len(channels)} VTubers'))
+        await asyncio.sleep(10*60)
+        guildCount = 0
+        for guilds in self.bot.guilds:
+            guildCount += 1
+        await self.bot.change_presence(status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.watching, name=f'over {guildCount} servers'))
 
 @bot.event
 async def on_ready():
     global init
     if not init:
-        DiscordComponents(bot)
         guildCount = 0
         for guilds in bot.guilds:
             guildCount += 1
         print(f"Yagoo Bot now streaming in {guildCount} servers!")
-        await bot.change_presence(status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.watching, name='other Hololive members'))
         if settings["dblPublish"]:
             bot.add_cog(guildUpdate(bot, settings["dblToken"]))
         if settings["channel"]:
-            bot.add_cog(ScrapeCycle(bot, settings["logging"]))
-            await asyncio.sleep(30)
             bot.add_cog(chCycle(bot))
         if settings["twitter"]["enabled"]:
             bot.add_cog(twtCycle(bot))
@@ -68,6 +77,7 @@ async def on_ready():
             bot.add_cog(PremiereCycle(bot))
         if settings["milestone"]:
             bot.add_cog(msCycle(bot))
+        bot.add_cog(updateStatus(bot))
         init = True
     else:
         print("Reconnected to Discord!")
@@ -75,26 +85,11 @@ async def on_ready():
 @bot.event
 async def on_guild_remove(server):
     logging.info(f'Got removed from a server, cleaning up server data for: {str(server)}')
-    with open("data/servers.json") as f:
-        servers = json.load(f)
-    servers.pop(str(server.id), None)
-    with open("data/servers.json", "w") as f:
-        json.dump(servers, f, indent=4)
+    await botdb.deleteRow(server, "server", "servers")
 
 @bot.command(alias=['h'])
 async def help(ctx): # pylint: disable=redefined-builtin
     await ctx.send(embed=await botHelp())
-
-@bot.command(aliases=['subdefault'])
-@commands.check(subPerms)
-async def subDefault(ctx):
-    await getSubType(ctx, 1, bot)
-
-@subDefault.error
-async def subdef_error(ctx, error):
-    errEmbed = await botError(ctx, error)
-    if errEmbed:
-        await ctx.send(embed=errEmbed)
 
 @bot.command(aliases=['sub'])
 @commands.check(subPerms)
@@ -112,8 +107,8 @@ async def sub_error(ctx, error):
 
 @bot.command(aliases=["unsub"])
 @commands.check(subPerms)
-async def unsubscribe(ctx):
-    await botUnsub(ctx, bot)
+async def unsubscribe(ctx, *, channel = None):
+    await unsubChannel(ctx, bot, channel)
 
 @unsubscribe.error
 async def unsub_error(ctx, error):
@@ -121,6 +116,28 @@ async def unsub_error(ctx, error):
     if errEmbed:
         await ctx.send(embed=errEmbed)
 
+@bot.command(aliases=['subdefault'])
+@commands.check(subPerms)
+async def subDefault(ctx):
+    await defaultSubtype(ctx, bot)
+
+@subDefault.error
+async def subdef_error(ctx, error):
+    errEmbed = await botError(ctx, error)
+    if errEmbed:
+        await ctx.send(embed=errEmbed)
+
+@bot.command(aliases=["subs", "subslist", "subscriptions", "subscribed"])
+@commands.check(subPerms)
+async def sublist(ctx):
+    await sublistDisplay(ctx, bot)
+
+@sublist.error
+async def sublist_error(ctx, error):
+    errEmbed = await botError(ctx, error)
+    if errEmbed:
+        await ctx.send(embed=errEmbed)
+        
 @bot.command(aliases=["getinfo"])
 async def info(ctx, *, name: str = None):
     if name is None:
@@ -128,40 +145,33 @@ async def info(ctx, *, name: str = None):
         return
     await botGetInfo(ctx, bot, name)
 
-@bot.command(aliases=["subs", "subslist", "subscriptions", "subscribed"])
+@bot.command()
 @commands.check(subPerms)
-async def sublist(ctx):
-    await botSublist(ctx, bot)
+async def follow(ctx, accLink: str = None):
+    await botTwt.follow(ctx, bot, accLink)
 
-@sublist.error
-async def sublist_error(ctx, error):
+@follow.error
+async def follow_error(ctx, error):
     errEmbed = await botError(ctx, error)
     if errEmbed:
         await ctx.send(embed=errEmbed)
 
 @bot.command()
 @commands.check(subPerms)
-async def follow(ctx, accLink: str = ""):
-    await botTwt.follow(ctx, bot, accLink)
-
-@bot.command()
-@commands.check(subPerms)
 async def unfollow(ctx):
     await botTwt.unfollow(ctx, bot)
+
+@unfollow.error
+async def follow_error(ctx, error):
+    errEmbed = await botError(ctx, error)
+    if errEmbed:
+        await ctx.send(embed=errEmbed)
 
 @bot.command()
 @commands.check(creatorCheck)
 async def test(ctx):
-    msg = await ctx.send("Test", components=[Button(label="Remove")])
-    await bot.wait_for("button_click")
-    await msg.edit("Changed to no buttons", components=[])
-
-@bot.command(aliases=["livestats", "livestat"])
-@commands.check(subPerms)
-async def livestatus(ctx):
-    loadmsg = await ctx.send("Loading info...")
-    await streamcheck(ctx, True)
-    await loadmsg.delete()
+    db = await botdb.getDB()
+    print(await dbTools.serverGrab(bot, str(ctx.guild.id), str(ctx.channel.id), ("livestream", "milestone", "premiere"), db))
 
 @bot.command()
 @commands.check(creatorCheck)
@@ -187,36 +197,6 @@ async def mscheck(ctx, vtuber):
     }
     await milestoneNotify(msDict, bot, True)
     await ctx.send(file=discord.File(f'milestone/generated/{vtuber}.png'))
-
-@bot.command()
-@commands.check(creatorCheck)
-async def nstest(ctx):
-    with open("data/servers.json") as f:
-        servers = json.load(f)
-    
-    live = await streamcheck()
-    whurl = await getwebhook(bot, servers, ctx.guild, ctx.channel)
-
-    for livech in live:
-        async with aiohttp.ClientSession() as session:
-            embed = discord.Embed(title=f'{live[livech]["videoTitle"]}', url=f'https://youtube.com/watch?v={live[livech]["videoId"]}')
-            embed.description = f'Started streaming {live[livech]["timeText"]}'
-            embed.set_image(url=f'https://img.youtube.com/vi/{live[livech]["videoId"]}/maxresdefault.jpg')
-            webhook = Webhook.from_url(whurl, adapter=AsyncWebhookAdapter(session))
-            await webhook.send(f'New livestream from {live[livech]["name"]}!', embed=embed, username=live[livech]["name"], avatar_url=live[livech]["image"])
-
-@bot.command()
-@commands.check(creatorCheck)
-async def postas(ctx, vtuber, *, text):
-    with open("data/channels.json", encoding="utf-8") as f:
-        channels = json.load(f)
-    with open("data/servers.json") as f:
-        servers = json.load(f)
-    whurl = await getwebhook(bot, servers, ctx.guild, ctx.channel)
-    ytch = await channelInfo(channels[vtuber]["channel"])
-    async with aiohttp.ClientSession() as session:
-        webhook = Webhook.from_url(whurl, adapter=AsyncWebhookAdapter(session))
-        await webhook.send(text, username=ytch["name"], avatar_url=ytch["image"])
 
 @bot.command()
 @commands.check(creatorCheck)
@@ -256,33 +236,27 @@ async def omedetou(ctx: commands.Context):
 @bot.command()
 @commands.check(creatorCheck)
 async def ytchCount(ctx):
-    chCount = 0
-
-    with open("data/channels.json") as f:
-        channels = json.load(f)
-    for channel in channels:
-        chCount += 1
-    
-    await ctx.send(f"Yagoo Bot has {chCount} channels in the database.")
+    await ctx.send(f"Yagoo Bot has {len(await botdb.getAllData('channels'))} channels in the database.")
 
 @bot.command()
 @commands.check(subPerms)
 async def chRefresh(ctx: commands.Context):
-    qmsg = await ctx.send("Are you sure to refresh this channel's webhook URL?", components=[[Button(style=ButtonStyle.blue, label="No"),
-                                                                                             Button(style=ButtonStyle.red, label="Yes")]])
+    buttonRow = create_actionrow(create_button(style=ButtonStyle.blue, label="No"), create_button(style=ButtonStyle.red, label="Yes"))
+    qmsg = await ctx.send("Are you sure to refresh this channel's webhook URL?", components=[buttonRow])
     
     def check(res):
-        return res.user == ctx.message.author and res.channel == ctx.channel
+        return res.author == ctx.message.author and res.channel == ctx.channel
 
     try:
-        res = await bot.wait_for('button_click', check=check, timeout=60)
+        res: ComponentContext = await wait_for_component(bot, qmsg, buttonRow, check, 30)
     except asyncio.TimeoutError:
         await qmsg.delete()
         await ctx.message.delete()
     else:
-        if res.component.label == "Yes":
-            await refreshWebhook(ctx.guild, ctx.channel)
-            await qmsg.edit("The webhook URL has been refreshed for this channel.", components=[])
+        if res.component["label"] == "Yes":
+            await res.defer()
+            await refreshWebhook(bot, ctx.guild, ctx.channel)
+            await res.edit_origin(content="The webhook URL has been refreshed for this channel.", components=[])
         else:
             await qmsg.delete()
             await ctx.message.delete()
@@ -317,6 +291,6 @@ async def guildCount(ctx):
     for x in bot.guilds:
         totalGuilds += 1
     
-    await ctx.send(f"Yagoo bot is now live in {totalGuilds} servers!")
+    await ctx.send(f"Yagoo Bot is now live in {totalGuilds} servers!")
 
 bot.run(settings["token"])
