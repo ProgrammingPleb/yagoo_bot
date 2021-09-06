@@ -1,8 +1,8 @@
 PyYAML == 5.4.1
-aiohttp == 3.7.4.post0
+aiohttp == 3.6.3
 bs4 == 0.0.1
 html5lib == 1.1
-discord.py == 1.7.3
+enhanced-dpy == 1.7.3.7.post1
 imgkit == 1.2.2
 requests == 2.26.0
 pytz == 2021.1
