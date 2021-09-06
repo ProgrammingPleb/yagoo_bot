@@ -33,11 +33,22 @@ if settings["logging"] == "info":
 elif settings["logging"] == "debug":
     logging.basicConfig(level=logging.DEBUG, handlers=[logging.FileHandler('status.log', 'w', 'utf-8')], format='[%(asctime)s] %(name)s - %(levelname)s - %(message)s')
 
-bot = commands.Bot(command_prefix=commands.when_mentioned_or(settings["prefix"]), help_command=None)
+async def determine_prefix(bot: commands.Bot, message: discord.Message):
+    db = await botdb.getDB()
+    guild = message.guild
+    if guild:
+        if await botdb.checkIfExists(str(message.guild.id), "server", "prefixes", db):
+            return commands.when_mentioned_or((await botdb.getData(str(message.guild.id), "server", ("prefix",), "prefixes", db))["prefix"])(bot, message)
+        else:
+            return commands.when_mentioned_or(settings["prefix"])(bot, message)
+    else:
+        return commands.when_mentioned_or(settings["prefix"])(bot, message)
+
+bot = commands.Bot(command_prefix=determine_prefix, help_command=None)
 bot.remove_command('help')
 slash = SlashCommand(bot, True)
 if settings["slash"]:
-    bot.add_cog(YagooSlash(bot, slash))
+    bot.add_cog(YagooSlash(bot, slash, settings["prefix"]))
 
 class updateStatus(commands.Cog):
     def __init__(self, bot):
@@ -89,7 +100,12 @@ async def on_guild_remove(server):
 
 @bot.command(alias=['h'])
 async def help(ctx): # pylint: disable=redefined-builtin
-    await ctx.send(embed=await botHelp())
+    db = await botdb.getDB()
+    if await botdb.checkIfExists(str(ctx.guild.id), "server", "prefixes", db):
+        prefix = (await botdb.getData(str(ctx.guild.id), "server", ("prefix",), "prefixes", db))["prefix"]
+    else:
+        prefix = settings["prefix"]
+    await ctx.send(embed=await botHelp(prefix))
 
 @bot.command(aliases=['sub'])
 @commands.check(subPerms)
@@ -166,6 +182,24 @@ async def follow_error(ctx, error):
     errEmbed = await botError(ctx, error)
     if errEmbed:
         await ctx.send(embed=errEmbed)
+
+@bot.command()
+@commands.check(subPerms)
+async def prefix(ctx: commands.Context, *, prefix: str = None):
+    db = await botdb.getDB()
+    if prefix is None:
+        if await botdb.checkIfExists(str(ctx.guild.id), "server", "prefixes", db):
+            prefix = (await botdb.getData(str(ctx.guild.id), "server", ("prefix",), "prefixes", db))["prefix"]
+        else:
+            prefix = settings["prefix"]
+            await botdb.addData((str(ctx.guild.id), prefix), ("server", "prefix"), "prefixes", db)
+        embed = discord.Embed(title="Current Prefix", description=f"The current prefix for this server is: `{prefix}`")
+        await ctx.send(embed=embed)
+        return
+    await botdb.addData((str(ctx.guild.id), prefix), ("server", "prefix"), "prefixes", db)
+    
+    embed = discord.Embed(title="Prefix Updated!", description=f"The prefix for this server is now `{prefix}`.", color=discord.Colour.green())
+    await ctx.send(embed=embed)
 
 @bot.command()
 @commands.check(creatorCheck)

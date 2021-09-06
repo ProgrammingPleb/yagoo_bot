@@ -4,16 +4,23 @@ from discord_slash import cog_ext
 from discord_slash.utils.manage_commands import create_option
 from .general import botGetInfo, botHelp, botTwt
 from .subscribe import subCategory, subCustom, unsubChannel, sublistDisplay
+from ..share.dataUtils import botdb
 
 class YagooSlash(commands.Cog):
-    def __init__(self, bot, slash):
+    def __init__(self, bot, slash, prefix):
         self.bot = bot
         self.slash = slash
+        self.prefix = prefix
         logging.info("Bot Slash Commands - Commands loaded!")
     
     @cog_ext.cog_slash(name="help", description="Shows the bot's help menu.", options=None)
     async def _help(self, ctx):
-        await ctx.send(embed=await botHelp())
+        db = await botdb.getDB()
+        if await botdb.checkIfExists(str(ctx.guild.id), "server", "prefixes", db):
+            prefix = (await botdb.getData(str(ctx.guild.id), "server", ("prefix",), "prefixes", db))["prefix"]
+        else:
+            prefix = self.prefix
+        await ctx.send(embed=await botHelp(prefix))
 
     @cog_ext.cog_slash(name="info", description="Get information about a VTuber.",
                        options=[create_option(name = "name", description = "The VTuber's name to search for.", option_type = 3, required = True)])

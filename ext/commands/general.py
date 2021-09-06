@@ -8,27 +8,33 @@ from ..share.botUtils import TwitterUtils, embedContinue, msgDelete, fandomTextP
 from ..share.dataUtils import botdb, dbTools
 from ..share.prompts import TwitterPrompts, generalPrompts
 
-async def botHelp():
+async def botHelp(prefix: str):
     hembed = discord.Embed(title="Yagoo Bot Commands")
     hembed.description = "Currently the bot only has a small number of commands, as it is still in development!\n" \
                          "New stream notifications will be posted on a 3 minute interval, thus any new notifications " \
                          "will not come immediately after subscribing.\n" \
-                         "Currently all the commands (except for `y!help` and `y!info`) require the user to have either the `Administrator` or `Manage Webhook` permission in the channel or server.\n" \
-                         "Anything in angle brackets `<>` are required, leaving them will result in an error." \
+                         f"Currently all the commands (except for `{prefix}help` and `{prefix}info`) require the user to have either the `Administrator` or `Manage Webhook` permission in the channel or server.\n" \
+                         "Anything in angle brackets `<>` are required, leaving them will result in an error. " \
                          "Meanwhile, anything in square brackets `[]` are optional, so leaving them will also make the command work."
     
     hembed.add_field(name="Commands",
-                     value="**y!sub** [VTuber Name] (Alias: subscribe)\n"
+                     value=f"**{prefix}sub** [VTuber Name] (Alias: subscribe)\n"
                            "Brings up a list of channels to subscribe to.\n"
                            "Add a non-Hololive VTuber's name to the command to opt in to their notifications.\n\n"
-                           "**y!unsub** (Alias: unsubscribe)\n"
+                           f"**{prefix}unsub** (Alias: unsubscribe)\n"
                            "Brings up a list of channels to unsubscribe to.\n\n"
-                           "**y!sublist** (Alias: subs, subslist)\n"
+                           f"**{prefix}sublist** (Alias: subs, subslist)\n"
                            "Brings up a list of channels that the current chat channel has subscribed to.\n\n"
-                           "**y!subdefault** (Alias: subDefault)\n"
+                           f"**{prefix}subdefault** (Alias: subDefault)\n"
                            "Set's the default subscription type for the channel.\n\n"
-                           "**y!info** <VTuber Name> (Alias: getinfo)\n"
-                           "Gets information about a VTuber.",
+                           f"**{prefix}follow** (Alias: subDefault)\n"
+                           "Follows a custom Twitter account's tweets to the channel.\n\n"
+                           f"**{prefix}follow** (Alias: subDefault)\n"
+                           "Unfollows an already followed custom Twitter account from the channel.\n\n"
+                           f"**{prefix}info** <VTuber Name> (Alias: getinfo)\n"
+                           "Gets information about a VTuber.\n\n"
+                           f"**{prefix}prefix** <VTuber Name>\n"
+                           "Changes the prefix used by the bot.",
                      inline=False)
     
     hembed.add_field(name="Issues/Suggestions?",

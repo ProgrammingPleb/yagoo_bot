@@ -7,6 +7,7 @@ import os
 import shutil
 import traceback
 import platform
+from mysql.connector.cursor import CursorBase
 from ext.infoscraper import FandomScrape, channelInfo, channelScrape
 from ext.share.dataUtils import botdb
 
@@ -171,12 +172,14 @@ def migrateData(version: str):
             json.dump(servers, f, indent=4)
     elif version == "5":
         asyncio.run(sqlMigrate())
+    elif version == "6":
+        asyncio.run(addPrefix())
 
 async def sqlMigrate():
     dataFiles = ["channels", "scrape", "servers", "twitter"]
     
     db = await botdb.getDB()
-    cursor = db.cursor()
+    cursor: CursorBase = db.cursor()
     
     for file in dataFiles:
         found = False
@@ -295,6 +298,11 @@ async def sqlMigrate():
     else:
         os.mkdir("data_old")
         shutil.copy("data/servers.json", "data_backup/servers.json")
+
+async def addPrefix():
+    db = await botdb.getDB()
+    cursor: CursorBase = db.cursor()
+    cursor.execute("CREATE TABLE prefixes (server VARCHAR(30), prefix VARCHAR(30))")
 
 async def affUpdate():
     tasks = []
