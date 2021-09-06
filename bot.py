@@ -96,7 +96,7 @@ async def on_ready():
 @bot.event
 async def on_guild_remove(server):
     logging.info(f'Got removed from a server, cleaning up server data for: {str(server)}')
-    await botdb.deleteRow(server, "server", "servers")
+    await botdb.deleteRow(str(server), "server", "servers")
 
 @bot.command(alias=['h'])
 async def help(ctx): # pylint: disable=redefined-builtin
