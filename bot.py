@@ -4,6 +4,7 @@ import json
 import yaml
 import logging
 import sys
+import os
 from discord_slash import SlashCommand
 from discord_slash.model import ButtonStyle
 from discord_slash.context import ComponentContext
@@ -75,6 +76,10 @@ async def on_ready():
         guildCount = 0
         for guilds in bot.guilds:
             guildCount += 1
+        if os.path.exists("ext/commands/custom.py"):
+            from ext.commands.custom import customCommands
+            bot.add_cog(customCommands(bot))
+            print("Loaded custom commands!")
         print(f"Yagoo Bot now streaming in {guildCount} servers!")
         if settings["dblPublish"]:
             bot.add_cog(guildUpdate(bot, settings["dblToken"]))

@@ -9,6 +9,7 @@ __pycache__
 /test/
 /data/
 /programs/data/
+/ext/commands/custom.py
 /.VSCodeCounter
 /test.py
 /setup
