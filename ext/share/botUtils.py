@@ -47,6 +47,38 @@ async def msgDelete(ctx: Union[commands.Context, SlashContext]):
     if type(ctx) != SlashContext:
         await ctx.message.delete()
 
+async def getRoles(ctx: commands.Context, noEveryone: bool = False):
+    """
+    Gets the roles affiliated with the server.
+    
+    Arguments
+    ---
+    `ctx`: Context from the executed command.
+    `noEveryone`: A `bool` to exclude the @everyone role from being included.
+    
+    Returns
+    ---
+    A `dict` with:
+    - `names`: A `list` with the names of the roles.
+    - `ids`: A `list` with the IDs of the roles.
+    - `roleRef`: A `dict` with the role names as keys and the role IDs as values.
+    """
+    roles = ctx.guild.roles
+    roleNames = []
+    roleIDs = []
+    roleRef = {}
+    for role in roles:
+        if role.name == "@everyone" and noEveryone:
+            continue
+        roleNames.append(role.name)
+        roleIDs.append(role.id)
+        roleRef[role.name] = role.id
+    return {
+        "names": roleNames,
+        "ids": roleIDs,
+        "roleRef": roleRef
+    }
+
 class fandomTextParse():
     """
     Class that contains functions for Fandom Wiki related actions.
