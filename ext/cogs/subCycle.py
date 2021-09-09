@@ -25,7 +25,7 @@ async def streamNotify():
             except Exception as e:
                 if "429 Too Many Requests" in str(e):
                     logging.warning(f"Too many requests for {channel['id']}! Sleeping for 10 seconds.")
-                    asyncio.sleep(10)
+                    await asyncio.sleep(10)
                 logging.error("Livestreams - An error has occured while publishing a notification!", exc_info=True)
     
     queue = []

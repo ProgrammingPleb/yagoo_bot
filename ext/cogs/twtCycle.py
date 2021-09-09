@@ -102,7 +102,7 @@ class twtPost(AsyncStream):
             except Exception as e:
                 if "429 Too Many Requests" in str(e):
                     logging.warning(f"Too many requests for {ptChannel}! Sleeping for 10 seconds.")
-                    asyncio.sleep(10)
+                    await asyncio.sleep(10)
                 logging.error(f"Twitter - An error has occurred while publishing Twitter notification to {ptChannel}!", exc_info=True)
 
         queue = []
