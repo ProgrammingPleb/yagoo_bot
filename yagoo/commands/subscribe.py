@@ -4,11 +4,11 @@ from discord.ext import commands
 from discord_slash.context import SlashContext
 from discord_slash.model import ButtonStyle
 from typing import Union
-from ..infoscraper import FandomScrape, channelInfo
-from ..share.botUtils import msgDelete
-from ..share.botVars import allSubTypes
-from ..share.dataUtils import botdb, dbTools
-from ..share.prompts import generalPrompts, pageNav, subPrompts, unsubPrompts
+from ..scrapers.infoscraper import FandomScrape, channelInfo
+from ..lib.botUtils import msgDelete
+from ..lib.botVars import allSubTypes
+from ..lib.dataUtils import botdb, dbTools
+from ..lib.prompts import generalPrompts, pageNav, subPrompts, unsubPrompts
 
 async def subCategory(ctx: Union[commands.Context, SlashContext], bot: commands.Bot):
     """

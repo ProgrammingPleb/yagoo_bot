@@ -170,7 +170,7 @@ async def vtuberSearch(ctx: Union[commands.Context, SlashContext], bot: commands
     `askTerm`: Term used when the search embed says "[askTerm] this channel"
     `getOther`: Whether to have a message confirming the detected VTuber from `searchTerm` or to assume that the first term is correct.
     """
-    from ..infoscraper import FandomScrape, channelInfo
+    from ..scrapers.infoscraper import FandomScrape, channelInfo
 
     getChannel = False
 

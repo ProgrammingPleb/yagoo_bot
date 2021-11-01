@@ -5,10 +5,10 @@ import traceback
 import concurrent.futures
 from tweepy.errors import NotFound
 from tweepy.asynchronous import AsyncStream
-from ..infoscraper import TwitterScrape
+from ..scrapers.infoscraper import TwitterScrape
 from discord.ext import commands, tasks
 from discord import AsyncWebhookAdapter, Webhook
-from ext.share.dataUtils import botdb, dbTools
+from yagoo.lib.dataUtils import botdb, dbTools
 
 async def twtUpdater():
     """

@@ -7,7 +7,7 @@ import json
 from discord.ext import commands, tasks
 from discord import Webhook, AsyncWebhookAdapter
 from datetime import datetime
-from ..share.dataUtils import botdb
+from ..lib.dataUtils import botdb
 
 async def premiereNotify():
     db = await botdb.getDB()

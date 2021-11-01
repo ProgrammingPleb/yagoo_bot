@@ -1,7 +1,7 @@
 import logging
 import traceback
 from discord.ext import commands, tasks
-from ..share.dataUtils import botdb
+from ..lib.dataUtils import botdb
 
 async def channelUpdate():
     db = await botdb.getDB()

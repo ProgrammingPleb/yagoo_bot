@@ -3,13 +3,14 @@
 import asyncio
 import traceback
 import discord
+import discord_slash
 from typing import Union
 from discord.ext import commands
-import discord_slash
 from discord_slash.context import ComponentContext, SlashContext
 from discord_slash.model import ButtonStyle
 from discord_slash.utils.manage_components import create_actionrow, create_button, create_select, create_select_option, wait_for_component
-from ext.share.botVars import allSubTypes
+from yagoo.lib.botVars import allSubTypes
+from yagoo.lib.dataUtils import botdb
 
 async def botError(ctx, error):
     errEmbed = discord.Embed(title="An error has occurred!", color=discord.Colour.red())
@@ -340,6 +341,19 @@ class generalPrompts:
                     "status": True,
                     "choice": True
                 }
+    
+    async def search(query: str):
+        """
+        Prompts the user to pick a search result based on their query.
+        
+        Arguments
+        ---
+        
+        Returns
+        ---
+        """
+        embed = discord.Embed(title="Searching For A Channel", description=f"Search results for {query}")
+        return
 
 class pageNav:
     class utils:
@@ -1470,3 +1484,107 @@ class TwitterPrompts:
                 embed.description = f"This channel has not been following @{username}'s tweets."
         await msg.edit(content=" ", embed=embed, components=[])
         return
+
+class rolePrompts:
+    async def affiliationSelect(affiliations: list):
+        result = []
+        
+        for affiliation in affiliations:
+            result.append({"name": affiliation, "id": affiliation})
+        
+        return result
+    
+    async def channelSelect(channels: dict):
+        result = []
+        
+        for channel in channels:
+            result.append({"name": channels[channel], "id": channel})
+        
+        return result
+    
+    async def getAffiliations(channelSubs: dict, channelData: dict):
+        """
+        Gets the affiliations of the channel's current subscriptions.
+        
+        Arguments
+        ---
+        channelSubs: A `dict` containing the channel's current subscriptions.
+        channelData: A `dict` containing all YouTube channels data.
+        
+        Returns
+        ---
+        A `dict` with the affiliations as keys and the corresponding channel IDs as values.
+        """
+        allChannels = []
+        remove = []
+        result = {}
+        
+        for subType in channelSubs:
+            subs = await botdb.listConvert(channelSubs[subType])
+            if subs:
+                for channel in await botdb.listConvert(channelSubs[subType]):
+                    if channel not in allChannels:
+                        allChannels.append(channel)
+        
+        for channel in channelData:
+            if channelData[channel]["category"] not in result:
+                result[channelData[channel]["category"]] = {}
+        
+        for channel in allChannels:
+            result[channelData[channel]["category"]][channel] = channelData[channel]["name"]
+        
+        for affiliation in result:
+            if result[affiliation] == {}:
+                remove.append(affiliation)
+        
+        for dictKey in remove:
+            del result[dictKey]
+        
+        return result
+    
+    async def promptAffiliate(ctx: commands.Context, bot: commands.Bot, msg: discord.Message, channelSubs: dict):
+        affiliations = []
+        for subType in channelSubs:
+            affiliations.append(subType)
+        affChoice = await pageNav.search.prompt(ctx, bot, msg, await rolePrompts.affiliationSelect(affiliations),
+                                                "Adding Role Pings", "Search for a channel", "Add a role ping to every VTuber",
+                                                "other", description="Pick an affiliation of the channel's notifications be role pinged.",
+                                                usePicker=True, maxItems=1)
+        if affChoice["status"]:
+            if affChoice["other"]:
+                return {
+                    "status": True,
+                    "action": "all"
+                }
+            if affChoice["search"]:
+                return {
+                    "status": True,
+                    "action": "search"
+                }
+            return {
+                "status": True,
+                "action": "pick",
+                "pick": affChoice["item"]["name"][0]
+            }
+        return {
+            "status": False
+        }
+    
+    async def promptChannel(ctx: commands.Context, bot: commands.Bot, msg: discord.Message, channelSubs: dict):
+        chChoice = await pageNav.search.prompt(ctx, bot, msg,
+                                            await rolePrompts.channelSelect(channelSubs[affChoice["item"]["name"][0]]),
+                                            "Adding Role Pings", "Search for a channel",
+                                            f"Add a role to every {affChoice['item']['name'][0]} VTubers", "other",
+                                            description="Pick the channel's notifications to be role pinged.", usePicker=True,
+                                            maxItems=25)
+        if chChoice["status"]:
+            if chChoice["other"]:
+                return
+            if chChoice["search"]:
+                return
+            return {
+                "status": True
+            }
+        return {
+            "status": False
+        }

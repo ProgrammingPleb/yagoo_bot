@@ -8,8 +8,8 @@ import yaml
 import tweepy
 from bs4 import BeautifulSoup
 from typing import Union
-from .share.botUtils import formatMilestone, premiereScrape
-from .share.dataUtils import botdb
+from ..lib.botUtils import formatMilestone, premiereScrape
+from ..lib.dataUtils import botdb
 
 async def streamInfo(channelId: Union[str, int]):
     output = None

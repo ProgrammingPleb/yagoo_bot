@@ -6,7 +6,7 @@ import imgkit
 import discord
 import traceback
 import concurrent.futures
-from ..share.dataUtils import botdb
+from ..lib.dataUtils import botdb
 from discord.ext import commands, tasks
 
 async def milestoneCheck():

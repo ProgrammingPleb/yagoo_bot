@@ -3,10 +3,10 @@ import asyncio
 from typing import Union
 from discord.ext import commands
 from discord_slash.context import SlashContext
-from ..infoscraper import FandomScrape, TwitterScrape
-from ..share.botUtils import TwitterUtils, embedContinue, msgDelete, fandomTextParse, vtuberSearch
-from ..share.dataUtils import botdb, dbTools
-from ..share.prompts import TwitterPrompts, generalPrompts
+from ..scrapers.infoscraper import FandomScrape, TwitterScrape
+from ..lib.botUtils import TwitterUtils, embedContinue, getRoles, msgDelete, fandomTextParse, vtuberSearch
+from ..lib.dataUtils import botdb, dbTools
+from ..lib.prompts import TwitterPrompts, generalPrompts, rolePrompts
 
 async def botHelp(prefix: str):
     hembed = discord.Embed(title="Yagoo Bot Commands")
@@ -97,10 +97,20 @@ async def botGetInfo(ctx: Union[commands.Context, SlashContext], bot: commands.B
                         else:
                             excessLoop = False
 
+async def botAssignRoles(ctx: Union[commands.Context, SlashContext], bot: commands.Bot):
+    db = await botdb.getDB()
+    roles = await getRoles(ctx, True)
+    subs = await dbTools.serverGrab(bot, str(ctx.guild.id), str(ctx.channel.id), ("livestream", "milestone", "premiere"), db)
+    channels = await botdb.getAllData("channels", ("id", "name", "category"), keyDict="id", db=db)
+    roleMsg = await ctx.send("Loading channel subscriptions...")
+    affiliate = await rolePrompts.getAffiliations(subs, channels)
+    print(affiliate)
+    userChoice = await rolePrompts.promptAffiliate(ctx, bot, roleMsg, affiliate)
+    print(userChoice)
+    userChoice = await rolePrompts.promptChannel(ctx, bot, roleMsg, )
+
 # Tasklist:
-# Create disclaimer on core unsubscribe command
-# TODO: SQL rewrite (Post-IRyS)
-# TODO: Ensure that the channel has a webhook first
+# TODO: Create disclaimer on core unsubscribe command
 class botTwt:
     async def follow(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, accLink: str):
         db = await botdb.getDB()

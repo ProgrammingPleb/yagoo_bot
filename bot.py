@@ -10,19 +10,19 @@ from discord_slash.model import ButtonStyle
 from discord_slash.context import ComponentContext
 from discord_slash.utils.manage_components import create_actionrow, create_button, wait_for_component
 from discord.ext import commands, tasks
-from ext.infoscraper import channelInfo
-from ext.cogs.chUpdater import chCycle
-from ext.cogs.subCycle import StreamCycle
-from ext.cogs.msCycle import msCycle, milestoneNotify
-from ext.cogs.dblUpdate import guildUpdate
-from ext.cogs.premiereCycle import PremiereCycle
-from ext.cogs.twtCycle import twtCycle
-from ext.share.botUtils import subPerms, creatorCheck, userWhitelist
-from ext.share.dataUtils import refreshWebhook, botdb, dbTools
-from ext.share.prompts import botError
-from ext.commands.subscribe import defaultSubtype, subCategory, subCustom, sublistDisplay, unsubChannel
-from ext.commands.general import botHelp, botGetInfo, botTwt
-from ext.commands.slash import YagooSlash
+from yagoo.scrapers.infoscraper import channelInfo
+from yagoo.cogs.chUpdater import chCycle
+from yagoo.cogs.subCycle import StreamCycle
+from yagoo.cogs.msCycle import msCycle, milestoneNotify
+from yagoo.cogs.dblUpdate import guildUpdate
+from yagoo.cogs.premiereCycle import PremiereCycle
+from yagoo.cogs.twtCycle import twtCycle
+from yagoo.lib.botUtils import getRoles, subPerms, creatorCheck, userWhitelist
+from yagoo.lib.dataUtils import refreshWebhook, botdb, dbTools
+from yagoo.lib.prompts import botError
+from yagoo.commands.subscribe import defaultSubtype, subCategory, subCustom, sublistDisplay, unsubChannel
+from yagoo.commands.general import botAssignRoles, botHelp, botGetInfo, botTwt
+from yagoo.commands.slash import YagooSlash
 
 init = False
 
@@ -77,7 +77,7 @@ async def on_ready():
         for guilds in bot.guilds:
             guildCount += 1
         if os.path.exists("ext/commands/custom.py"):
-            from ext.commands.custom import customCommands
+            from yagoo.commands.custom import customCommands
             bot.add_cog(customCommands(bot))
             print("Loaded custom commands!")
         print(f"Yagoo Bot now streaming in {guildCount} servers!")

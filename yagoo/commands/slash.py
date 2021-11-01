@@ -4,7 +4,7 @@ from discord_slash import cog_ext
 from discord_slash.utils.manage_commands import create_option
 from .general import botGetInfo, botHelp, botTwt
 from .subscribe import subCategory, subCustom, unsubChannel, sublistDisplay
-from ..share.dataUtils import botdb
+from ..lib.dataUtils import botdb
 
 class YagooSlash(commands.Cog):
     def __init__(self, bot, slash, prefix):

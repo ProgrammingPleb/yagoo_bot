@@ -8,8 +8,8 @@ import shutil
 import traceback
 import platform
 from mysql.connector.cursor import CursorBase
-from ext.infoscraper import FandomScrape, channelInfo, channelScrape
-from ext.share.dataUtils import botdb
+from yagoo.scrapers.infoscraper import FandomScrape, channelInfo, channelScrape
+from yagoo.lib.dataUtils import botdb
 
 logging.basicConfig(level=logging.INFO, filename='status.log', filemode='w', format='[%(asctime)s] %(name)s - %(levelname)s - %(message)s')
 
