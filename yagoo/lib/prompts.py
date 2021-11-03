@@ -12,7 +12,7 @@ from discord_slash.utils.manage_components import create_actionrow, create_butto
 from yagoo.lib.botVars import allSubTypes
 from yagoo.lib.dataUtils import botdb
 
-async def botError(ctx, error):
+async def botError(ctx: commands.Context, error):
     errEmbed = discord.Embed(title="An error has occurred!", color=discord.Colour.red())
     if "403 Forbidden" in str(error):
         permData = [{
@@ -23,7 +23,7 @@ async def botError(ctx, error):
             "dataName": "manage_messages"
         }]
         permOutput = []
-        for perm in iter(ctx.guild.me.permissions_in(ctx.channel)):
+        for perm in iter(ctx.guild.permissions_for(ctx.author)):
             for pCheck in permData:
                 if perm[0] == pCheck["dataName"]:
                     if not perm[1]:

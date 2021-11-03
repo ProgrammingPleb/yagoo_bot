@@ -97,7 +97,7 @@ class twtPost(AsyncStream):
             try:
                 whurl = (await dbTools.serverGrab(self.bot, ptServer, ptChannel, ("url",), db))["url"]
                 async with aiohttp.ClientSession() as session:
-                    webhook = Webhook.from_url(whurl, adapter=AsyncWebhookAdapter(session))
+                    webhook = Webhook.from_url(whurl, session=session)
                     await webhook.send(twtString, avatar_url=tweet.user.profile_image_url_https, username=tweet.user.name)
             except Exception as e:
                 if "429 Too Many Requests" in str(e):

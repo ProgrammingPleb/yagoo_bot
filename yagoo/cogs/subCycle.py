@@ -20,7 +20,7 @@ async def streamNotify():
                     embed = discord.Embed(title=f'{video["title"]}', url=f'https://youtube.com/watch?v={videoId}')
                     embed.description = f'{video["status"]}'
                     embed.set_image(url=video["thumbnail"])
-                    webhook = Webhook.from_url(server["url"], adapter=AsyncWebhookAdapter(session))
+                    webhook = Webhook.from_url(server["url"], session=session)
                     await webhook.send(f'New livestream from {channel["name"]}!', embed=embed, username=channel["name"], avatar_url=channel["image"])
             except Exception as e:
                 if "429 Too Many Requests" in str(e):
