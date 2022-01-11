@@ -37,10 +37,7 @@ from yagoo.cogs.premiereCycle import PremiereCycle
 from yagoo.cogs.twtCycle import twtCycle
 from yagoo.lib.botUtils import getRoles, subPerms, creatorCheck, userWhitelist
 from yagoo.lib.dataUtils import refreshWebhook, botdb, dbTools
-from yagoo.lib.prompts import botError
-from yagoo.commands.subscribe import defaultSubtype, subCategory, subCustom, sublistDisplay, unsubChannel
-from yagoo.commands.general import botAssignRoles, botHelp, botGetInfo, botTwt
-from yagoo.commands.slash import YagooSlash
+from yagoo.types.message import YagooMessage
 
 init = False
 
@@ -224,11 +221,22 @@ async def prefix(ctx: commands.Context, *, prefix: str = None):
     embed = discord.Embed(title="Prefix Updated!", description=f"The prefix for this server is now `{prefix}`.", color=discord.Colour.green())
     await ctx.send(embed=embed)
 
+# POC: Recreation of subscription menu with new message class
 @bot.command()
-@commands.check(creatorCheck)
-async def test(ctx):
-    db = await botdb.getDB()
-    print(await dbTools.serverGrab(bot, str(ctx.guild.id), str(ctx.channel.id), ("livestream", "milestone", "premiere"), db))
+async def test(ctx: commands.Context):
+    message = YagooMessage(bot, ctx.author,
+                           "Subscribing to a VTuber", "Pick the VTuber's affiliation:",
+                           color=discord.Color.from_rgb(32, 34, 37))
+    message.embed.add_field(name="Action", value="Pick an entry in the list or use the buttons below for further actions.")
+    selectOptions = []
+    for i in range(1, 100):
+        selectOptions.append({"label": f"Option {i}"})
+    message.addSelect(selectOptions)
+    message.addButton(2, "search", "Search for a VTuber")
+    message.addButton(2, "all", "Subscribe to all VTubers")
+    message.addButton(3, "cancel", "Cancel", style=discord.ButtonStyle.red)
+    response = await message.post(ctx)
+    print(vars(response))
 
 @bot.command()
 @commands.check(creatorCheck)
