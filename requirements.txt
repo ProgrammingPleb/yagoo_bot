@@ -1,12 +1,13 @@
-PyYAML == 5.4.1
-aiohttp == 3.6.3
+PyYAML == 6.0
+aiohttp == 3.8.1
 bs4 == 0.0.1
 html5lib == 1.1
-py-cord == 1.7.3
+git+https://github.com/Pycord-Development/pycord@8a53b71 # Alpha version of PyCord
 imgkit == 1.2.2
-requests == 2.26.0
-pytz == 2021.1
+requests == 2.27.1
+pytz == 2021.3
 rpyc == 5.0.1
 dblpy == 0.4.0
 discord-py-slash-command == 3.0.1
-mysql-connector-python == 8.0.26
+mysql-connector-python == 8.0.27
+tweepy[async] == 4.4.0
