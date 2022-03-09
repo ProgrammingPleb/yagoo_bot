@@ -189,13 +189,14 @@ class YagooMessage():
         self.pages = 1
         self.currentPage = 1
     
-    async def post(self, ctx: commands.Context):
+    async def legacypost(self, ctx: commands.Context, ephemeral: bool = False):
         """
         Post the message (or edit if it is an existing message) to the channel that invoked the command.
         
         Arguments
         ---
-        ctx: The context of the command.
+        interaction: The context that originated from the command.
+        ephemeral: Whether the posted message should be ephemeral.
         
         Returns
         ---
@@ -207,6 +208,47 @@ class YagooMessage():
         self.view = YagooView(self.buttons, self.select)
         if not self.msg:
             self.msg = await ctx.send(embed=self.embed, view=self.view)
+            self.view.responseData.message = self.msg
+        else:
+            await self.msg.edit(embed=self.embed, view=self.view)
+        while True:
+            response = await self.wait_for_response()
+            if response:
+                if self.pages > 1:
+                    if self.view.responseData.buttonID in ("next", "prev"):
+                        if self.view.responseData.buttonID == "next":
+                            self.paginatorUpdate(True)
+                        elif self.view.responseData.buttonID == "prev":
+                            self.paginatorUpdate(False)
+                        self.view.responseData.clear()
+                        await self.msg.edit(embed=self.embed, view=self.view)
+                        continue
+            return self.view.responseData
+    
+    async def post(self, interaction: discord.Interaction, followup: bool = False, ephemeral: bool = False):
+        """
+        Post the message (or edit if it is an existing message) to the channel that invoked the command.
+        
+        Arguments
+        ---
+        interaction: The Discord interaction that originated from the command.
+        followup: Whether the posted message should be a followup to the invoked command.
+        ephemeral: Whether the posted message should be ephemeral.
+        
+        Returns
+        ---
+        A `dict` with:
+        - type: The interaction type (button, select)
+        - buttonID: The ID of the button that was clicked. (Only if type is `button`)
+        - selectData: The data from the select. (Only if type is `select`)
+        """
+        self.view = YagooView(self.buttons, self.select)
+        if not self.msg:
+            if followup:
+                self.msg = await interaction.followup.send(embed=self.embed, view=self.view, ephemeral=ephemeral)
+            else:
+                self.msg = await interaction.channel.send(embed=self.embed, view=self.view, ephemeral=ephemeral)
+            self.view.responseData.message = self.msg
         else:
             await self.msg.edit(embed=self.embed, view=self.view)
         while True:
