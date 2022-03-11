@@ -17,20 +17,24 @@ along with Yagoo Bot.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import discord
-from typing import List
+from typing import List, Union
 
 class YagooViewResponse():
     """Used for interaction responses from the user. Should not be called outside of this `view.py`."""
     def __init__(self):
-        self.responseType = None
-        self.buttonID = None
-        self.selectValues = None
+        self.message: Union[discord.Message, discord.WebhookMessage] = None
+        self.responseType: str = None
+        self.buttonID: int = None
+        self.selectValues: list = None
+        self.textValue: str = None
     
     def clear(self):
         """Clears the variables in the view response."""
+        self.message = None
         self.responseType = None
         self.buttonID = None
         self.selectValues = None
+        self.textValue: str = None
 
 class YagooButton(discord.ui.Button):
     """A button used for Yagoo Bot messages. Cannot be used by itself."""
@@ -46,7 +50,9 @@ class YagooButton(discord.ui.Button):
 
 class YagooSelect(discord.ui.Select):
     """A select used for Yagoo Bot messages. Cannot be used by itself."""
-    def __init__(self, id: str, placeholder: str, min_values: int, max_values: int, options: List[discord.SelectOption], row: int):
+    def __init__(self, id: str,
+                 placeholder: str,
+                 min_values: int, max_values: int, options: List[discord.SelectOption], row: int):
         super().__init__(custom_id=id, placeholder=placeholder, min_values=min_values, max_values=max_values, options=options, row=row)
     
     async def callback(self, interaction: discord.Interaction):
@@ -55,6 +61,19 @@ class YagooSelect(discord.ui.Select):
         view.responseData.responseType = "select"
         view.responseData.selectValues = self.values
         await interaction.response.defer()
+
+class YagooTextInput(discord.ui.TextInput):
+    """A text input box used for Yagoo Bot messages. Cannot be used by itself."""
+    def __init__(self, id: str,
+                 label: str,
+                 style: discord.TextStyle,
+                 placeholder: str,
+                 default: str,
+                 required: bool,
+                 min_length: int,
+                 max_length: int,
+                 row: int):
+        super().__init__(custom_id=id, label=label, style=style, placeholder=placeholder, default=default, required=required, min_length=min_length, max_length=max_length, row=row)
 
 class YagooView(discord.ui.View):
     """A view UI used for Yagoo Bot messages. Cannot be used by itself."""
@@ -86,3 +105,18 @@ class YagooView(discord.ui.View):
         
         if select:
             self.add_item(select)
+
+class YagooModal(discord.ui.Modal):
+    """A modal used for Yagoo Bot messages. Cannot be used by itself."""
+    def __init__(self, title: str, text: List[discord.ui.TextInput]):
+        super().__init__(title=title)
+        self.ready = False
+        self.responseData = YagooViewResponse()
+
+        if text:
+            for field in text:
+                self.add_item(field)
+    
+    async def on_submit(self, interaction: discord.Interaction):
+        self.ready = True
+        print(interaction.data)
