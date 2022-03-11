@@ -43,9 +43,9 @@ class YagooMessage():
         self.color: discord.Color = color
         self.view: YagooView = None
         self.modal: YagooModal = None
-        self.buttons: list = []
+        self.buttons: List[YagooButton] = []
         self.select: YagooSelect = None
-        self.textFields: list = []
+        self.textFields: List[YagooTextInput] = []
         self.pageData: list = []
         self.pages: int = 0
         self.currentPage: int = 1

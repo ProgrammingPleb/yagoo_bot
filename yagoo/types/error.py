@@ -24,7 +24,7 @@ class ButtonReserved(Exception):
     ---
     keyword: The button ID that was used.
     """
-    def __init__(self, keyword):
+    def __init__(self, keyword: str):
         super().__init__(f"\"{keyword}\" is a reserved button ID!")
 
 class ButtonNotFound(Exception):
@@ -35,5 +35,5 @@ class ButtonNotFound(Exception):
     ---
     keyword: The button ID that was used.
     """
-    def __init__(self, keyword):
+    def __init__(self, keyword: str):
         super().__init__(f"\"{keyword}\" is not a valid button ID!")
