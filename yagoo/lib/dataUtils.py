@@ -93,7 +93,7 @@ class botdb:
         """
         Returns a `MySQLConnection` object to be used for database queries/modifications.
         """
-        with open("data/settings.yaml") as f:
+        with open("settings.yaml") as f:
             db = (yaml.load(f, Loader=yaml.SafeLoader))["sql"]
         
         return mysql.connector.connect(

@@ -34,7 +34,7 @@ async def streamInfo(channelId: Union[str, int]):
 
     consent = {'CONSENT': 'YES+cb.20210328-17-p0.en+FX+162'}
     async with aiohttp.ClientSession(cookies=consent) as session:
-        with open("data/settings.yaml") as f:
+        with open("settings.yaml") as f:
             settings = yaml.load(f, Loader=yaml.SafeLoader)
 
         if settings["proxy"]:
@@ -93,7 +93,7 @@ async def channelInfo(channelId: Union[str, int], scrape = False, debug: bool = 
     if scrape:
         consent = {'CONSENT': 'YES+cb.20210328-17-p0.en+FX+162'}
         async with aiohttp.ClientSession(cookies=consent) as session:
-            with open("data/settings.yaml") as f:
+            with open("settings.yaml") as f:
                 settings = yaml.load(f, Loader=yaml.SafeLoader)
 
             if settings["proxy"]:
@@ -417,7 +417,7 @@ class FandomScrape():
 
 class TwitterScrape:
     async def getCredentials():
-        with open("data/settings.yaml") as f:
+        with open("settings.yaml") as f:
             settings = yaml.load(f, Loader=yaml.SafeLoader)
 
         return settings["twitter"]

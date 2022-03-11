@@ -41,7 +41,7 @@ from yagoo.types.message import YagooMessage
 
 init = False
 
-with open("data/settings.yaml") as f:
+with open("settings.yaml") as f:
     settings = yaml.load(f, Loader=yaml.SafeLoader)
 
 if settings["logging"] == "info":

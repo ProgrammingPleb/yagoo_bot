@@ -45,7 +45,7 @@ def creatorCheck(ctx):
     return ctx.author.id == 256009740239241216
 
 def userWhitelist(ctx):
-    with open("data/settings.yaml") as f:
+    with open("settings.yaml") as f:
         settings = yaml.load(f, Loader=SafeLoader)
     
     return ctx.author.id in settings["whitelist"]
@@ -343,7 +343,7 @@ async def premiereScrape(ytData):
     return pEvents
 
 async def uplThumbnail(channelID, videoID, live=True):
-    with open("data/settings.yaml") as f:
+    with open("settings.yaml") as f:
         settings = yaml.load(f, Loader=yaml.SafeLoader)
     extServer = rpyc.connect(settings["thumbnailIP"], int(settings["thumbnailPort"]))
     asyncUpl = rpyc.async_(extServer.root.thumbGrab)
