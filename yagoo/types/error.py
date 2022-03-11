@@ -18,22 +18,22 @@ along with Yagoo Bot.  If not, see <http://www.gnu.org/licenses/>.
 
 class ButtonReserved(Exception):
     """
-    Exception used for when a button ID which is reserved is attempted to be used.
+    Exception used for when a button ID which is reserved was attempted to be used.
     
     Arguments
     ---
-    keyword: The button ID that is used.
+    keyword: The button ID that was used.
     """
     def __init__(self, keyword):
         super().__init__(f"\"{keyword}\" is a reserved button ID!")
 
 class ButtonNotFound(Exception):
     """
-    Exception used for when a button ID which is reserved is attempted to be used.
+    Exception used for when a button ID is not found.
     
     Arguments
     ---
-    keyword: The button ID that is used.
+    keyword: The button ID that was used.
     """
     def __init__(self, keyword):
         super().__init__(f"\"{keyword}\" is not a valid button ID!")
