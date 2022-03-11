@@ -20,7 +20,7 @@ import asyncio
 import discord
 from typing import List
 from discord.ext import commands
-from .view import YagooView, YagooButton, YagooSelect
+from .views import YagooModal, YagooTextInput, YagooView, YagooButton, YagooSelect
 from .error import ButtonNotFound, ButtonReserved
 
 class YagooMessage():
@@ -36,17 +36,19 @@ class YagooMessage():
                  description: str = "",
                  image: str = None,
                  color: discord.Color = discord.Color.blurple()) -> None:
-        self.bot = bot
-        self.user = user
-        self.embed = discord.Embed(title=title, description=description, color=color)
-        self.image = image
-        self.color = color
-        self.view = None
-        self.buttons = []
-        self.select = None
-        self.pageData = []
-        self.pages = 0
-        self.currentPage = 1
+        self.bot: commands.Bot = bot
+        self.user: discord.User = user
+        self.embed: discord.Embed = discord.Embed(title=title, description=description, color=color)
+        self.image: str = image
+        self.color: discord.Color = color
+        self.view: YagooView = None
+        self.modal: YagooModal = None
+        self.buttons: list = []
+        self.select: YagooSelect = None
+        self.textFields: list = []
+        self.pageData: list = []
+        self.pages: int = 0
+        self.currentPage: int = 1
         self.msg: discord.Message = None
     
     def addButton(self, row: int = 1,
@@ -100,22 +102,21 @@ class YagooMessage():
     
     def addSelect(self,
                   options: List[dict] = [],
-                  id: str = "select",
+                  select_id: str = "select",
                   placeholder: str = "",
                   min_values: int = 1,
-                  max_values: int = 1,
-                  row: int = 0):
+                  max_values: int = 1):
         """
         Adds a select to the message. Will automatically add a paginator if required.
+        It is advised to leave a row for the paginator. The select will also be added to the first row.
         
         Arguments
         ---
         options: A `list` of `dict`s containing the options for the select.
-        id: The ID of the select.
+        select_id: The ID of the select.
         placeholder: The placeholder text for the select when no options are selected.
         min_values: Minimum amount of options to be selected.
         max_values: Maximum amount of options to be selected.
-        row: The row to add the select to.
         
         Options Format
         ---
@@ -142,10 +143,10 @@ class YagooMessage():
         if singlePage != []:
             self.pageData.append(singlePage)
             self.pages += 1
-        self.select = YagooSelect(id, placeholder, min_values, max_values, self.pageData[0], row)
+        self.select = YagooSelect(select_id, placeholder, min_values, max_values, self.pageData[0], 0)
         
         if self.pages > 1:
-            self.addPaginator(row + 1)
+            self.addPaginator(1)
     
     def editButton(self, button_id: str,
                          label: str = None,
@@ -189,7 +190,7 @@ class YagooMessage():
         self.pages = 1
         self.currentPage = 1
     
-    async def legacypost(self, ctx: commands.Context, ephemeral: bool = False):
+    async def legacyPost(self, ctx: commands.Context, ephemeral: bool = False):
         """
         Post the message (or edit if it is an existing message) to the channel that invoked the command.
         
@@ -264,6 +265,30 @@ class YagooMessage():
                         await self.msg.edit(embed=self.embed, view=self.view)
                         continue
             return self.view.responseData
+    
+    async def postModal(self, interaction: discord.Interaction):
+        """
+        Post the modal to the channel that invoked the command.
+        
+        Arguments
+        ---
+        interaction: The Discord interaction that originated from the command.
+        followup: Whether the posted message should be a followup to the invoked command.
+        ephemeral: Whether the posted message should be ephemeral.
+        
+        Returns
+        ---
+        A `dict` with:
+        - type: The interaction type (button, select)
+        - buttonID: The ID of the button that was clicked. (Only if type is `button`)
+        - selectData: The data from the select. (Only if type is `select`)
+        """
+        self.modal = YagooModal(self.embed.title, self.textFields)
+        await interaction.response.send_modal(self.modal)
+        while True:
+            if self.modal.ready:
+                return self.modal.responseData
+            await asyncio.sleep(0.25)
     
     async def stop(self):
         """
