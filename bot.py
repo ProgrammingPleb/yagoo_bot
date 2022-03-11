@@ -49,6 +49,9 @@ if settings["logging"] == "info":
 elif settings["logging"] == "debug":
     logging.basicConfig(level=logging.DEBUG, handlers=[logging.FileHandler('status.log', 'w', 'utf-8')], format='[%(asctime)s] %(name)s - %(levelname)s - %(message)s')
 
+intents = discord.Intents.default()
+intents.message_content = True
+
 async def determine_prefix(bot: commands.Bot, message: discord.Message):
     db = await botdb.getDB()
     guild = message.guild
@@ -60,11 +63,9 @@ async def determine_prefix(bot: commands.Bot, message: discord.Message):
     else:
         return commands.when_mentioned_or(settings["prefix"])(bot, message)
 
-bot = commands.Bot(command_prefix=determine_prefix, help_command=None)
+bot = commands.Bot(command_prefix=determine_prefix, help_command=None, intents=intents)
 bot.remove_command('help')
-slash = SlashCommand(bot, True)
-if settings["slash"]:
-    bot.add_cog(YagooSlash(bot, slash, settings["prefix"]))
+tree = app_commands.CommandTree(bot)
 
 class updateStatus(commands.Cog):
     def __init__(self, bot):
@@ -88,6 +89,7 @@ class updateStatus(commands.Cog):
 async def on_ready():
     global init
     if not init:
+        await tree.sync(guild=discord.Object(id=751669314196602972))
         guildCount = 0
         for guilds in bot.guilds:
             guildCount += 1
@@ -223,7 +225,7 @@ async def prefix(ctx: commands.Context, *, prefix: str = None):
 
 # POC: Recreation of subscription menu with new message class
 @bot.command()
-async def test(ctx: commands.Context):
+async def testtext(ctx: commands.Context):
     message = YagooMessage(bot, ctx.author,
                            "Subscribing to a VTuber", "Pick the VTuber's affiliation:",
                            color=discord.Color.from_rgb(32, 34, 37))
@@ -235,8 +237,47 @@ async def test(ctx: commands.Context):
     message.addButton(2, "search", "Search for a VTuber")
     message.addButton(2, "all", "Subscribe to all VTubers")
     message.addButton(3, "cancel", "Cancel", style=discord.ButtonStyle.red)
-    response = await message.post(ctx)
+    response = await message.legacyPost(ctx, True)
     print(vars(response))
+    if response.selectValues:
+        await response.message.edit(content=f"You picked the option: `{response.selectValues[0]}`", embed=None, view=None)
+    elif response.buttonID:
+        await response.message.edit(content=f"You picked the button: `{response.buttonID}`", embed=None, view=None)
+    else:
+        await response.message.edit(content="The message timed out!", embed=None, view=None)
+
+# POC: Recreation of subscription menu with new message class
+@tree.command(name="test", description="A test command.")
+async def test(interaction: discord.Interaction):
+    await interaction.response.defer()
+    message = YagooMessage(bot, interaction.user,
+                           "Subscribing to a VTuber", "Pick the VTuber's affiliation:",
+                           color=discord.Color.from_rgb(32, 34, 37))
+    message.embed.add_field(name="Action", value="Pick an entry in the list or use the buttons below for further actions.")
+    selectOptions = []
+    for i in range(1, 100):
+        selectOptions.append({"label": f"Option {i}"})
+    message.addSelect(selectOptions)
+    message.addButton(3, "search", "Search for a VTuber")
+    message.addButton(3, "all", "Subscribe to all VTubers")
+    message.addButton(4, "cancel", "Cancel", style=discord.ButtonStyle.red)
+    response = await message.post(interaction, True, True)
+    print(vars(response))
+    if response.selectValues:
+        await response.message.edit(content=f"You picked the option: `{response.selectValues[0]}`", embed=None, view=None)
+    elif response.buttonID:
+        await response.message.edit(content=f"You picked the button: `{response.buttonID}`", embed=None, view=None)
+    else:
+        await response.message.edit(content="The message timed out!", embed=None, view=None)
+
+@tree.command(name="modaltest1", description="A modal test command.", guild=discord.Object(id=751669314196602972))
+async def modalslash(interaction: discord.Interaction):
+    modal = YagooMessage(bot, interaction.user, "Test Modal", "This is a test modal.")
+    modal.addTextInput(label="Input 1", placeholder="Enter Something Here", id="input1")
+    modal.addTextInput(label="Input 2", placeholder="Enter Something Here Also", id="input2")
+    response = await modal.postModal(interaction)
+    print(vars(response))
+    await interaction.followup.send(content="Done!")
 
 @bot.command()
 @commands.check(creatorCheck)
