@@ -1,12 +1,12 @@
 PyYAML == 6.0
-aiohttp
+aiohttp == 3.7.4.post0
 bs4 == 0.0.1
 html5lib == 1.1
 git+https://github.com/Rapptz/discord.py@aa6fb54 # Alpha version of discord.py
 imgkit == 1.2.2
 requests == 2.27.1
 pytz == 2021.3
-rpyc == 5.0.1
+rpyc == 5.1.0
 dblpy == 0.4.0
-mysql-connector-python == 8.0.27
+mysql-connector-python == 8.0.28
 tweepy[async] == 4.4.0
