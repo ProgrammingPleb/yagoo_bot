@@ -26,7 +26,7 @@ class YagooViewResponse():
         self.responseType: str = None
         self.buttonID: int = None
         self.selectValues: list = None
-        self.textValue: str = None
+        self.textValues: dict = None
     
     def clear(self):
         """Clears the variables in the view response."""
@@ -34,7 +34,7 @@ class YagooViewResponse():
         self.responseType = None
         self.buttonID = None
         self.selectValues = None
-        self.textValue: str = None
+        self.textValues: str = None
 
 class YagooButton(discord.ui.Button):
     """A button used for Yagoo Bot messages. Cannot be used by itself."""
@@ -119,4 +119,7 @@ class YagooModal(discord.ui.Modal):
     
     async def on_submit(self, interaction: discord.Interaction):
         self.ready = True
-        print(interaction.data)
+        self.responseData.textValues = {}
+        for field in interaction.data["components"]:
+            if field["components"][0]["value"]:
+                self.responseData.textValues[field["components"][0]["custom_id"]] = field["components"][0]["value"]

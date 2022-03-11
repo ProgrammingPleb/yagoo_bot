@@ -21,7 +21,7 @@ import discord
 from typing import List
 from discord.ext import commands
 from .views import YagooModal, YagooTextInput, YagooView, YagooButton, YagooSelect
-from .error import ButtonNotFound, ButtonReserved
+from .error import ButtonNotFound, ButtonReserved, RowFull
 
 class YagooMessage():
     """
@@ -148,6 +148,37 @@ class YagooMessage():
         if self.pages > 1:
             self.addPaginator(1)
     
+    def addTextInput(self,
+                     id: str = "text",
+                     label: str = "Label",
+                     style: discord.TextStyle = discord.TextStyle.short,
+                     placeholder: str = "Placeholder Text",
+                     default: str = None,
+                     required: bool = False,
+                     min_length: int = None,
+                     max_length: int = None,
+                     row: int = 0):
+        """
+        Adds a text input to the message.
+        
+        Arguments
+        ---
+        id: The ID of the select.
+        label: The label for the text input box.
+        style: The style of the text input box. (`short` or `long`)
+        placeholder: The placeholder text for the text input when no text is in the input box.
+        default: The default text that will be in the input box.
+        required: Whether an input is required from the user.
+        min_length: Minimum length for the text input.
+        max_length: Maximum amount of options to be selected.
+        row: The row to add the select to.
+        """
+        if self.textFields:
+            for field in self.textFields:
+                if row == field.row:
+                    raise RowFull(field.custom_id, row)
+        self.textFields.append(YagooTextInput(id, label, style, placeholder, default, required, min_length, max_length, row))
+    
     def editButton(self, button_id: str,
                          label: str = None,
                          url: str = None,
@@ -186,6 +217,7 @@ class YagooMessage():
         """
         self.buttons = []
         self.select = None
+        self.textFields = []
         self.pageData = []
         self.pages = 1
         self.currentPage = 1

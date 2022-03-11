@@ -37,3 +37,15 @@ class ButtonNotFound(Exception):
     """
     def __init__(self, keyword: str):
         super().__init__(f"\"{keyword}\" is not a valid button ID!")
+
+class RowFull(Exception):
+    """
+    Exception used for when a modal row is full.
+    
+    Arguments
+    ---
+    keyword: The text input ID that is already taking up the row.
+    rowNumber: The row that is being used.
+    """
+    def __init__(self, keyword: str, rowNumber: int):
+        super().__init__(f"\"{keyword}\" is already using row {rowNumber}!")
