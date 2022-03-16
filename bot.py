@@ -38,6 +38,7 @@ from yagoo.cogs.twtCycle import twtCycle
 from yagoo.lib.botUtils import getRoles, subPerms, creatorCheck, userWhitelist
 from yagoo.lib.dataUtils import refreshWebhook, botdb, dbTools
 from yagoo.types.message import YagooMessage
+from yagoo.types.views import YagooSelectOption
 
 init = False
 
@@ -232,7 +233,7 @@ async def testtext(ctx: commands.Context):
     message.embed.add_field(name="Action", value="Pick an entry in the list or use the buttons below for further actions.")
     selectOptions = []
     for i in range(1, 100):
-        selectOptions.append({"label": f"Option {i}"})
+        selectOptions.append(YagooSelectOption(str(i)))
     message.addSelect(selectOptions)
     message.addButton(2, "search", "Search for a VTuber")
     message.addButton(2, "all", "Subscribe to all VTubers")
@@ -256,7 +257,7 @@ async def test(interaction: discord.Interaction):
     message.embed.add_field(name="Action", value="Pick an entry in the list or use the buttons below for further actions.")
     selectOptions = []
     for i in range(1, 100):
-        selectOptions.append({"label": f"Option {i}"})
+        selectOptions.append(YagooSelectOption(str(i)))
     message.addSelect(selectOptions)
     message.addButton(3, "search", "Search for a VTuber")
     message.addButton(3, "all", "Subscribe to all VTubers")

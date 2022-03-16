@@ -101,8 +101,7 @@ class YagooMessage():
             self.buttons.append(YagooButton("next", "➡️", None, discord.ButtonStyle.blurple, True, 1))
     
     def addSelect(self,
-                  options: List[dict] = [],
-                  select_id: str = "select",
+                  options: List[YagooSelectOption] = [],
                   placeholder: str = "",
                   min_values: int = 1,
                   max_values: int = 1):
@@ -112,30 +111,15 @@ class YagooMessage():
         
         Arguments
         ---
-        options: A `list` of `dict`s containing the options for the select.
+        options: A `list` of `YagooSelectOption` containing the options for the select.
         select_id: The ID of the select.
         placeholder: The placeholder text for the select when no options are selected.
         min_values: Minimum amount of options to be selected.
         max_values: Maximum amount of options to be selected.
-        
-        Options Format
-        ---
-        label: The label that is displayed to the users.
-        value: The value that is returned when the option is selected. (Optional)
         """
-        def lengthCheck(string: str):
-            """Checks the string length if it's above 100 characters."""
-            if len(string) > 100:
-                return f"{string[0:97]}..."
-            return string
-        
         singlePage = []
         for option in options:
-            if "value" in option:
-                optObject = discord.SelectOption(label=lengthCheck(option["label"]), value=option["value"])
-            else:
-                optObject = discord.SelectOption(label=lengthCheck(option["label"]), value=option["label"])
-            singlePage.append(optObject)
+            singlePage.append(option)
             if len(singlePage) == 25:
                 self.pageData.append(singlePage)
                 self.pages += 1
@@ -143,7 +127,7 @@ class YagooMessage():
         if singlePage != []:
             self.pageData.append(singlePage)
             self.pages += 1
-        self.select = YagooSelect(select_id, placeholder, min_values, max_values, self.pageData[0], 0)
+        self.select = YagooSelect(placeholder, min_values, max_values, self.pageData[0], 0)
         
         if self.pages > 1:
             self.addPaginator(1)

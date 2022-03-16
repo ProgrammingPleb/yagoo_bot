@@ -17,7 +17,8 @@ along with Yagoo Bot.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import discord
-from typing import List, Union
+from typing import List, Union, Optional
+from yagoo.types.error import ValueTooLong
 
 class YagooViewResponse():
     """Used for interaction responses from the user. Should not be called outside of this `view.py`."""
@@ -50,10 +51,9 @@ class YagooButton(discord.ui.Button):
 
 class YagooSelect(discord.ui.Select):
     """A select used for Yagoo Bot messages. Cannot be used by itself."""
-    def __init__(self, id: str,
-                 placeholder: str,
+    def __init__(self, placeholder: str,
                  min_values: int, max_values: int, options: List[discord.SelectOption], row: int):
-        super().__init__(custom_id=id, placeholder=placeholder, min_values=min_values, max_values=max_values, options=options, row=row)
+        super().__init__(placeholder=placeholder, min_values=min_values, max_values=max_values, options=options, row=row)
     
     async def callback(self, interaction: discord.Interaction):
         assert self.view is not None
@@ -61,6 +61,23 @@ class YagooSelect(discord.ui.Select):
         view.responseData.responseType = "select"
         view.responseData.selectValues = self.values
         await interaction.response.defer()
+
+class YagooSelectOption(discord.SelectOption):
+    def __init__(self,
+                 label: str,
+                 value: Optional[str] = None,
+                 description: Optional[str] = None,
+                 default: Optional[bool] = False):
+        if len(label) > 100:
+            label = f"{label[0:97]}..."
+        
+        if not value:
+            value = label.lower()
+        
+        if len(value) > 100:
+            raise ValueTooLong(value)
+        
+        super().__init__(label=label, value=value, description=description, default=default)
 
 class YagooTextInput(discord.ui.TextInput):
     """A text input box used for Yagoo Bot messages. Cannot be used by itself."""
