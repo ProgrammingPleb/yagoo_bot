@@ -241,9 +241,9 @@ class YagooMessage():
         self.view = YagooView(self.buttons, self.select)
         if not self.msg:
             self.msg = await ctx.send(embed=self.embed, view=self.view)
-            self.view.responseData.message = self.msg
         else:
             await self.msg.edit(embed=self.embed, view=self.view)
+        self.view.responseData.message = self.msg
         while True:
             response = await self.wait_for_response()
             if response:
@@ -281,9 +281,9 @@ class YagooMessage():
                 self.msg = await interaction.followup.send(embed=self.embed, view=self.view, ephemeral=ephemeral)
             else:
                 self.msg = await interaction.channel.send(embed=self.embed, view=self.view, ephemeral=ephemeral)
-            self.view.responseData.message = self.msg
         else:
             await self.msg.edit(embed=self.embed, view=self.view)
+        self.view.responseData.message = self.msg
         while True:
             response = await self.wait_for_response()
             if response:
