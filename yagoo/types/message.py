@@ -228,7 +228,7 @@ class YagooMessage():
         if not self.msg:
             self.msg = await ctx.send(embed=self.embed, view=self.view)
         else:
-            await self.msg.edit(embed=self.embed, view=self.view)
+            self.msg = await self.msg.edit(content=None, embed=self.embed, view=self.view)
         self.view.responseData.message = self.msg
         while True:
             response = await self.wait_for_response()
@@ -240,7 +240,7 @@ class YagooMessage():
                         elif self.view.responseData.buttonID == "prev":
                             self.paginatorUpdate(False)
                         self.view.responseData.clear()
-                        await self.msg.edit(embed=self.embed, view=self.view)
+                        self.msg = await self.msg.edit(content=None, embed=self.embed, view=self.view)
                         continue
             return self.view.responseData
     
@@ -268,7 +268,7 @@ class YagooMessage():
             else:
                 self.msg = await interaction.channel.send(embed=self.embed, view=self.view, ephemeral=ephemeral)
         else:
-            await self.msg.edit(embed=self.embed, view=self.view)
+            self.msg = await self.msg.edit(content=None, embed=self.embed, view=self.view)
         self.view.responseData.message = self.msg
         while True:
             response = await self.wait_for_response()
@@ -280,7 +280,7 @@ class YagooMessage():
                         elif self.view.responseData.buttonID == "prev":
                             self.paginatorUpdate(False)
                         self.view.responseData.clear()
-                        await self.msg.edit(embed=self.embed, view=self.view)
+                        self.msg = await self.msg.edit(content=None, embed=self.embed, view=self.view)
                         continue
             return self.view.responseData
     
@@ -312,7 +312,7 @@ class YagooMessage():
         """
         Stops receiving any input from the components in the message. Cannot be undone.
         """
-        await self.msg.edit(view=None)
+        self.msg = await self.msg.edit(view=None)
         self.view.stop()
     
     # Internal functions start here
