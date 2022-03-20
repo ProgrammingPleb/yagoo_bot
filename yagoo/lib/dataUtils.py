@@ -22,25 +22,7 @@ import mysql.connector
 from typing import Union
 from discord.ext import commands
 
-# DEPRECATE: Deprecate the use of getWebhook in place of dbTools.serverGrab
-async def _getWebhook(bot: commands.Bot, cserver: str, cchannel: str, db: mysql.connector.MySQLConnection):
-    if db is not None:
-        db = await botdb.getDB()
-    
-    server = await botdb.getData(cchannel, "channel", "url", "servers", db)
-    
-    if server is None:
-        channel = await bot.get_channel(int(cchannel))
-        with open("yagoo.jpg", "rb") as image:
-            webhook = await channel.create_webhook(name="Yagoo", avatar=image.read())
-        whurl = webhook.url
-        await botdb.addData((cserver, cchannel, whurl), ("server", "channel", "url"), "servers", db)
-    else:
-        whurl = server["url"]
-
-    return whurl
-
-async def refreshWebhook(bot: commands.Bot, server: discord.Guild, channel: discord.TextChannel, db: mysql.connector.CMySQLConnection = None):
+async def refreshWebhook(bot: commands.Bot, server: discord.Guild, channel: discord.TextChannel, db: mysql.connector.MySQLConnection = None):
     if not db:
         db = await botdb.getDB()
 
