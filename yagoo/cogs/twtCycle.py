@@ -77,13 +77,14 @@ async def twtSubscribe(bot):
                 twtUsers.append(account["twtID"])
 
     twtCred = await TwitterScrape.getCredentials()
-    stream = twtPost(bot, twtCred["apiKey"], twtCred["apiSecret"], twtCred["accessKey"], twtCred["accessSecret"])
+    stream = twtPost(bot, db, twtCred["apiKey"], twtCred["apiSecret"], twtCred["accessKey"], twtCred["accessSecret"])
     await stream.filter(follow=twtUsers)
 
 class twtPost(AsyncStream):
-    def __init__(self, bot, *args, **kwargs):
+    def __init__(self, bot, db, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.bot = bot
+        self.db = db
 
     async def on_connect(self):
         logging.info("Twitter - Connected to Twitter Tweets stream!")
@@ -94,9 +95,7 @@ class twtPost(AsyncStream):
         # Retweeted Tweet - tweet.retweeted_status (Tweet Object), Quote Retweet - tweet.is_quote_status (boolean), Quoted Tweet - tweet.quoted_status (Tweet Object)
         # Like - tweet.favorited (boolean)
         # Wrap the url in "<>" to ensure no embeds are loaded (Which is probably not going to be used as we cannot send two embeds in one message)
-        
-        db = await botdb.getDB()
-        channels = await botdb.getAllData("servers", ("server", "channel", "twitter", "custom"), keyDict="channel", db=db)
+        channels = await botdb.getAllData("servers", ("server", "channel", "twitter", "custom"), keyDict="channel", db=self.db)
 
         if tweet.is_quote_status:
             twtString = f'@{tweet.user.screen_name} just retweeted @{tweet.quoted_status.user.screen_name}\'s tweet: https://twitter.com/{tweet.user.screen_name}/status/{tweet.id_str}\n'\
@@ -129,10 +128,10 @@ class twtPost(AsyncStream):
             custom = await botdb.listConvert(channels[channel]["custom"])
             if twitter:
                 if tweet.user.id_str in twitter:
-                    queue.append(postTweet(channels[channel]["server"], channel, db))
+                    queue.append(postTweet(channels[channel]["server"], channel, self.db))
             if custom:
                 if tweet.user.id_str in custom:
-                    queue.append(postTweet(channels[channel]["server"], channel, db))
+                    queue.append(postTweet(channels[channel]["server"], channel, self.db))
         await asyncio.gather(*queue)
 
     async def on_error(self, status):
