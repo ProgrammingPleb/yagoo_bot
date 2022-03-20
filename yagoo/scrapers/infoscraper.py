@@ -181,7 +181,7 @@ class FandomScrape():
         chNSplit = chName.split()
 
         async with aiohttp.ClientSession() as session:
-            async with session.get(f'https://virtualyoutuber.fandom.com/api.php?action=opensearch&format=json&search={chName}') as r:
+            async with session.get(f'https://virtualyoutuber.fandom.com/api.php?action=opensearch&format=json&search={urllib.parse.quote(chName)}') as r:
                 resp = await r.json()
                 chLink = None
                 nameList = []
@@ -218,7 +218,7 @@ class FandomScrape():
 
     async def getChannel(chLink, dataKey = "infobox", scope = 4):
         async with aiohttp.ClientSession() as session:
-            async with session.get(f'https://virtualyoutuber.fandom.com/api.php?action=parse&format=json&page={chLink.split("/")[0]}') as r:
+            async with session.get(f'https://virtualyoutuber.fandom.com/api.php?action=parse&format=json&page={urllib.parse.quote(chLink.split("/")[0])}') as r:
                 resp = await r.json()
                 if dataKey == "text":
                     dataSource = (resp["parse"]["text"]["*"])
@@ -276,10 +276,10 @@ class FandomScrape():
         channelID = None
 
         async with aiohttp.ClientSession() as session:
-            async with session.get(f'https://virtualyoutuber.fandom.com/api.php?action=parse&format=json&page={chLink.split("/")[0]}') as r:
+            async with session.get(f'https://virtualyoutuber.fandom.com/api.php?action=parse&format=json&page={urllib.parse.quote(chLink.split("/")[0])}') as r:
                 resp = await r.json()
                 for url in resp["parse"]["externallinks"]:
-                    if "https://www.youtube.com/channel/" in url and channelID is None:
+                    if "https://www.youtube.com/channel/" in url.lower() and channelID is None:
                         for part in url.split("/"):
                             if 23 <= len(part) <= 25:
                                 if part[0] == "U":
