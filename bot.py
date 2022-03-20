@@ -100,14 +100,19 @@ async def on_guild_remove(server):
     logging.info(f'Got removed from a server, cleaning up server data for: {str(server)}')
     await botdb.deleteRow(str(server), "server", "servers")
 
-@bot.command(alias=['h'])
-async def help(ctx): # pylint: disable=redefined-builtin
+@bot.command(alias=['help'])
+async def helptext(ctx: commands.Context): # pylint: disable=redefined-builtin
     db = await botdb.getDB()
     if await botdb.checkIfExists(str(ctx.guild.id), "server", "prefixes", db):
         prefix = (await botdb.getData(str(ctx.guild.id), "server", ("prefix",), "prefixes", db))["prefix"]
     else:
         prefix = settings["prefix"]
     await ctx.send(embed=await botHelp(prefix))
+
+@bot.tree.command(name="help", description="List all commands under Yagoo bot")
+@app_commands.guilds(751669314196602972)
+async def helpslash(interaction: discord.Interaction): # pylint: disable=redefined-builtin
+    await interaction.response.send_message(embed=await botHelp("/"), ephemeral=True)
 
 @bot.command(aliases=['sub'])
 @commands.check(subPerms)
