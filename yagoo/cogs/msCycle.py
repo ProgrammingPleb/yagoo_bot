@@ -24,8 +24,8 @@ import imgkit
 import discord
 import traceback
 import concurrent.futures
-from ..lib.dataUtils import botdb
 from discord.ext import commands, tasks
+from yagoo.lib.dataUtils import botdb
 
 async def milestoneCheck():
     db = await botdb.getDB()

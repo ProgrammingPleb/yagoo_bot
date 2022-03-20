@@ -24,10 +24,11 @@ import sys
 import logging
 import yaml
 import tweepy
+import urllib.parse
 from bs4 import BeautifulSoup
 from typing import Union
-from ..lib.botUtils import formatMilestone, premiereScrape
-from ..lib.dataUtils import botdb
+from yagoo.lib.botUtils import formatMilestone, premiereScrape
+from yagoo.lib.dataUtils import botdb
 
 async def streamInfo(channelId: Union[str, int]):
     output = None

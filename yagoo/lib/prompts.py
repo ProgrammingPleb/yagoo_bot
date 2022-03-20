@@ -29,6 +29,9 @@ from discord_slash.model import ButtonStyle
 from discord_slash.utils.manage_components import create_actionrow, create_button, create_select, create_select_option, wait_for_component
 from yagoo.lib.botVars import allSubTypes
 from yagoo.lib.dataUtils import botdb
+from yagoo.types.data import CategorySubscriptionResponse, ChannelSearchResponse, SubscriptionData, SubscriptionResponse
+from yagoo.types.message import YagooMessage
+from yagoo.types.views import YagooSelectOption, YagooViewResponse
 
 async def botError(ctx: commands.Context, error):
     errEmbed = discord.Embed(title="An error has occurred!", color=discord.Colour.red())

@@ -30,8 +30,8 @@ from discord_slash.context import SlashContext
 from itertools import islice
 from typing import Union
 from yaml.loader import SafeLoader
-from .prompts import searchConfirm, searchPrompt
-from .dataUtils import botdb
+from yagoo.lib.prompts import searchConfirm, searchPrompt
+from yagoo.lib.dataUtils import botdb
 
 def round_down(num, divisor):
     return num - (num%divisor)

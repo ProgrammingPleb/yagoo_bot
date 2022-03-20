@@ -20,11 +20,9 @@ import discord
 import asyncio
 from typing import Union
 from discord.ext import commands
-from discord_slash.context import SlashContext
-from ..scrapers.infoscraper import FandomScrape, TwitterScrape
-from ..lib.botUtils import TwitterUtils, embedContinue, getRoles, msgDelete, fandomTextParse, vtuberSearch
-from ..lib.dataUtils import botdb, dbTools
-from ..lib.prompts import TwitterPrompts, generalPrompts, rolePrompts
+from yagoo.scrapers.infoscraper import FandomScrape, TwitterScrape
+from yagoo.lib.botUtils import TwitterUtils, embedContinue, getRoles, msgDelete, fandomTextParse, vtuberSearch
+from yagoo.lib.dataUtils import botdb, dbTools
 
 async def botHelp(prefix: str):
     hembed = discord.Embed(title="Yagoo Bot Commands")

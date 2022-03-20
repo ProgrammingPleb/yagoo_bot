@@ -20,12 +20,12 @@ import asyncio
 import aiohttp
 import logging
 import traceback
+from discord import Webhook
+from discord.ext import commands, tasks
 import concurrent.futures
 from tweepy.errors import NotFound
 from tweepy.asynchronous import AsyncStream
-from ..scrapers.infoscraper import TwitterScrape
-from discord.ext import commands, tasks
-from discord import AsyncWebhookAdapter, Webhook
+from yagoo.scrapers.infoscraper import TwitterScrape
 from yagoo.lib.dataUtils import botdb, dbTools
 
 async def twtUpdater():

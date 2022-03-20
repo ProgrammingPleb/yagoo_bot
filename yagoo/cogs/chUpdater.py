@@ -19,7 +19,7 @@ along with Yagoo Bot.  If not, see <http://www.gnu.org/licenses/>.
 import logging
 import traceback
 from discord.ext import commands, tasks
-from ..lib.dataUtils import botdb
+from yagoo.lib.dataUtils import botdb
 
 async def channelUpdate():
     db = await botdb.getDB()

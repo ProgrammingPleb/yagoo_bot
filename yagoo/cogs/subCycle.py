@@ -24,7 +24,7 @@ import discord
 import logging
 from discord import Webhook, AsyncWebhookAdapter
 from discord.ext import commands, tasks
-from ..lib.dataUtils import botdb
+from yagoo.lib.dataUtils import botdb
 
 async def streamNotify():
     db = await botdb.getDB()
