@@ -49,3 +49,15 @@ class RowFull(Exception):
     """
     def __init__(self, keyword: str, rowNumber: int):
         super().__init__(f"\"{keyword}\" is already using row {rowNumber}!")
+
+class ValueTooLong(ValueError):
+    """
+    Exception used for when a select value is too long.
+    
+    Arguments
+    ---
+    value: The select value that is being used.
+    """
+    def __init__(self, value: str):
+        super().__init__(f"The value \"{value}\" is longer than 100 characters!"
+                         f" (Value length: {len(value)})")
