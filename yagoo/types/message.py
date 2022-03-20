@@ -209,14 +209,13 @@ class YagooMessage():
         self.pages = 0
         self.currentPage = 1
     
-    async def legacyPost(self, ctx: commands.Context, ephemeral: bool = False):
+    async def legacyPost(self, ctx: commands.Context):
         """
         Post the message (or edit if it is an existing message) to the channel that invoked the command.
         
         Arguments
         ---
-        interaction: The context that originated from the command.
-        ephemeral: Whether the posted message should be ephemeral.
+        ctx: The context that originated from the command.
         
         Returns
         ---
