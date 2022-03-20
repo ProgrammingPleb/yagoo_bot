@@ -20,7 +20,7 @@ import asyncio
 import discord
 from typing import List
 from discord.ext import commands
-from .views import YagooModal, YagooTextInput, YagooView, YagooButton, YagooSelect
+from .views import YagooModal, YagooSelectOption, YagooTextInput, YagooView, YagooButton, YagooSelect
 from .error import ButtonNotFound, ButtonReserved, RowFull
 
 class YagooMessage():
@@ -131,6 +131,9 @@ class YagooMessage():
         
         if self.pages > 1:
             self.addPaginator(1)
+        else:
+            if len(self.select.options) < max_values:
+                self.select.max_values = len(self.select.options)
     
     def addTextInput(self,
                      id: str = "text",
@@ -350,4 +353,8 @@ class YagooMessage():
         self.editButton("pageid", label=f"Page {self.currentPage}/{self.pages}")
         
         self.select.options = self.pageData[self.currentPage - 1]
+        if self.select.absoluteMax < len(self.select.options):
+            self.select.max_values = self.select.absoluteMax
+        elif self.select.absoluteMax >= len(self.select.options):
+            self.select.max_values = len(self.select.options)
         self.view.rebuild(self.buttons, self.select)

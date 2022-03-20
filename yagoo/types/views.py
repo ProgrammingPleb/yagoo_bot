@@ -54,6 +54,7 @@ class YagooSelect(discord.ui.Select):
     def __init__(self, placeholder: str,
                  min_values: int, max_values: int, options: List[discord.SelectOption], row: int):
         super().__init__(placeholder=placeholder, min_values=min_values, max_values=max_values, options=options, row=row)
+        self.absoluteMax = max_values
     
     async def callback(self, interaction: discord.Interaction):
         assert self.view is not None
