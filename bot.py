@@ -23,10 +23,7 @@ import yaml
 import logging
 import sys
 import os
-from discord_slash import SlashCommand
-from discord_slash.model import ButtonStyle
-from discord_slash.context import ComponentContext
-from discord_slash.utils.manage_components import create_actionrow, create_button, wait_for_component
+from discord import app_commands
 from discord.ext import commands, tasks
 from yagoo.scrapers.infoscraper import channelInfo
 from yagoo.cogs.chUpdater import chCycle
@@ -66,7 +63,6 @@ async def determine_prefix(bot: commands.Bot, message: discord.Message):
 
 bot = commands.Bot(command_prefix=determine_prefix, help_command=None, intents=intents)
 bot.remove_command('help')
-tree = app_commands.CommandTree(bot)
 
 class updateStatus(commands.Cog):
     def __init__(self, bot):
@@ -90,28 +86,11 @@ class updateStatus(commands.Cog):
 async def on_ready():
     global init
     if not init:
-        await tree.sync(guild=discord.Object(id=751669314196602972))
+        await bot.tree.sync(guild=discord.Object(id=751669314196602972))
         guildCount = 0
         for guilds in bot.guilds:
             guildCount += 1
-        if os.path.exists("ext/commands/custom.py"):
-            from yagoo.commands.custom import customCommands
-            bot.add_cog(customCommands(bot))
-            print("Loaded custom commands!")
         print(f"Yagoo Bot now streaming in {guildCount} servers!")
-        if settings["dblPublish"]:
-            bot.add_cog(guildUpdate(bot, settings["dblToken"]))
-        if settings["channel"]:
-            bot.add_cog(chCycle(bot))
-        if settings["twitter"]["enabled"]:
-            bot.add_cog(twtCycle(bot))
-        if settings["notify"]:
-            bot.add_cog(StreamCycle(bot))
-        if settings["premiere"]:
-            bot.add_cog(PremiereCycle(bot))
-        if settings["milestone"]:
-            bot.add_cog(msCycle(bot))
-        bot.add_cog(updateStatus(bot))
         init = True
     else:
         print("Reconnected to Discord!")
@@ -400,4 +379,24 @@ async def guildCount(ctx):
     
     await ctx.send(f"Yagoo Bot is now live in {totalGuilds} servers!")
 
+async def setup_hook():
+    if os.path.exists("yagoo/commands/custom.py"):
+        from yagoo.commands.custom import customCommands
+        await bot.add_cog(customCommands(bot, settings))
+        print("Loaded custom commands!")
+    if settings["dblPublish"]:
+        await bot.add_cog(guildUpdate(bot, settings["dblToken"]))
+    if settings["channel"]:
+        await bot.add_cog(chCycle(bot))
+    if settings["twitter"]["enabled"]:
+        await bot.add_cog(twtCycle(bot))
+    if settings["notify"]:
+        await bot.add_cog(StreamCycle(bot))
+    if settings["premiere"]:
+        await bot.add_cog(PremiereCycle(bot))
+    if settings["milestone"]:
+        await bot.add_cog(msCycle(bot))
+    #await bot.add_cog(updateStatus(bot))
+
+bot.setup_hook = setup_hook
 bot.run(settings["token"])
