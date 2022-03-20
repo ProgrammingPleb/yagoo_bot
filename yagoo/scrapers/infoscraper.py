@@ -27,6 +27,7 @@ import tweepy
 import urllib.parse
 from bs4 import BeautifulSoup
 from typing import Union
+from yagoo.types.data import ChannelSearchResponse, FandomChannel
 from yagoo.lib.botUtils import formatMilestone, premiereScrape
 from yagoo.lib.dataUtils import botdb
 
@@ -174,17 +175,14 @@ class FandomScrape():
         
         Returns
         ---
-        A `dict` with:
-        - status: `Success` if a match was found, `Cannot Match` if silent is `False` and no match was found.
-        - name: The wiki page name associated with the name of the channel.
-        - results: A list of search results from the wiki.
+        `ChannelSearchResponse`
         """
         chNSplit = chName.split()
 
         async with aiohttp.ClientSession() as session:
             async with session.get(f'https://virtualyoutuber.fandom.com/api.php?action=opensearch&format=json&search={urllib.parse.quote(chName)}') as r:
                 resp = await r.json()
-                chLink = None
+                chLink = ChannelSearchResponse()
                 nameList = []
                 x = 0
                 matched = False
@@ -198,26 +196,19 @@ class FandomScrape():
                     x += 1
                 if not matched:
                     if silent:
-                        logging.debug("Not found! Returning to first entry.")
-                        chLink = {
-                                "status": "Success",
-                                "name": resp[1][0]
-                            }
+                        logging.debug(f"Fandom Scraper: Channel \"{chName}\" not found! Returning to first entry.")
+                        chLink.matched()
+                        chLink.channelName = resp[1][0]
                     else:
-                        chLink = {
-                            "status": "Cannot Match",
-                            "results": nameList
-                        }
+                        chLink.cannotMatch()
+                        chLink.searchResults = nameList
                 else:
-                    chLink = {
-                        "status": "Success",
-                        "name": chRName,
-                        "results": nameList
-                    }
-
+                    chLink.matched()
+                    chLink.channelName = chRName
+                    chLink.searchResults = nameList
         return chLink
 
-    async def getChannel(chLink, dataKey = "infobox", scope = 4):
+    async def getChannel(chLink: str, dataKey: str = "infobox", scope: int = 4):
         async with aiohttp.ClientSession() as session:
             async with session.get(f'https://virtualyoutuber.fandom.com/api.php?action=parse&format=json&page={urllib.parse.quote(chLink.split("/")[0])}') as r:
                 resp = await r.json()
@@ -287,14 +278,9 @@ class FandomScrape():
                                     channelID = part
 
         if channelID is None:
-            return {
-                "success": False
-            }
+            return FandomChannel()
 
-        return {
-            "success": True,
-            "channelID": channelID
-        }
+        return FandomChannel(True, channelID, chLink)
 
     async def getThumbnail(dataText) -> str:
         soup = BeautifulSoup(dataText, "lxml")
@@ -303,7 +289,7 @@ class FandomScrape():
         return imgTag["src"]
 
     async def getAffiliate(chName) -> str:
-        fandomName = (await FandomScrape.searchChannel(chName, True))["name"]
+        fandomName = (await FandomScrape.searchChannel(chName, True)).channelName
         fullPage = await FandomScrape.getChannel(fandomName, dataKey="text")
         try:
             affiliate = BeautifulSoup(fullPage, "lxml").find("div", {"data-source": "affiliation"}).find("a").getText()
@@ -452,7 +438,7 @@ async def channelScrape(query: str):
             "success": False
         }
 
-    dataSource = await FandomScrape.getChannel(await FandomScrape.searchChannel(chInfo["name"], True))
+    dataSource = await FandomScrape.getChannel((await FandomScrape.searchChannel(chInfo["name"], True)).channelName)
 
     result = {
         "success": True,
