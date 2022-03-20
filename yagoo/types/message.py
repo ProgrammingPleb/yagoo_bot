@@ -206,7 +206,7 @@ class YagooMessage():
         self.select = None
         self.textFields = []
         self.pageData = []
-        self.pages = 1
+        self.pages = 0
         self.currentPage = 1
     
     async def legacyPost(self, ctx: commands.Context, ephemeral: bool = False):
