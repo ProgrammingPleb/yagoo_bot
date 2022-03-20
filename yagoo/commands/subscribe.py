@@ -1,75 +1,61 @@
 import discord
 import mysql.connector
 from discord.ext import commands
+from typing import Union, List
+from yagoo.types.data import FandomChannel, SubscriptionData, SubscriptionResponse, YouTubeChannel
+from yagoo.types.message import YagooMessage
 from yagoo.scrapers.infoscraper import FandomScrape, channelInfo
 from yagoo.lib.botUtils import msgDelete
 from yagoo.lib.botVars import allSubTypes
 from yagoo.lib.dataUtils import botdb, dbTools
+from yagoo.lib.prompts import checkCancel, removeMessage, subPrompts
+from yagoo.types.views import YagooViewResponse
 
-async def subCategory(ctx: Union[commands.Context, SlashContext], bot: commands.Bot):
+async def subCategory(cmd: Union[commands.Context, discord.Interaction], bot: commands.Bot):
     """
     Subscription prompt that uses a category and channel based selection.
     
     Arguments
     ---
-    ctx: Context from the executed command.
+    cmd: Context or interaction from the executed command.
     bot: The Discord bot.
     """
     db = await botdb.getDB()
-    listmsg = await ctx.send("Loading channels list...")
+    if isinstance(cmd, commands.Context):
+        message = YagooMessage(bot, cmd.author)
+        message.msg = await cmd.send("Loading channels list...")
+    else:
+        message = YagooMessage(bot, cmd.user)
     
     channels = await botdb.getAllData("channels", ("id", "category"), keyDict="id", db=db)
-    ctgPick = await subPrompts.ctgPicker(ctx, bot, channels, listmsg)
+    ctgPick = await subPrompts.ctgPicker(cmd, channels, message)
     
-    if not ctgPick["status"]:
-        await listmsg.delete()
-        await ctx.message.delete()
+    if checkCancel(ctgPick):
+        await removeMessage(message, cmd)
         return
     
-    server = await dbTools.serverGrab(bot, str(ctx.guild.id), str(ctx.channel.id), ("subDefault", "livestream", "milestone", "premiere", "twitter"), db)
-    if ctgPick["all"]:
-        subResult = await subUtils.subAll(ctx, bot, listmsg, server, str(ctx.channel.id), db)
-        chName = None
-    elif ctgPick["search"]:
-        result = await subUtils.channelSearch(ctx, bot, listmsg)
-        if result["status"]:
-            subResult = await subUtils.subOne(ctx, bot, listmsg, server, str(ctx.channel.id), result["channelID"], result["channelName"], db)
-            chName = result["channelName"]
+    server = await dbTools.serverGrab(bot, str(cmd.guild.id), str(cmd.channel.id), ("subDefault", "livestream", "milestone", "premiere", "twitter"), db)
+    if ctgPick.buttonID == "all":
+        subResult = await subUtils.subAll(cmd, message, server, str(cmd.channel.id), db)
+        subResult.channelNames = ["all VTubers"]
         else:
-            subResult = {
-                "status": False
-            }
+        channels = await botdb.getAllData("channels", ("id", "name"), ctgPick.selectValues[0], "category", keyDict="id", db=db)
+        result = await subPrompts.channelPick.prompt(cmd, message, channels, ctgPick.selectValues[0])
+        if result.status:
+            if result.allInCategory:
+                subResult = await subUtils.subAll(cmd, message, server, str(cmd.channel.id), db, ctgPick.selectValues[0])
+                subResult.channelNames = [f"all {ctgPick.selectValues[0]} VTubers"]
     else:
-        channels = await botdb.getAllData("channels", ("id", "name"), ctgPick["category"], "category", keyDict="id", db=db)
-        result = await subPrompts.channelPick.prompt(ctx, bot, listmsg, channels, ctgPick["category"])
-        if result["status"]:
-            if result["other"]:
-                subResult = await subUtils.subAll(ctx, bot, listmsg, server, str(ctx.channel.id), db, ctgPick["category"])
-                chName = f"all {ctgPick['category']} VTubers"
-            elif result["search"]:
-                result = await subUtils.channelSearch(ctx, bot, listmsg)
-                if result["status"]:
-                    subResult = await subUtils.subOne(ctx, bot, listmsg, server, str(ctx.channel.id), result["channelID"], result["channelName"], db)
-                    chName = result["channelName"]
+                subResult = await subUtils.subOne(cmd, message, server, str(cmd.channel.id), result.channels, db)
                 else:
-                    subResult = {
-                        "status": False
-                    }
-            else:
-                subResult = await subUtils.subOne(ctx, bot, listmsg, server, str(ctx.channel.id), result["item"]["id"], result["item"]["name"], db)
-                chName = subResult["name"]
-        else:
-            subResult = {
-                "status": False
-            }
-    if subResult["status"]:
-        await subPrompts.displaySubbed(listmsg, ctgPick["all"], ctgPick["category"], subResult["subbed"], chName)
-        await msgDelete(ctx)
+            subResult = SubscriptionResponse(False)
+    if subResult.status:
+        await subPrompts.displaySubbed(message, subResult)
+        await removeMessage(cmd=cmd)
         return
-    await listmsg.delete()
-    await msgDelete(ctx)
+    await removeMessage(message, cmd)
 
-async def subCustom(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, search: str):
+async def subCustom(cmd: Union[commands.Context, discord.Interaction], bot: commands.Bot, search: str):
     """
     Subscribes to a VTuber with the channel name provided to the user.
     
@@ -80,18 +66,21 @@ async def subCustom(ctx: Union[commands.Context, SlashContext], bot: commands.Bo
     search: The name of the channel to search for.
     """
     db = await botdb.getDB()
-    searchMsg = await ctx.send("Loading channels list...")
+    if isinstance(cmd, commands.Context):
+        message = YagooMessage(bot, cmd.author)
+        message.msg = await cmd.send("Loading channels list...")
+    else:
+        message = YagooMessage(bot, cmd.user)
     
-    result = await subUtils.channelSearch(ctx, bot, searchMsg, search)
-    if result["status"]:
-        server = await dbTools.serverGrab(bot, str(ctx.guild.id), str(ctx.channel.id), tuple(["subDefault"] +  allSubTypes(False)), db)
-        subResult = await subUtils.subOne(ctx, bot, searchMsg, server, str(ctx.channel.id), result["channelID"], result["channelName"], db)
-        if subResult["status"]:
-            await subPrompts.displaySubbed(searchMsg, False, None, subResult["subbed"], subResult["name"])
-            await msgDelete(ctx)
+    result = await subUtils.channelSearch(cmd, message, search)
+    if result.success:
+        server = await dbTools.serverGrab(bot, str(cmd.guild.id), str(cmd.channel.id), tuple(["subDefault"] +  allSubTypes(False)), db)
+        subResult = await subUtils.subOne(cmd, message, server, str(cmd.channel.id), [YouTubeChannel(result.channelID, result.channelName)], db)
+        if subResult.status:
+            await subPrompts.displaySubbed(message, subResult)
+            await removeMessage(cmd=cmd)
             return
-    await searchMsg.delete()
-    await msgDelete(ctx)
+    await removeMessage(cmd=cmd)
 
 async def unsubChannel(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, channel: str = None):
     """
@@ -285,16 +274,16 @@ class subUtils:
         
         return chData
     
-    async def channelSearch(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, msg: discord.Message, channel: str = None, action: str = "subscribe"):
+    async def channelSearch(cmd: Union[commands.Context, discord.Interaction], message: YagooMessage, channel: str, action: str = "subscribe"):
         """
         Searches for a channel with input from the user.
         
         Arguments
         ---
-        ctx: Context from the executed command.
-        bot: The Discord bot.
-        msg: The message that will be used for the prompt.
+        ctx: Context or interaction from the invoked command.
+        message: The message that will be used for the prompt.
         channel: The name of the channel if already provided by the user.
+        action: The action that is currently is being done with this search.
         
         Result
         ---
@@ -303,108 +292,90 @@ class subUtils:
         - channelID: The channel ID of the VTuber channel.
         - channelName: The name of the channel.
         """
-        if channel is None:
-            result = await generalPrompts.cancel(ctx, bot, msg, "Searching for a VTuber", "Enter the name of the VTuber you want to search for.")
-        else:
-            result = {
-                "status": True,
-                "res": channel
-            }
-        
-        if result["status"]:
-            wikiName = await FandomScrape.searchChannel(result["res"])
+        wikiName = await FandomScrape.searchChannel(channel)
             
             while True:
-                if wikiName["status"] == "Cannot Match":
-                    wikiName = await subPrompts.searchPick(ctx, bot, msg, result["res"], wikiName["results"])
-                    if not wikiName["status"]:
-                        return {
-                            "status": False
-                        }
+            if wikiName.status.cannotMatch:
+                wikiName = await subPrompts.searchPick(cmd, message, channel, wikiName)
 
-                uConfirm = await subPrompts.vtuberConfirm.prompt(ctx, bot, msg, wikiName["name"], action)
-                if uConfirm["status"]:
-                    if uConfirm["action"] == "confirm":
+                if not wikiName.status.matched:
+                    return FandomChannel()
+
+            uConfirm = await subPrompts.vtuberConfirm.prompt(cmd, message, wikiName.channelName, action)
+            if uConfirm.responseType:
+                if uConfirm.buttonID == "confirm":
                         break
+                elif uConfirm.buttonID == "results":
+                    wikiName.cannotMatch()
                     else:
-                        wikiName["status"] = "Cannot Match"
+                    return FandomChannel()
                 else:
-                    return {
-                        "status": False
-                    }
+                return FandomChannel()
             
-            channelId = await FandomScrape.getChannelURL(wikiName["name"])
-            if channelId["success"]:
+        channelData = await FandomScrape.getChannelURL(wikiName.channelName)
+        if channelData.success:
                 db = await botdb.getDB()
-                if not await botdb.checkIfExists(channelId["channelID"], "id", "channels", db):
-                    embed = discord.Embed(title="Getting Channel Data...", description="This channel is new in the database.\nPlease wait while we're getting the channel's info.")
-                    await msg.edit(content=" ", embed=embed, components=[])
-                    chData = await subUtils.addChannel(channelId["channelID"], wikiName["name"], ("id", "name"), db)
+            if not await botdb.checkIfExists(channelData.channelID, "id", "channels", db):
+                message.embed.clear_fields()
+                message.embed.title = "Getting Channel Data..."
+                message.embed.description = "This channel is new in the database.\nPlease wait while we're getting the channel's info."
+                message.msg = await message.msg.edit(content=None, embed=message.embed, view=None)
+                chData = await subUtils.addChannel(channelData.channelID, channelData.channelName, ("id", "name"), db)
                 else:
-                    chData = await botdb.getData(channelId["channelID"], "id", ("id", "name"), "channels", db)
-                return {
-                    "status": True,
-                    "channelID": [chData["id"]],
-                    "channelName": [chData["name"]]
-                }
-        return {
-            "status": False
-        }
+                chData = await botdb.getData(channelData.channelID, "id", ("id", "name"), "channels", db)
+            return FandomChannel(True, chData["id"], chData["name"])
+        return FandomChannel()
     
-    async def subOne(ctx: Union[commands.Context, SlashContext],
-                     bot: commands.Bot,
-                     msg: discord.Message,
+    async def subOne(cmd: commands.Context,
+                     message: YagooMessage,
                      server: dict,
                      channelId: str,
-                     ytChID: list,
-                     chNames: list,
+                     channels: List[YouTubeChannel],
                      db: mysql.connector.MySQLConnection):
         """
         Subscribes to one/multiple channel(s) with the specified channel ID(s).
         
         Arguments
         ---
-        ctx: Context from the executed command.
-        bot: The Discord bot.
+        cmd: Context or interaction from the executed command.
         msg: The message that will be used as a prompt.
         server: The server as a `dict` containing `subDefault` and other subscription types.
         channelId: The channel ID of the current Discord channel.
-        chNames: 
+        channels: A `list` of `YouTubeChannel` of the currently being subscribed channels.
         db: An existing MySQL connection to reduce unnecessary connections.
         
         Returns
         ---
-        A `dict` with:
-        - status: `True` if the subscription command was executed successfully.
-        - subbed: A list containing the subscribed subscription types.
+        An instance of `SubscriptionResponse`
         """
         subDefault = await subUtils.checkDefault(server)
         subbed = []
         
-        if len(chNames) > 1:
+        if len(channels) > 1:
             ytChName = "Multiple Channels"
         else:
-            ytChName = chNames[0]
+            ytChName = channels[0].channelName
         if subDefault == [''] or subDefault is None:
-            result = await subPrompts.subTypes.prompt(ctx, bot, msg, f"Subscribing to {ytChName}",
-                                                      "Pick the notifications to be posted to this channel.\n"
-                                                      "(This prompt can be bypassed by setting a default subscription type "
-                                                      "using the `subDefault` command)")
-            if not result["status"]:
-                return {
-                    "status": False
-                }
+            message.embed.clear_fields()
+            message.embed.title = f"Subscribing to {ytChName}"
+            message.embed.description = "Pick the notifications to be posted to this channel.\n" \
+                                        "(This prompt can be bypassed by setting a default subscription type " \
+                                        "using the `subDefault` command)"
+            result = await subPrompts.subTypes.prompt(cmd, message)
+            if isinstance(result, YagooViewResponse):
+                if not result.responseType:
+                    return SubscriptionResponse(False)
             subDefault = []
-            for subType in result["subTypes"]:
-                if result["subTypes"][subType]:
+            for subType in result.subList:
+                if result.subList[subType]:
                     subDefault.append(subType)
-        for channel in ytChID:
+        for channel in channels:
             for subType in subDefault:
                 stData = await botdb.listConvert(server[subType])
                 if not stData:
                     stData = []
                 if subType == "twitter":
-                    twitter = (await botdb.getData(channel, "id", ("twitter", ), "channels", db))["twitter"]
+                    twitter = (await botdb.getData(channel.channelID, "id", ("twitter", ), "channels", db))["twitter"]
                     if twitter is not None:
                         if twitter not in stData:
                             stData.append(twitter)
@@ -413,34 +384,34 @@ class subUtils:
                             if subType not in subbed:
                                 subbed.append(subType)
                 else:
-                    if channel not in stData:
-                        stData.append(channel)
+                    if channel.channelID not in stData:
+                        stData.append(channel.channelID)
                         server[subType] = await botdb.listConvert(stData)
                         await botdb.addData((channelId, await botdb.listConvert(stData)), ("channel", subType), "servers", db)
                         if subType not in subbed:
                             subbed.append(subType)
-        if len(chNames) <= 5:
-            channels = ""
-            for channel in ytChID:
-                channels += (await botdb.getData(channel, "id", ("name", ), "channels", db))["name"] + ", "
-            channels = channels[:-2]
+        if len(channels) <= 5:
+            channelNames = []
+            for channel in channels:
+                channelNames.append(channel.channelName)
         else:
-            channels = f"{len(chNames)} channels"
-        return {
-            "status": True,
-            "name": channels,
-            "subbed": subbed
-        }
+            channelNames = [f"{len(channels)} channels"]
+        return SubscriptionResponse(True, subbed, channelNames=channelNames)
     
-    async def subAll(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, msg: discord.Message, server: dict, channelId: str, db: mysql.connector.MySQLConnection, category: str = None):
+    async def subAll(cmd: Union[commands.Context, discord.Interaction],
+                     message: YagooMessage,
+                     server: dict,
+                     channelId: str,
+                     db: mysql.connector.MySQLConnection,
+                     category: str = None):
         """
         Subscribes to all channels (in a category if specified, every channel if otherwise).
         
         Arguments
         ---
-        ctx: Context from the executed command.
+        cmd: Context or interaction from the invoked command.
         bot: The Discord bot.
-        msg: The message that will be used for prompts.
+        message: The message that will be used for prompts.
         server: The server as a `dict` containing `subDefault` and other subscription types.
         channelId: The channel ID of the current Discord channel.
         db: An existing MySQL connection to reduce unnecessary connections.
@@ -470,14 +441,18 @@ class subUtils:
         
         if subDefault == [''] or subDefault is None:
             subDefault = []
-            result = await subPrompts.subTypes.prompt(ctx, bot, msg, f"Subscribing to all {category}VTubers",
-                                                      "Pick the notifications to be posted to this channel.\n"
-                                                      "(This prompt can be bypassed by setting a default subscription type "
-                                                      "using the `subDefault` command)")
-            if result:
-                for subType in result["subTypes"]:
-                    if result["subTypes"][subType]:
+            message.embed.clear_fields()
+            message.embed.title = f"Subscribing to all {category}VTubers"
+            message.embed.description = "Pick the notifications to be posted to this channel.\n" \
+                                        "(This prompt can be bypassed by setting a default subscription type " \
+                                        "using the `subDefault` command)"
+            result = await subPrompts.subTypes.prompt(cmd, message)
+            if isinstance(result, SubscriptionData):
+                for subType in result.subList:
+                    if result.subList[subType]:
                         subDefault.append(subType)
+            else:
+                return SubscriptionResponse(False)
         for subType in subDefault:
             serverType = await botdb.listConvert(server[subType])
             if serverType is None:
@@ -487,10 +462,7 @@ class subUtils:
             else:
                 newData = list(set(serverType) | set(twitter))
             await botdb.addData((channelId, await botdb.listConvert(newData)), ("channel", subType), "servers", db)
-        return {
-            "status": True,
-            "subbed": subDefault
-        }
+        return SubscriptionResponse(True, subDefault)
 
 class unsubUtils:
     async def parseToPages(server: dict):

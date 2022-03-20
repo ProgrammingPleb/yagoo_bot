@@ -21,12 +21,8 @@ along with Yagoo Bot.  If not, see <http://www.gnu.org/licenses/>.
 import asyncio
 import traceback
 import discord
-import discord_slash
-from typing import Union
+from typing import Optional, Union, List
 from discord.ext import commands
-from discord_slash.context import ComponentContext, SlashContext
-from discord_slash.model import ButtonStyle
-from discord_slash.utils.manage_components import create_actionrow, create_button, create_select, create_select_option, wait_for_component
 from yagoo.lib.botVars import allSubTypes
 from yagoo.lib.dataUtils import botdb
 from yagoo.types.data import CategorySubscriptionResponse, ChannelSearchResponse, SubscriptionData, SubscriptionResponse
@@ -180,707 +176,36 @@ async def searchConfirm(ctx, bot, sName: str, smsg, embedDesc, accept, decline, 
             }
         await msg.delete()
 
-class generalPrompts:
-    class utils:
-        async def buttonCheck(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, msg: discord.Message):
+def checkCancel(responseData: YagooViewResponse):
             """
-            Wait for a button press from the message provided.
+    Checks if the user wants to cancel the command or check if the user gave any response.
             
             Arguments
             ---
-            ctx: Context from the command executed.
-            bot: The Discord bot.
-            msg: The message that has the buttons.
-            
-            Returns
-            ---
-            The interaction data if a button was pressed within 30 seconds, `False` if otherwise.
+    responseData: The response data from the invoked command.
             """
-            def check(res: discord_slash.ComponentContext):
-                return res.channel.id == ctx.channel.id and res.author.id == ctx.author.id and res.origin_message.id == msg.id
-            
-            try:
-                data = await wait_for_component(bot, msg, check=check, timeout=30.0)
-            except asyncio.TimeoutError:
+    if responseData.responseType:
+        if responseData.buttonID == "cancel":
+            return True
                 return False
-            return data
+    return True
 
-        async def doubleCheck(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, msg: discord.Message, filterRes: list = None):
+async def removeMessage(message: Optional[YagooMessage] = None, cmd: Union[commands.Context, discord.Interaction, None] = None):
             """
-            Checks for both a message or a button interaction from the user.
+    Removes the message resulting from an invoked command or remove the command invocation.
+    Will also remove the command message if a command's context is given.
             
             Arguments
             ---
-            ctx: Context from the executed command.
-            bot: The Discord bot.
-            msg: The Discord message that contains the buttons.
-            filter: A list of allowed responses (if any).
-            
-            Returns
-            ---
-            A Discord message or interaction if either are passed within 30 seconds, or `False` if none.
+    message: The message from the bot.
+    cmd: The command's context.
             """
-            def mCheck(m):
-                if filterRes:
-                    return m.content in filterRes and m.channel.id == ctx.channel.id and m.author.id == ctx.author.id
-                return m.channel.id == ctx.channel.id and m.author.id == ctx.author.id
-            
-            def bCheck(res: discord_slash.ComponentContext):
-                return res.channel.id == ctx.channel.id and res.author.id == ctx.author.id and res.origin_message.id == msg.id
-
-            done, pending = await asyncio.wait([wait_for_component(bot, msg, check=bCheck, timeout=30), bot.wait_for("message", check=mCheck, timeout=30)], return_when=asyncio.FIRST_COMPLETED)
-
-            for future in done:
-                future.exception()
-            
-            for future in pending:
-                future.cancel()
-
-            try:
-                result = done.pop().result()
-            except Exception as e:
-                if isinstance(e, asyncio.TimeoutError):
-                    return False
-                await botError(ctx, "AsyncIO Wait Error")
-            
-            return result
-        
-        async def convertToRows(rows: list):
-            """
-            Converts a list of button rows to be used for the prompts.
-            
-            Arguments
-            ---
-            rows: A list of the button rows.
-            
-            Returns
-            ---
-            A `list` containing a list of buttons converted with `create_actionrow`.
-            """
-            rows = [create_actionrow(*row) for row in rows]
-            return rows
-
-        async def convertToSelect(options: list, minItems: int, maxItems: int):
-            """
-            Converts a list of options to be used for the prompts.
-            
-            Arguments
-            ---
-            options: A list of the options.
-            
-            Returns
-            ---
-            A `list` containing a list of pages with options converted with `create_select`.
-            """
-            result = []
-            temp = []
-            for option in options:
-                if len(temp) == 25:
-                    result.append(create_select([create_select_option(label=item["name"], value=item["id"]) for item in temp], "picker", min_values=minItems, max_values=maxItems))
-                    temp = []
-                temp.append(option)
-            if len(temp) > 0:
-                if maxItems > len(temp):
-                    maxItems = len(temp)
-                result.append(create_select([create_select_option(label=item["name"], value=item["id"]) for item in temp], "picker", min_values=minItems, max_values=maxItems))
-            return result
-    
-    async def cancel(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, msg: discord.Message, title: str, description: str, allowed: list = None):
-        """
-        Creates a prompt with a "Cancel" button.
-        
-        Arguments
-        ---
-        ctx: Context from the executed command.
-        bot: The Discord bot.
-        msg: The Discord message that will be used for the prompt.
-        title: The title of the prompt.
-        description: The content of the prompt.
-        allowed: A list of allowed responses.
-        
-        Returns
-        ---
-        A `dict` with:
-        - status: `True` if there was a response from the user, `False` if the prompt was cancelled or no input was entered in 30 seconds.
-        - res: The response from the user.
-        """
-        embed = discord.Embed(title=title, description=description)
-        await msg.edit(content=" ", embed=embed, components=[create_actionrow(create_button(label="Cancel", style=ButtonStyle.blue, custom_id="cancel"))])
-        
-        result = await generalPrompts.utils.doubleCheck(ctx, bot, msg)
-        
-        if isinstance(result, discord.Message):
-            await result.delete()
-            return {
-                "status": True,
-                "res": result.content
-            }
-        return {
-            "status": False
-        }
-        
-    async def confirm(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, msg: discord.Message, title: str, action: str):
-        """
-        Creates a prompt for confirmation of an action.
-        
-        Arguments
-        ---
-        ctx: Context from the executed command.
-        bot: The Discord bot.
-        msg: Message to be used as the prompt.
-        title: The title of the prompt.
-        action: The action that is to be confirmed by the user.
-        
-        Returns
-        ---
-        A `dict` with:
-        - status: `True` if an "Yes"/"No" was clicked within 30 seconds.
-        - choice: `True` if "Yes" was clicked, `False` if "No" was clicked.
-        """
-        embed = discord.Embed(title=title, description=f"Are you sure you want to {action}?")
-        yesno = [create_actionrow(create_button(style=ButtonStyle.red, label="No"), create_button(style=ButtonStyle.green, label="Yes"))]
-        await msg.edit(content=" ", embed=embed, components=yesno)
-
-        def check(res: ComponentContext):
-            return res.channel.id == ctx.channel.id and res.author.id == ctx.author.id and res.origin_message.id == msg.id
-
-        try:
-            result = await wait_for_component(bot, msg, yesno, check, 30)
-        except asyncio.TimeoutError:
-            return {
-                "status": False,
-                "choice": None
-            }
-        else:
-            if result.component["label"] == "No":
-                return {
-                    "status": True,
-                    "choice": False
-                }
-            if result.component["label"] == "Yes":
-                return {
-                    "status": True,
-                    "choice": True
-                }
-    
-    async def search(query: str):
-        """
-        Prompts the user to pick a search result based on their query.
-        
-        Arguments
-        ---
-        
-        Returns
-        ---
-        """
-        embed = discord.Embed(title="Searching For A Channel", description=f"Search results for {query}")
-        return
-
-class pageNav:
-    class utils:
-        async def pageRow(pages: list, pageNum: int):
-            """
-            Generates a button row for page-based navigation.
-            
-            Arguments
-            ---
-            pages: A `list` containing all pages for the prompt.
-            pageNum: The current page position relative to `pages`.
-            
-            Returns
-            ---
-            A `list` with the page navigation buttons as the first row.
-            """
-            pageButtons = []
-            pageButtons.append([create_button(label=f"Page {pageNum + 1}/{len(pages)}", disabled=True, style=ButtonStyle.grey)])
-            if pageNum == 0:
-                pageButtons[0].insert(0, create_button(custom_id="back", emoji="⬅️", disabled=True, style=ButtonStyle.grey))
-                pageButtons[0].append(create_button(custom_id="next", emoji="➡️", style=ButtonStyle.blue))
-            elif pageNum == (len(pages) - 1):
-                pageButtons[0].insert(0, create_button(custom_id="back", emoji="⬅️", style=ButtonStyle.blue))
-                pageButtons[0].append(create_button(custom_id="next", emoji="➡️", disabled=True, style=ButtonStyle.grey))
-            else:
-                pageButtons[0].insert(0, create_button(custom_id="back", emoji="⬅️", style=ButtonStyle.blue))
-                pageButtons[0].append(create_button(custom_id="next", emoji="➡️", style=ButtonStyle.blue))
-            
-            return pageButtons
-        
-        async def doubleCheck(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, msg: discord.Message, pages: list, pageNum: int):
-            """
-            Checks for both a message or a button interaction from the user.
-            
-            Arguments
-            ---
-            ctx: Context from the executed command.
-            bot: The Discord bot.
-            msg: The Discord message that contains the buttons.
-            pages: A list with the pages of the Discord message.
-            pageNum: The current page position.
-            
-            Returns
-            ---
-            A Discord message or interaction if either are passed within 30 seconds, or `False` if none.
-            """
-            def mCheck(m):
-                return m.content in pages[pageNum]["entries"] and m.channel.id == ctx.channel.id and m.author.id == ctx.author.id
-            
-            def bCheck(res: ComponentContext):
-                return res.channel.id == ctx.channel.id and res.author.id == ctx.author.id and res.origin_message.id == msg.id
-
-            done, pending = await asyncio.wait([wait_for_component(bot, msg, check=bCheck, timeout=30), bot.wait_for("message", check=mCheck, timeout=30)], return_when=asyncio.FIRST_COMPLETED)
-
-            for future in done:
-                future.exception()
-            
-            for future in pending:
-                future.cancel()
-
-            try:
-                result = done.pop().result()
-            except Exception as e:
-                if isinstance(e, asyncio.TimeoutError):
-                    return False
-                await botError(ctx, "AsyncIO Wait Error")
-            
-            return result
-        
-        async def processMsg(msg: discord.Message):
-            """
-            Processes a message to get the user's choice(s).
-            
-            Arguments
-            ---
-            msg: The Discord message containing the response.
-            
-            Returns
-            ---
-            An `int` or a `list` from the user's input.
-            """
-            if "," in msg.content:
-                returnList = []
-                for option in msg.content.split(","):
-                    if option.strip() != "":
-                        returnList.append(int(option))
-                return returnList
-            return int(msg.content)
-        
-        async def processButton(data: discord_slash.ComponentContext, buttons: list, numReturn: list):
-            """
-            Processes the button inputs from the user.
-            
-            Arguments
-            ---
-            data: The Discord interaction correlating to the button press from the user.
-            buttons: A `list` containing the button IDs of the message.
-            numReturn: A `list` containing the responses of their respective button IDs.
-            
-            Returns
-            ---
-            Any object correlating to the linked response of the button ID.
-            """
-            i = 0
-            for x in buttons:
-                if data.component["custom_id"] == x:
-                    return numReturn[i]
-                i += 1
-            raise ValueError("The button ID does not match any key in the buttons ID list!")
-
-    class remove:
-        """
-        A template for a message with an additional "remove all" button.
-        """
-        async def editMsg(bot: commands.Bot,
-                          msg: discord.Message,
-                          pages: list,
-                          removeText: str,
-                          embed: discord.Embed,
-                          pageNum: int,
-                          picker: bool = False,
-                          minItems: int = 1,
-                          maxItems: int = 1):
-            """
-            Edits the prompt with it's corresponding buttons.
-            Should not be used outside of the `pageNav.minimal` class.
-            """
-            pageButtons = []
-            if picker:
-                pageButtons.append([pages[pageNum]])
-            if len(pages) > 1:
-                pageButtons.append((await pageNav.utils.pageRow(pages, pageNum))[0])
-            pageButtons.append([create_button(custom_id="remove", label=removeText, style=ButtonStyle.red), create_button(custom_id="cancel", label="Cancel", style=ButtonStyle.blue)])
-            await msg.edit(content=" ", embed=embed, components=await generalPrompts.utils.convertToRows(pageButtons))
-        
-        async def prompt(ctx: Union[commands.Context, SlashContext],
-                         bot: commands.Bot,
-                         msg: discord.Message,
-                         pages: list,
-                         title: str,
-                         removeText: str,
-                         description: str = None,
-                         usePicker: bool = False,
-                         minItems: int = 0,
-                         maxItems: int = 0):
-            """
-            Creates a prompt with the "remove" template.
-            
-            Arguments
-            ---
-            ctx: Context from the command that is executed.
-            bot: The Discord bot.
-            msg: The Discord message that will be edited for the prompt.
-            pages: A `list` containing all the pages for the prompt.
-            title: The title of the prompt.
-            removeText: The contents of the "remove all" button.
-            description: An optional description to put behind the numbered list.
-            
-            Returns
-            ---
-            A `dict` with:
-            - status: `True` if the command succeeded, `False` if otherwise.
-            - all: `True` if the user wants to remove all items, `False` if otherwise.
-            - item: The item that needs to removed. (Contains the "name" and "id" as `dict` keys)
-            """
-            buttonArgs = [["back", "next", "cancel", "remove"], [-1, 1, 2, 3]]
-            if not usePicker:
-                editArgs = [bot, msg, pages, removeText]
-                result = await pageNav.message(ctx, bot, pageNav.remove, msg, pages, title, editArgs, buttonArgs, description)
-            else:
-                options = await generalPrompts.utils.convertToSelect(pages, minItems, maxItems)
-                editArgs = [bot, msg, options, removeText]
-                result = await pageNav.picker(ctx, bot, pageNav.remove, pages, msg, title, editArgs, buttonArgs, description, minItems, maxItems)
-            if result["type"] == "button":
-                if result["res"] == 2:
-                    return {
-                        "status": False,
-                        "all": False,
-                        "item": None
-                    }
-                return {
-                    "status": True,
-                    "all": True,
-                    "item": None
-                }
-            if result["type"] == "select":
-                return {
-                    "status": True,
-                    "all": False,
-                    "item": {
-                        "name": [item["name"] for item in result["selected"]],
-                        "id": [item["id"] for item in result["selected"]]
-                    }
-                }
-            return {
-                "status": False
-            }
-    
-    class search:
-        """
-        A template for a message with an additional "remove all" button.
-        """
-        async def editMsg(bot: commands.Bot,
-                          msg: discord.Message,
-                          pages: list,
-                          searchText: str,
-                          otherText: str,
-                          otherId: str,
-                          otherColor: ButtonStyle,
-                          embed: discord.Embed,
-                          pageNum: int,
-                          picker: bool = False,
-                          minValue: int = 0,
-                          maxValue: int = 0):
-            """
-            Edits the prompt with it's corresponding buttons.
-            Should not be used outside of the `pageNav.minimal` class.
-            """
-            pageButtons = []
-            if picker:
-                pageButtons.append([pages[pageNum]])
-            if len(pages) > 1:
-                pageButtons.append((await pageNav.utils.pageRow(pages, pageNum))[0])
-            pageButtons.append([create_button(custom_id="search", label=searchText, style=ButtonStyle.blue), create_button(custom_id=otherId, label=otherText, style=otherColor)])
-            pageButtons.append([create_button(custom_id="cancel", label="Cancel", style=ButtonStyle.red)])
-            await msg.edit(content=" ", embed=embed, components=await generalPrompts.utils.convertToRows(pageButtons))
-        
-        async def prompt(ctx: Union[commands.Context, SlashContext],
-                         bot: commands.Bot,
-                         msg: discord.Message,
-                         pages: list,
-                         title: str,
-                         searchText: str,
-                         otherText: str,
-                         otherId: str,
-                         otherColor: ButtonStyle = ButtonStyle.blue,
-                         description: str = None,
-                         usePicker: bool = False,
-                         minItems: int = 1,
-                         maxItems: int = 1):
-            """
-            Creates a prompt with the "search" template.
-            
-            Arguments
-            ---
-            ctx: Context from the command that is executed.
-            bot: The Discord bot.
-            msg: The Discord message that will be edited for the prompt.
-            pages: A `list` containing all the pages for the prompt (or all the options if the picker is used).
-            title: The title of the prompt.
-            searchText: The contents of the "search" button.
-            otherText: The contents of the other button.
-            otherId: The ID for the other button.
-            otherColor: The color of the other button. (Default is blue)
-            description: An optional description to put behind the numbered list.
-            usePicker: A `bool` indicating if a picker is needed.
-            minItems: The minimum number of items that can be picked.
-            maxItems: The maximum number of items that can be picked.
-            
-            Returns
-            ---
-            A `dict` with:
-            - status: `True` if the command succeeded.
-            - other: `True` if the user clicked the other button.
-            - search: `True` if the user wants to search for something.
-            - item: The item that needs to added/removed. (Contains the "name" and "id" as `dict` keys)
-            """
-            buttonArgs = [["back", "next", "cancel", otherId, "search"], [-1, 1, 2, 3, 4]]
-            if not usePicker:
-                editArgs = [bot, msg, pages, searchText, otherText, otherId, otherColor]
-                result = await pageNav.message(ctx, bot, pageNav.search, msg, pages, title, editArgs, buttonArgs, description)
-            else:
-                select = await generalPrompts.utils.convertToSelect(pages, minItems, maxItems)
-                editArgs = [bot, msg, select, searchText, otherText, otherId, otherColor]
-                result = await pageNav.picker(ctx, bot, pageNav.search, pages, msg, title, editArgs, buttonArgs, description, minItems, maxItems)
-            
-            if result["type"] == "button":
-                if result["res"] == 2:
-                    return {
-                        "status": False,
-                        "other": False,
-                        "search": False,
-                        "item": None
-                    }
-                if result["res"] == 3:
-                    return {
-                        "status": True,
-                        "other": True,
-                        "search": False,
-                        "item": None
-                    }
-                if result["res"] == 4:
-                    return {
-                        "status": True,
-                        "other": False,
-                        "search": True,
-                        "item": None
-                    }
-            elif result["type"] == "select":
-                return {
-                    "status": True,
-                    "other": False,
-                    "search": False,
-                    "item": {
-                        "name": [item["name"] for item in result["selected"]],
-                        "id": [item["id"] for item in result["selected"]]
-                    }
-                }
-            else:
-                return {
-                    "status": False
-                }
-
-    async def message(ctx: Union[commands.Context, SlashContext],
-                      bot: commands.Bot,
-                      editClass: type,
-                      msg: discord.Message,
-                      pages: list,
-                      title: str,
-                      editArgs: list,
-                      buttonArgs: list,
-                      description: str = None):
-        """
-        Create a prompt with the specified message edit class and it's arguments, and button responses.
-        
-        Arguments
-        ---
-        ctx: Context from the command that is executed.
-        bot: The Discord bot.
-        editClass: The class that `editMsg` is a part of.
-        msg: The Discord message that will be edited for the prompt.
-        pages: A `list` containing all the pages.
-        title: The title of the embed.
-        editArgs: A `list` containing the arguments for `editMsg`.
-        buttonArgs: A `list` containing the arguments for the button check function.
-        description: An optional description to put behind the numbered list.
-        
-        Pages Format
-        ---
-        Each object in the `list` must have a `dict` containing:
-        - text: The text for the page as a frontend. (Must be formatted with newlines)
-        - entries: The number input for the entries that exist for the page.
-        - ids: A list of identifiers for the entries.
-        - names: A list of names for the entries.
-        
-        Returns
-        ---
-        A `dict` with:
-        - type: Possible outputs are `button`, `message`, or `None`.
-        - res: The response of the interaction type.
-        - pageNum: The current page position relative to `pages`. (Only exists when type is `message`)
-        """
-        pageNum = 0
-        embed = discord.Embed(title=title)
-        embed.add_field(name="Actions", value="Pick a number correlating to the entry in the list or use the buttons below for other actions.")
-
-        while True:
-            if description:
-                embed.description = f"{description}\n\n" + pages[pageNum]["text"].strip()
-            else:
-                embed.description = pages[pageNum]["text"].strip()
-            await editClass.editMsg(*editArgs, embed, pageNum)
-            result = await pageNav.utils.doubleCheck(ctx, bot, msg, pages, pageNum)
-            
-            if isinstance(result, discord_slash.ComponentContext):
-                await result.defer(edit_origin=True)
-                buttonRes = await pageNav.utils.processButton(result, *buttonArgs)
-                if buttonRes in [-1, 1]:
-                    pageNum += buttonRes
-                else:
-                    return {
-                        "type": "button",
-                        "res": buttonRes
-                    }
-            elif isinstance(result, discord_slash.ComponentMessage):
-                if result.content in pages[pageNum]["entries"]:
-                    await result.delete()
-                    return {
-                        "type": "message",
-                        "res": await pageNav.utils.processMsg(result),
-                        "pageNum": pageNum
-                    }
-            else:
-                return {
-                    "type": None,
-                    "res": None
-                }
-    
-    async def picker(ctx: Union[commands.Context, SlashContext],
-                      bot: commands.Bot,
-                      editClass: type,
-                      pages: list,
-                      msg: discord.Message,
-                      title: str,
-                      editArgs: list,
-                      buttonArgs: list,
-                      description: str,
-                      minItems: int,
-                      maxItems: int):
-        """
-        Create a picker prompt with the specified message edit class and it's arguments, and button responses.
-        
-        Arguments
-        ---
-        ctx: Context from the command that is executed.
-        bot: The Discord bot.
-        editClass: The class that `editMsg` is a part of.
-        msg: The Discord message that will be edited for the prompt.
-        pages: A `list` containing all the available options.
-        title: The title of the embed.
-        editArgs: A `list` containing the arguments for `editMsg`.
-        buttonArgs: A `list` containing the arguments for the button check function.
-        minItems: The minimum number of items that can be picked.
-        maxItems: The maximum number of items that can be picked.
-        
-        Options Format
-        ---
-        Each options object must have a `dict` containing:
-        - name: The label for the option.
-        - id: The identifier for the option.
-        
-        Returns
-        ---
-        A `dict` with:
-        - type: Possible outputs are `button`, `message`, or `None`.
-        - res: The response of the interaction type.
-        """
-        pageNum = 0
-        embed = discord.Embed(title=title)
-        if maxItems > 1:
-            embedtext = "Pick the entries in the list or use the buttons below for other actions."
-        else:
-            embedtext = "Pick an entry in the list or use the buttons below for other actions."
-        embed.add_field(name="Actions", value=embedtext)
-
-        while True:
-            if description:
-                embed.description = description
-            await editClass.editMsg(*editArgs, embed, pageNum, True, minItems, maxItems)
-            result = await generalPrompts.utils.buttonCheck(ctx, bot, msg)
-            
-            if isinstance(result, discord_slash.ComponentContext):
-                await result.defer(edit_origin=True)
-                if result.component_type == 2:
-                    buttonRes = await pageNav.utils.processButton(result, *buttonArgs)
-                    if buttonRes in [-1, 1]:
-                        pageNum += buttonRes
-                    else:
-                        return {
-                            "type": "button",
-                            "res": buttonRes
-                        }
-                elif result.component_type == 3:
-                    picks = []
-                    for item in pages:
-                        if item["id"] in result.selected_options:
-                            picks.append(item)
-                    return {
-                        "type": "select",
-                        "res": result,
-                        "selected": picks
-                    }
-            else:
-                return {
-                    "type": None,
-                    "res": None
-                }
+    if isinstance(cmd, commands.Context):
+        if message:
+            await message.msg.delete()
+        await cmd.message.delete()
 
 class subPrompts:
-    async def parseToPages(data: list, keyID: str = None):
-        """
-        Parse the channels into pages.
-        
-        Arguments
-        ---
-        data: Data from the `channels` table.
-        keyID: The key that will be used as an identifier in other functions.
-        """
-        pages = []
-        
-        pos = 1
-        temp = ""
-        entries = []
-        id_list = []
-        names = []
-        for account in data:
-            temp += f"{pos}. {data[account]['name']}\n"
-            entries.append(str(pos))
-            if keyID is None:
-                id_list.append(account)
-            else:
-                id_list.append(data[account][keyID])
-            names.append(data[account]['name'])
-            pos += 1
-            if pos == 9:
-                pages.append({"text": temp.strip(), "entries": entries, "ids": id_list, "names": names})
-                pos = 1
-                temp = ""
-                entries = []
-                id_list = []
-                names = []
-        if len(entries) > 1:
-            pages.append({"text": temp.strip(), "entries": entries, "ids": id_list, "names": names})
-
-        return pages
-    
     async def categoryPages(data: dict):
         """
         Parse the channels data into pages for channel affiliations.
@@ -897,19 +222,18 @@ class subPrompts:
         result = []
         for channel in data:
             if data[channel]["category"] not in exists:
-                result.append({"name": data[channel]["category"], "id": data[channel]["category"]})
+                result.append(YagooSelectOption(data[channel]["category"], data[channel]["category"]))
                 exists.append(data[channel]["category"])
         
         return result
     
-    async def ctgPicker(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, channels: dict, ctgMsg: discord.Message):
+    async def ctgPicker(cmd: Union[commands.Context, discord.Interaction], channels: dict, ctgMsg: YagooMessage):
         """
         Prompts the user for a VTuber's affiliation.
         
         Arguments
         ---
-        ctx: Context from the executed command.
-        bot: The Discord bot.
+        ctx: Context or interaction from the executed command.
         channels: Data from `channels` in `dict` form, with `id` as the main key.
         ctgMsg: Message to be used as the prompt message.
         
@@ -921,105 +245,89 @@ class subPrompts:
         - search: `True` if the user picks to search for a VTuber.
         - category: Contains the name of the category, `None` if there is no category picked.
         """
-        pages = await subPrompts.categoryPages(channels)
-        description = "Pick the VTuber's affiliation:"
-        result = await pageNav.search.prompt(ctx, bot, ctgMsg, pages, "Subscribing to a VTuber", "Search for a VTuber", "Subscribe to all VTubers", "subAll", description=description, usePicker=True, minItems=1, maxItems=1)
+        categories = await subPrompts.categoryPages(channels)
         
-        if result["status"]:
-            if not result["other"] and not result["search"]:
-                return {
-                    "status": True,
-                    "all": result["other"],
-                    "search": result["search"],
-                    "category": result["item"]["name"][0]
-                }
-            return {
-                "status": True,
-                "all": result["other"],
-                "search": result["search"],
-                "category": None
-            }
-        return {
-            "status": False
-        }
+        ctgMsg.resetComponents()
+        ctgMsg.embed.title = "Subscribing to a VTuber"
+        ctgMsg.embed.description = "Pick the VTuber's affiliation:"
+        ctgMsg.embed.add_field(name="Searching for a specific VTuber?", value="Add the VTuber's name after the `subscribe` command.", inline=False)
+        ctgMsg.addSelect(categories, placeholder="Select the VTuber's Affiliation")
+        ctgMsg.addButton(2, "search", "Search for a VTuber", disabled=True)
+        ctgMsg.addButton(2, "all", "Subscribe to all VTubers")
+        ctgMsg.addButton(3, "cancel", "Cancel", style=discord.ButtonStyle.red)
     
-    async def searchPick(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, msg: discord.Message, searchTerm: str, results: list):
+        if isinstance(cmd, commands.Context):
+            response = await ctgMsg.legacyPost(cmd)
+        else:
+            response = await ctgMsg.post(cmd, True, True)
+        
+        return response
+    
+    async def searchPick(cmd: Union[commands.Context, discord.Interaction], message: YagooMessage, searchTerm: str, searchResult: ChannelSearchResponse):
         """
         A prompt to pick possible search matches.
         
         Arguments
         ---
-        ctx: Context from the exectued command.
-        bot: The Discord bot.
-        msg: The message that will be used as the prompt.
+        cmd: Context or interaction from the invoked command.
+        message: The message that will be used as the prompt.
         searchTerm: The search term by the user.
-        results: A `list` containing the search results.
+        searchResult: The `ChannelSearchResult` returned from searching for a channel.
         
         Returns
         ---
-        A `dict` with:
-        - status: `True` if the user picked a result.
-        - name: Name of the search result.
+        `ChannelSearchResult`
         """
-        resFilter = []
-        pos = 1
-        embedContent = f"Search results for '{searchTerm}':\n"
-        for item in results:
-            embedContent += f"{pos}. {item}\n"
-            resFilter.append(pos)
-            pos += 1
+        choices = []
         
-        result = await generalPrompts.cancel(ctx, bot, msg, "Searching for a VTuber", embedContent, allowed=resFilter)
+        message.embed.clear_fields()
+        message.resetComponents()
+        message.embed.title = "Searching for a VTuber"
+        message.embed.description = f"Displaying search results for: `{searchTerm}`\n"
+        for item in searchResult.searchResults:
+            choices.append(YagooSelectOption(item, item))
+        message.addSelect(choices, "Select the search result here")
+        message.addButton(2, "cancel", "Cancel", style=discord.ButtonStyle.red)
         
-        if not result["status"]:
-            return {
-                "status": False
-            }
+        if isinstance(cmd, commands.Context):
+            result = await message.legacyPost(cmd)
+        else:
+            result = await message.post(cmd, True, True)
             
-        return {
-            "status": True,
-            "name": results[int(result["res"]) - 1]
-        }
+        if not result.responseType or result.buttonID == "cancel":
+            searchResult.failed()
+            return searchResult
     
-    async def displaySubbed(msg: discord.Message, allSub: bool = False, category: str = None, subbed: list = None, chName: str = None):
+        searchResult.matched()
+        searchResult.channelName = result.selectValues[0]
+        return searchResult
+    
+    async def displaySubbed(message: YagooMessage, subResult: SubscriptionResponse):
         """
         Gives a status to the user about subbed accounts.
         
         Arguments
         ---
-        msg: The message that will be used as the display.
-        allSub: If the subscription involves all VTubers (in a category or the whole database).
-        category: The name of the category.
-        subbed: A list containing all the successfully subscribed subscription types. (Must be supplied if `allSub` is `False`)
-        chName: The name of the channel. (Must be supplied if `allSub` is `False`)
+        message: The message that will be used as the display.
+        subResult: The `SubscriptionResponse` from the subscription prompts.
         """
-        embed = discord.Embed()
-        if allSub:
-            embed.title = "Successfully Subscribed!"
-            if category:
-                category += " "
-            else:
-                category = ""
-            embed.description = f"This channel is now subscribed to all {category}VTubers."
-            embed.color = discord.Colour.green()
+        channels = ""
+        message.embed.clear_fields()
+        for name in subResult.channelNames:
+            channels += f"{name}, "
+        if subResult.subTypes:
+            message.embed.title = "Successfully Subscribed!"
+            message.embed.description = f"This channel is now subscribed to {channels.strip(', ')}."
+            message.embed.color = discord.Colour.green()
             subTypes = ""
-            for subType in subbed:
+            for subType in subResult.subTypes:
                 subTypes += f"{subType.capitalize()}, "
-            embed.add_field(name="Subscription Types", value=subTypes.strip(", "))
+            message.embed.add_field(name="Subscription Types", value=subTypes.strip(", "))
         else:
-            if subbed == []:
-                embed.title = "Already Subscribed!"
-                embed.description = f"This channel is already subscribed to {chName}!"
-                embed.color = discord.Colour.red()
-            else:
-                embed.title = "Successfully Subscribed!"
-                embed.description = f"This channel is now subscribed to {chName}."
-                embed.color = discord.Colour.green()
-                subTypes = ""
-                for subType in subbed:
-                    subTypes += f"{subType.capitalize()}, "
-                embed.add_field(name="Subscription Types", value=subTypes.strip(", "), inline=False)
-        await msg.edit(content=" ", embed=embed, components=[])
+            message.embed.title = "Already Subscribed!"
+            message.embed.description = f"This channel is already subscribed to {channels.strip(', ')}!"
+            message.embed.color = discord.Colour.red()
+        message.msg = await message.msg.edit(content=None, embed=message.embed, view=None)
     
     class channelPick:
         async def parseToPages(category: dict):
@@ -1032,85 +340,93 @@ class subPrompts:
             
             Returns
             ---
-            A `list` following the options specifications in `pageNav.picker`.
+            A `list` of `YagooSelectOption`.
             """
             result = []
             
             for channel in category:
-                if 25 < len(category[channel]["name"]) > 22:
-                    name = (category[channel]["name"])[:22] + "..."
-                else:
-                    name = category[channel]["name"]
-                result.append({"name": name, "id": channel})
+                result.append(YagooSelectOption(category[channel]["name"], channel))
             
             return result
         
-        async def prompt(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, msg: discord.Message, category: dict, catName: str):
+        async def prompt(cmd: commands.Context, message: YagooMessage, category: dict, catName: str):
             """
             Prompts the user for which VTuber to pick.
             
             Arguments
             ---
-            ctx: Context from the executed command.
-            bot: The Discord bot.
+            cmd: Context or interaction from the invoked command.
             msg: The message that will be used as the prompt.
             category: The category as a `dict` containing `id` as the header, `name` as the sub-key.
             catName: The name of the category.
             
             Returns
             ---
-            A `dict` with:
-            - status: `True` if the command succeeded, `False` if otherwise.
-            - other: `True` if the user wants to subscribe to all VTubers in the category, `False` if otherwise.
-            - search: `True` if the user wants to search for something, `False` if otherwise.
-            - item: The VTuber that needs to added/removed. (Contains the "name" and "id" as `dict` keys)
+            An instance of `CategorySubscriptionResponse`
             """
-            pages = await subPrompts.channelPick.parseToPages(category)
-            return await pageNav.search.prompt(ctx, bot, msg, pages, "Subscribing to a VTuber", "Search for a VTuber", f"Subscribe to all {catName} VTubers", "subAll", usePicker=True, maxItems=25)
+            options = await subPrompts.channelPick.parseToPages(category)
+            
+            message.resetComponents()
+            message.embed.title = f"Subscribing to {catName} VTubers"
+            message.embed.description = "Pick a VTuber in the select below."
+            message.embed.clear_fields()
+            message.embed.add_field(name="Not finding a VTuber in this category?",
+                                    value="Search for a VTuber by adding the VTuber's name after the `subscribe` command.")
+            message.addSelect(options, f"Pick the {catName} VTubers here", max_values=25)
+            message.addButton(2, "all", f"Subscribe to all {catName} VTubers")
+            message.addButton(3, "cancel", "Cancel", style=discord.ButtonStyle.red)
+            
+            if isinstance(cmd, commands.Context):
+                response = await message.legacyPost(cmd)
+            else:
+                response = await message.post(cmd, True, True)
+            
+            if response.responseType:
+                if response.responseType == "select":
+                    return CategorySubscriptionResponse(True, catName, channelIDs=response.selectValues, channelData=category)
+                if response.buttonID == "all":
+                    return CategorySubscriptionResponse(True, catName, True)
+            return CategorySubscriptionResponse(False)
     
     class subTypes:
-        async def editMsg(subTypes: list, msg: discord.Message, embed: discord.Embed, buttonStates: dict, subText: str, subId: str, allowNone: bool):
-            buttonList = []
+        async def editMsg(subTypes: List[str], message: YagooMessage, buttonStates: dict, subText: str, subID: str, allowNone: bool):
+            """Supplementary command to `subTypes.prompt`"""
             selected = False
             allTypes = True
+            rowNum = 0
             for subType in subTypes:
                 if buttonStates[subType]:
-                    buttonList.append([create_button(label=f"{subType.capitalize()} Notifications", style=ButtonStyle.green, custom_id=subType)])
+                    message.addButton(rowNum, subType, f"{subType.capitalize()} Notifications", style=discord.ButtonStyle.green)
                     selected = True
                 else:
-                    buttonList.append([create_button(label=f"{subType.capitalize()} Notifications", style=ButtonStyle.red, custom_id=subType)])
+                    message.addButton(rowNum, subType, f"{subType.capitalize()} Notifications", style=discord.ButtonStyle.red)
                     allTypes = False
+                rowNum += 1
             if allowNone:
                 selected = True
+            message.addButton(rowNum, "cancel", "Cancel", style=discord.ButtonStyle.red)
             if not allTypes:
-                allButton = create_button(label="Select All", style=ButtonStyle.blue, custom_id="all")
+                message.addButton(rowNum, "all", "Select All", style=discord.ButtonStyle.primary)
             else:
-                allButton = create_button(label="Select None", custom_id="all", style=ButtonStyle.grey)
-            buttonList.append([create_button(label=f"Cancel", style=ButtonStyle.red, custom_id="cancel"), allButton, create_button(label=subText, style=ButtonStyle.green, custom_id=subId, disabled=not selected)])
-            await msg.edit(content=" ", embed=embed, components=await generalPrompts.utils.convertToRows(buttonList))
-            return
+                message.addButton(rowNum, "all", "Select None", style=discord.ButtonStyle.grey)
+            message.addButton(rowNum, subID, subText, style=discord.ButtonStyle.green, disabled=not selected)
         
-        async def prompt(ctx: Union[commands.Context, SlashContext],
-                         bot: commands.Bot,
-                         msg: discord.Message,
-                         title: str,
-                         description: str,
+        async def prompt(cmd: Union[commands.Context, discord.Interaction],
+                         message: YagooMessage,
                          buttonText: str = "Subscribe",
-                         buttonId: str = "subscribe",
+                         buttonID: str = "subscribe",
                          subTypes: dict = None,
                          allowNone: bool = False):
             """
             Prompts the user for subscription types.
+            The title and description must be set beforehand.
             
             Arguments
             ---
             ctx: Context from the executed command.
-            bot: The Discord bot.
             msg: The message that will be used as the prompt.
-            title: The title of the prompt.
-            description: The content of the prompt.
             buttonText: The text for the subscribe button.
-            buttonId: The ID for the subscribe button.
+            buttonID: The ID for the subscribe button.
             subTypes: Existing subscription type status as a `dict`.
             allowNone: To allow the user to select none of the subscription types.
             
@@ -1127,46 +443,33 @@ class subPrompts:
                 for subType in subTypes:
                     buttonStates[subType] = False
             
-            embed = discord.Embed(title=title, description=description)
-            
             while True:
-                await subPrompts.subTypes.editMsg(subTypes, msg, embed, buttonStates, buttonText, buttonId, allowNone)
-                result = await generalPrompts.utils.buttonCheck(ctx, bot, msg)
+                message.resetComponents()
+                await subPrompts.subTypes.editMsg(subTypes, message, buttonStates, buttonText, buttonID, allowNone)
+                if isinstance(cmd, commands.Context):
+                    result = await message.legacyPost(cmd)
+                else:
+                    result = await message.post(cmd, True, True)
                 
-                if result:
-                    await result.defer(edit_origin=True)
-                    if result.component["custom_id"] not in ["cancel", "all", buttonId]:
-                        buttonStates[result.component["custom_id"]] = not buttonStates[result.component["custom_id"]]
-                    elif result.component["custom_id"] == "all":
+                if result.responseType:
+                    if result.buttonID not in ["cancel", "all", buttonID]:
+                        buttonStates[result.buttonID] = not buttonStates[result.buttonID]
+                    elif result.buttonID == "all":
                         allBool = True
                         for button in buttonStates:
                             if allBool:
                                 allBool = buttonStates[button]
                         for button in buttonStates:
                             buttonStates[button] = not allBool
-                    elif result.component["custom_id"] == "cancel":
-                        return {
-                            "status": False
-                        }
                     else:
-                        return {
-                            "status": True,
-                            "subTypes": buttonStates
-                        }
+                        if result.buttonID == buttonID:
+                            return SubscriptionData(buttonStates)
+                        return result
                 else:
-                    return {
-                        "status": False
-                    }
+                    return result
     
     class vtuberConfirm:
-        async def editMsg(msg: discord.Message, embed: discord.Embed):
-            buttons = [[create_button(label="Cancel", style=ButtonStyle.red, custom_id="cancel"),
-                        create_button(label="Search Results", style=ButtonStyle.blue, custom_id="results"),
-                        create_button(label="Confirm", style=ButtonStyle.green, custom_id="confirm")]]
-            await msg.edit(content=" ", embed=embed, components=await generalPrompts.utils.convertToRows(buttons))
-            return
-        
-        async def prompt(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, msg: discord.Message, title: str, action: str):
+        async def prompt(cmd: Union[commands.Context, discord.Interaction], message: YagooMessage, title: str, action: str):
             """
             Prompts to either confirm the choice of VTuber, cancel, or search for another VTuber.
             
@@ -1183,31 +486,23 @@ class subPrompts:
             - status: `True` if a user requested to search or confirms the choice.
             - action: The action that is requested by the user (`search`/`confirm`).
             """
-            embed = discord.Embed(title=title, description=f"Are you sure you want to {action} to this channel?")
-            await subPrompts.vtuberConfirm.editMsg(msg, embed)
-            result = await generalPrompts.utils.buttonCheck(ctx, bot, msg)
-            
-            if result:
-                await result.defer(edit_origin=True)
-                if result.component["custom_id"] == "cancel":
-                    return {
-                        "status": False
-                    }
-                if result.component["custom_id"] == "results":
-                    return {
-                        "status": True,
-                        "action": "search"
-                    }
-                if result.component["custom_id"] == "confirm":
-                    return {
-                        "status": True,
-                        "action": "confirm"
-                    }
+            message.embed.clear_fields()
+            message.resetComponents()
+            message.embed.title = title
+            if action.lower() == "unsubscribe":
+                message.embed.description = "Are you sure you want to unsubscribe from this channel?"
             else:
-                return {
-                    "status": False
-                }
-            return
+                message.embed.description = f"Are you sure you want to {action} to this channel?"
+            message.addButton(1, "cancel", "Cancel", style=discord.ButtonStyle.red)
+            message.addButton(1, "results", "Search Results", style=discord.ButtonStyle.primary)
+            message.addButton(1, "confirm", "Confirm", style=discord.ButtonStyle.green)
+            
+            if isinstance(cmd, commands.Context):
+                result = await message.legacyPost(cmd)
+            else:
+                result = await message.post(cmd, True, True)
+            
+            return result
 
     class sublistDisplay:
         async def parseToPages(server: dict):

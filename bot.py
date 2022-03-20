@@ -116,19 +116,30 @@ async def helpslash(interaction: discord.Interaction): # pylint: disable=redefin
 
 @bot.command(aliases=['sub'])
 @commands.check(subPerms)
-async def subscribe(ctx, *, customUser = None):
-    if customUser is None:
+async def subscribe(ctx: commands.Context, *, channel: str = None):
+    message = await ctx.send("Text commands will be deprecated soon! Please use the slash commands in the future.")
+    if channel is None:
         await subCategory(ctx, bot)
     else:
-        await subCustom(ctx, bot, customUser)
+        await subCustom(ctx, bot, channel)
+    await message.delete()
 
 @subscribe.error
-async def sub_error(ctx, error):
+async def sub_error(ctx: commands.Context, error):
     errEmbed = await botError(ctx, error)
     if errEmbed:
         await ctx.send(embed=errEmbed)
 
-@bot.command(aliases=["unsub"])
+@bot.tree.command(name="subscribe", description="Subscribes to the specified channel(s)")
+@app_commands.describe(channel='The YouTube channel to subscribe to')
+@app_commands.guilds(751669314196602972)
+async def subscribeslash(interaction: discord.Interaction, channel: str = None):
+    await interaction.response.defer(ephemeral=True)
+    if channel is None:
+        await subCategory(interaction, bot)
+    else:
+        await subCustom(interaction, bot, channel)
+
 @commands.check(subPerms)
 async def unsubscribe(ctx, *, channel = None):
     await unsubChannel(ctx, bot, channel)
