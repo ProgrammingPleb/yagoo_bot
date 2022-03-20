@@ -73,7 +73,7 @@ async def scrape(channel: str):
                     proxy = None
                     proxyauth = None
                 async with session.get(f'https://www.youtube.com/channel/{channel}/videos?hl=en-US', proxy=proxy, proxy_auth=proxyauth) as r:
-                    soup = BeautifulSoup(await r.text(), "html5lib")
+                    soup = BeautifulSoup(await r.text(), "lxml")
                     scripts = soup.find_all("script")
                     for script in scripts:
                         if ("var ytInitialData" in script.getText()) or ('window["ytInitialData"]' in script.getText()):

@@ -44,7 +44,7 @@ async def streamInfo(channelId: Union[str, int]):
             proxy = None
             proxyauth = None
         async with session.get(f'https://www.youtube.com/channel/{channelId}/live?hl=en-US', proxy=proxy, proxy_auth=proxyauth) as r:
-            soup = BeautifulSoup(await r.text(), "html5lib")
+            soup = BeautifulSoup(await r.text(), "lxml")
             scripts = soup.find_all("script")
             for script in scripts:
                 if ("var ytInitialData" in script.getText()) or ('window["ytInitialData"]' in script.getText()):
@@ -103,7 +103,7 @@ async def channelInfo(channelId: Union[str, int], scrape = False, debug: bool = 
                 proxy = None
                 proxyauth = None
             async with session.get(f'https://www.youtube.com/channel/{channelId}?hl=en-US', proxy=proxy, proxy_auth=proxyauth) as r:
-                soup = BeautifulSoup(await r.text(), "html5lib")
+                soup = BeautifulSoup(await r.text(), "lxml")
                 scripts = soup.find_all("script")
                 for script in scripts:
                     if ("var ytInitialData" in script.getText()) or ('window["ytInitialData"]' in script.getText()):
@@ -242,7 +242,7 @@ class FandomScrape():
 
         outputData = []
 
-        soup = BeautifulSoup(dataText, "html5lib")
+        soup = BeautifulSoup(dataText, "lxml")
         for webObj in scrapeList:
             try:
                 header = soup.find("span", {"id": webObj}).parent
@@ -296,7 +296,7 @@ class FandomScrape():
         }
 
     async def getThumbnail(dataText) -> str:
-        soup = BeautifulSoup(dataText, "html5lib")
+        soup = BeautifulSoup(dataText, "lxml")
         imgTag = soup.find("img", {"class": "pi-image-thumbnail"})
 
         return imgTag["src"]
@@ -305,14 +305,14 @@ class FandomScrape():
         fandomName = (await FandomScrape.searchChannel(chName, True))["name"]
         fullPage = await FandomScrape.getChannel(fandomName, dataKey="text")
         try:
-            affiliate = BeautifulSoup(fullPage, "html5lib").find("div", {"data-source": "affiliation"}).find("a").getText()
+            affiliate = BeautifulSoup(fullPage, "lxml").find("div", {"data-source": "affiliation"}).find("a").getText()
         except Exception as e:
             logging.warn(f'Failed getting affliate data for {fandomName}! Registering as "Other/Independent".', exc_info=True)
             affiliate = "Others/Independent"
         return affiliate
 
     async def getSections(dataText) -> list:
-        soup = BeautifulSoup(dataText, "html5lib")
+        soup = BeautifulSoup(dataText, "lxml")
 
         pastInfobox = False
         sections = []
@@ -328,7 +328,7 @@ class FandomScrape():
         return sections
 
     async def getSectionData(dataText, sections) -> list:
-        soup = BeautifulSoup(dataText, "html5lib")
+        soup = BeautifulSoup(dataText, "lxml")
 
         data = []
         for h2 in soup.find_all("h2"):
@@ -482,7 +482,7 @@ async def channelScrape(query: str):
         for data in dataSource:
             if data["type"] == "data":
                 if data["data"]["source"] == infoGrab[entry]["source"]:
-                    result[infoGrab[entry]["dict"]] = re.sub('\[\d+\]', '', BeautifulSoup(data["data"]["value"], "html5lib").text.replace('\n', ''))
+                    result[infoGrab[entry]["dict"]] = re.sub('\[\d+\]', '', BeautifulSoup(data["data"]["value"], "lxml").text.replace('\n', ''))
                     infoPresent = True
         if not infoPresent:
             result[infoGrab[entry]["dict"]] = None
