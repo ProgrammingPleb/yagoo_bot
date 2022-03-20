@@ -37,8 +37,6 @@ from yagoo.lib.dataUtils import refreshWebhook, botdb, dbTools
 from yagoo.types.message import YagooMessage
 from yagoo.types.views import YagooSelectOption
 
-init = False
-
 with open("settings.yaml") as f:
     settings = yaml.load(f, Loader=yaml.SafeLoader)
 
@@ -84,14 +82,13 @@ class updateStatus(commands.Cog):
 
 @bot.event
 async def on_ready():
-    global init
-    if not init:
+    if not bot.finishedInit:
         await bot.tree.sync(guild=discord.Object(id=751669314196602972))
         guildCount = 0
         for guilds in bot.guilds:
             guildCount += 1
         print(f"Yagoo Bot now streaming in {guildCount} servers!")
-        init = True
+        bot.finishedInit = True
     else:
         print("Reconnected to Discord!")
 
@@ -417,4 +414,5 @@ async def setup_hook():
     #await bot.add_cog(updateStatus(bot))
 
 bot.setup_hook = setup_hook
+bot.finishedInit = False
 bot.run(settings["token"])
