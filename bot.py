@@ -220,14 +220,15 @@ async def testtext(ctx: commands.Context):
     response = await message.legacyPost(ctx, True)
     print(vars(response))
     if response.selectValues:
-        await response.message.edit(content=f"You picked the option: `{response.selectValues[0]}`", embed=None, view=None)
+        await message.msg.edit(content=f"You picked the option: `{response.selectValues[0]}`", embed=None, view=None)
     elif response.buttonID:
-        await response.message.edit(content=f"You picked the button: `{response.buttonID}`", embed=None, view=None)
+        await message.msg.edit(content=f"You picked the button: `{response.buttonID}`", embed=None, view=None)
     else:
-        await response.message.edit(content="The message timed out!", embed=None, view=None)
+        await message.msg.edit(content="The message timed out!", embed=None, view=None)
 
 # POC: Recreation of subscription menu with new message class
-@tree.command(name="test", description="A test command.")
+@bot.tree.command(name="test", description="A test command.")
+@app_commands.guilds(751669314196602972)
 async def test(interaction: discord.Interaction):
     await interaction.response.defer()
     message = YagooMessage(bot, interaction.user,
@@ -244,17 +245,18 @@ async def test(interaction: discord.Interaction):
     response = await message.post(interaction, True, True)
     print(vars(response))
     if response.selectValues:
-        await response.message.edit(content=f"You picked the option: `{response.selectValues[0]}`", embed=None, view=None)
+        await message.msg.edit(content=f"You picked the option: `{response.selectValues[0]}`", embed=None, view=None)
     elif response.buttonID:
-        await response.message.edit(content=f"You picked the button: `{response.buttonID}`", embed=None, view=None)
+        await message.msg.edit(content=f"You picked the button: `{response.buttonID}`", embed=None, view=None)
     else:
-        await response.message.edit(content="The message timed out!", embed=None, view=None)
+        await message.msg.edit(content="The message timed out!", embed=None, view=None)
 
-@tree.command(name="modaltest1", description="A modal test command.", guild=discord.Object(id=751669314196602972))
+@bot.tree.command(name="modaltest", description="A modal test command.")
+@app_commands.guilds(751669314196602972)
 async def modalslash(interaction: discord.Interaction):
     modal = YagooMessage(bot, interaction.user, "Test Modal", "This is a test modal.")
-    modal.addTextInput(label="Input 1", placeholder="Enter Something Here", id="input1")
-    modal.addTextInput(label="Input 2", placeholder="Enter Something Here Also", id="input2")
+    modal.addTextInput(label="Input 1", placeholder="Enter Something Here", text_id="input1")
+    modal.addTextInput(label="Input 2", placeholder="Enter Something Here Also", text_id="input2", row=1)
     response = await modal.postModal(interaction)
     print(vars(response))
     await interaction.followup.send(content="Done!")
