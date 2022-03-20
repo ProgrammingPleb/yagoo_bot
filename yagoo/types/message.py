@@ -136,7 +136,7 @@ class YagooMessage():
                 self.select.max_values = len(self.select.options)
     
     def addTextInput(self,
-                     id: str = "text",
+                     text_id: str = "text",
                      label: str = "Label",
                      style: discord.TextStyle = discord.TextStyle.short,
                      placeholder: str = "Placeholder Text",
@@ -164,7 +164,7 @@ class YagooMessage():
             for field in self.textFields:
                 if row == field.row:
                     raise RowFull(field.custom_id, row)
-        self.textFields.append(YagooTextInput(id, label, style, placeholder, default, required, min_length, max_length, row))
+        self.textFields.append(YagooTextInput(text_id, label, style, placeholder, default, required, min_length, max_length, row))
     
     def editButton(self, button_id: str,
                          label: str = None,
