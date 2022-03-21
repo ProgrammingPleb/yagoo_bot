@@ -32,8 +32,11 @@ from yagoo.cogs.msCycle import msCycle, milestoneNotify
 from yagoo.cogs.dblUpdate import guildUpdate
 from yagoo.cogs.premiereCycle import PremiereCycle
 from yagoo.cogs.twtCycle import twtCycle
+from yagoo.commands.general import botHelp
+from yagoo.commands.subscribe import subCategory, subCustom, unsubChannel
 from yagoo.lib.botUtils import getRoles, subPerms, creatorCheck, userWhitelist
 from yagoo.lib.dataUtils import refreshWebhook, botdb, dbTools
+from yagoo.lib.prompts import botError
 from yagoo.types.message import YagooMessage
 from yagoo.types.views import YagooSelectOption
 
