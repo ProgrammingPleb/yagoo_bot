@@ -80,6 +80,11 @@ class YagooMessage():
         Arguments
         ---
         row: The row to add the paginator to.
+        
+        Note
+        ---
+        If an external page count is used, set the `pages` attribute first.
+        Current page indicator will be handled internally.
         """
         # Check if any buttons are on the rows before the paginator row
         maxRow = 0
@@ -254,14 +259,15 @@ class YagooMessage():
             response = await self.wait_for_response()
             if response:
                 if self.pages > 1:
-                    if self.view.responseData.buttonID in ("next", "prev") and self.select:
+                    if self.view.responseData.buttonID in ("next", "prev"):
                         if self.view.responseData.buttonID == "next":
                             self.paginatorUpdate(True)
                         elif self.view.responseData.buttonID == "prev":
                             self.paginatorUpdate(False)
                         self.view.responseData.clear()
                         self.msg = await self.msg.edit(content=None, embed=self.embed, view=self.view)
-                        continue
+                        if self.select:
+                            continue
             return self.view.responseData
     
     async def post(self, interaction: discord.Interaction, followup: bool = False, ephemeral: bool = False):
@@ -299,9 +305,10 @@ class YagooMessage():
                             self.paginatorUpdate(True)
                         elif self.view.responseData.buttonID == "prev":
                             self.paginatorUpdate(False)
-                        self.view.responseData.clear()
                         self.msg = await self.msg.edit(content=None, embed=self.embed, view=self.view)
-                        continue
+                        if self.select:
+                            self.view.responseData.clear()
+                            continue
             return self.view.responseData
     
     async def postModal(self, interaction: discord.Interaction):
@@ -373,9 +380,10 @@ class YagooMessage():
             self.editButton("next", disabled=False)
         self.editButton("pageid", label=f"Page {self.currentPage}/{self.pages}")
         
-        self.select.options = self.pageData[self.currentPage - 1]
-        if self.select.absoluteMax < len(self.select.options):
-            self.select.max_values = self.select.absoluteMax
-        elif self.select.absoluteMax >= len(self.select.options):
-            self.select.max_values = len(self.select.options)
-        self.view.rebuild(self.buttons, self.select)
+        if self.select:
+            self.select.options = self.pageData[self.currentPage - 1]
+            if self.select.absoluteMax < len(self.select.options):
+                self.select.max_values = self.select.absoluteMax
+            elif self.select.absoluteMax >= len(self.select.options):
+                self.select.max_values = len(self.select.options)
+            self.view.rebuild(self.buttons, self.select)
