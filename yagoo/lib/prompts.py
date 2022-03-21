@@ -25,7 +25,7 @@ from typing import Optional, Union, List
 from discord.ext import commands
 from yagoo.lib.botVars import allSubTypes
 from yagoo.lib.dataUtils import botdb
-from yagoo.types.data import CategorySubscriptionResponse, ChannelSearchResponse, ChannelSubscriptionData, SubscriptionData, SubscriptionResponse, UnsubscriptionResponse, YouTubeChannel
+from yagoo.types.data import CategorySubscriptionResponse, ChannelSearchResponse, ChannelSubscriptionData, ErrorReport, SubscriptionData, SubscriptionResponse, UnsubscriptionResponse, YouTubeChannel
 from yagoo.types.error import ChannelNotFound, NoSubscriptions
 from yagoo.types.message import YagooMessage
 from yagoo.types.views import YagooSelectOption, YagooViewResponse
@@ -33,57 +33,10 @@ from yagoo.types.views import YagooSelectOption, YagooViewResponse
 async def botError(cmd: Union[commands.Context, discord.Interaction],
                    error: Union[commands.errors.CommandInvokeError, discord.app_commands.CommandInvokeError]):
     errEmbed = discord.Embed(title="An error has occurred!", color=discord.Colour.red())
-    if "403 Forbidden" in str(error):
-        if isinstance(cmd, commands.Context):
-            user = cmd.author
-        else:
-            user = cmd.user
-        
-        permData = [{
-            "formatName": "Manage Webhooks",
-            "dataName": "manage_webhooks"
-        }, {
-            "formatName": "Manage Messages",
-            "dataName": "manage_messages"
-        }]
-        permOutput = []
-        for perm in iter(cmd.guild.permissions_for(user)):
-            for pCheck in permData:
-                if perm[0] == pCheck["dataName"]:
-                    if not perm[1]:
-                        permOutput.append(pCheck["formatName"])
-        plural = "this permission"
-        if len(permOutput) > 1:
-            plural = "these permissions"
-        errEmbed.description = "This bot has insufficient permissions for this channel.\n" \
-                               f"Please allow the bot {plural}:\n"
-        for perm in permOutput:
-            errEmbed.description += f'\n - `{perm}`'
-    elif "Missing Arguments" in str(error):
-        errEmbed.description = "A command argument was not given when required to."
-    elif isinstance(error.original, NoSubscriptions):
-        errEmbed.description = "There are no subscriptions for this channel.\n" \
-                               "Subscribe to a channel's notifications by using the `subscribe` command."
-    elif isinstance(error.original, ChannelNotFound):
-        errEmbed.description = "The YouTube channel is not subscribed to this Discord channel." \
-                               "Subscribe to the channel's notifications by using `subscribe` command."
-    elif "No Twitter ID" in str(error):
-        errEmbed.description = "There was no Twitter account link given!\n" \
-                               "Ensure that the account's Twitter link or screen name is supplied to the command."
-    elif "50 - User not found." in str(error):
-        errEmbed.description = "This user was not found on Twitter!\n" \
-                               "Make sure the spelling of the user's Twitter link/screen name is correct!"
-    elif "No Follows" in str(error):
-        errEmbed.description = "This channel is not following any Twitter accounts.\n" \
-                               "Follow a Twitter account's tweets by using `y!follow` or `/follow` command."
-    elif isinstance(error, commands.CheckFailure) or isinstance(error, discord.app_commands.errors.CheckFailure):
-        errEmbed.description = "You are missing permissions to use this bot.\n" \
-                               "Ensure that you have one of these permissions for the channel/server:\n\n" \
-                               " - `Administrator (Server)`\n - `Manage Webhooks (Channel/Server)`"
-    elif isinstance(error, discord.errors.Forbidden):
-        errEmbed.description = "The bot is missing permissions for this server/channel!\n" \
-                               "Ensure that you have set these permissions for the bot to work:\n\n" \
-                               "- Manage Webhooks\n- Send Messages\n- Manage Messages"
+    errReport = ErrorReport(cmd, error)
+    
+    if errReport.report:
+        errEmbed.description = errReport.report
     else:
         errEmbed.description = "An unknown error has occurred.\nPlease report this to the support server!"
         print("An unknown error has occurred.")

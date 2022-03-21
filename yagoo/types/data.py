@@ -1,5 +1,7 @@
+import discord
+from discord.ext import commands
 from typing import Optional, Union, TypedDict, List
-from yagoo.types.error import ChannelNotFound, InvalidSubscriptionType
+from yagoo.types.error import ChannelNotFound, InvalidSubscriptionType, NoSubscriptions
 
 class SubscriptionList(TypedDict, total=False):
     livestream: bool
@@ -266,3 +268,71 @@ class FandomChannel():
         self.success = success
         self.channelID = channelID
         self.channelName = channelName
+
+class ErrorReport():
+    def __init__(self,
+                 cmd: Union[commands.Context, discord.Interaction],
+                 error: Union[commands.errors.CommandInvokeError, discord.app_commands.CommandInvokeError]):
+        self.cmd = cmd
+        self.error = error
+        self.report: str = None
+        self.strErrors()
+        self.yagooErrors()
+        self.discordErrors()
+    
+    def strErrors(self):
+        if "403 Forbidden" in str(self.error):
+            if isinstance(self.cmd, commands.Context):
+                user = self.cmd.author
+            else:
+                user = self.cmd.user
+            
+            permData = [{
+                "formatName": "Manage Webhooks",
+                "dataName": "manage_webhooks"
+            }, {
+                "formatName": "Manage Messages",
+                "dataName": "manage_messages"
+            }]
+            permOutput = []
+            for perm in iter(self.cmd.guild.permissions_for(user)):
+                for pCheck in permData:
+                    if perm[0] == pCheck["dataName"]:
+                        if not perm[1]:
+                            permOutput.append(pCheck["formatName"])
+            plural = "this permission"
+            if len(permOutput) > 1:
+                plural = "these permissions"
+            self.report = "This bot has insufficient permissions for this channel.\n" \
+                         f"Please allow the bot {plural}:\n"
+            for perm in permOutput:
+                self.report += f'\n - `{perm}`'
+        elif "Missing Arguments" in str(self.error):
+            self.report = "A command argument was not given when required to."
+        elif "No Twitter ID" in str(self.error):
+            self.report = "There was no Twitter account link given!\n" \
+                          "Ensure that the account's Twitter link or screen name is supplied to the command."
+        elif "50 - User not found." in str(self.error):
+            self.report = "This user was not found on Twitter!\n" \
+                          "Make sure the spelling of the user's Twitter link/screen name is correct!"
+        elif "No Follows" in str(self.error):
+            self.report = "This channel is not following any Twitter accounts.\n" \
+                          "Follow a Twitter account's tweets by using `y!follow` or `/follow` command."
+    
+    def yagooErrors(self):
+        if isinstance(self.error.original, NoSubscriptions):
+            self.report = "There are no subscriptions for this channel.\n" \
+                          "Subscribe to a channel's notifications by using the `subscribe` command."
+        elif isinstance(self.error.original, ChannelNotFound):
+            self.report = "The YouTube channel is not subscribed to this Discord channel." \
+                          "Subscribe to the channel's notifications by using `subscribe` command."
+    
+    def discordErrors(self):
+        if isinstance(self.error, (commands.CheckFailure, discord.app_commands.errors.CheckFailure)):
+            self.report = "You are missing permissions to use this bot.\n" \
+                          "Ensure that you have one of these permissions for the channel/server:\n\n" \
+                          " - `Administrator (Server)`\n - `Manage Webhooks (Channel/Server)`"
+        elif isinstance(self.error, discord.errors.Forbidden):
+            self.report = "The bot is missing permissions for this server/channel!\n" \
+                          "Ensure that you have set these permissions for the bot to work:\n\n" \
+                          "- Manage Webhooks\n- Send Messages\n- Manage Messages"
