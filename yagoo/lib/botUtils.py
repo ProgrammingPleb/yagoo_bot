@@ -50,9 +50,13 @@ def userWhitelist(ctx):
     
     return ctx.author.id in settings["whitelist"]
 
-def subPerms(ctx):
-    userPerms = ctx.channel.permissions_for(ctx.author)
-    return userPerms.administrator or userPerms.manage_webhooks or ctx.guild.owner_id == ctx.author.id
+def subPerms(cmd: Union[commands.Context, discord.Interaction]):
+    if isinstance(cmd, commands.Context):
+        user = cmd.author
+    else:
+        user = cmd.user
+    userPerms = cmd.channel.permissions_for(user)
+    return userPerms.administrator or userPerms.manage_webhooks or cmd.guild.owner_id == user.id
 
 async def msgDelete(ctx: Union[commands.Context, SlashContext]):
     """
