@@ -80,7 +80,6 @@ class YagooMessage():
         Arguments
         ---
         row: The row to add the paginator to.
-        pageData: A `list` containing the current page as the first object and the total number of pages as the second object.
         """
         # Check if any buttons are on the rows before the paginator row
         maxRow = 0
