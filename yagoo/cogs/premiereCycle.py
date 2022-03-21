@@ -22,8 +22,8 @@ import aiohttp
 import discord
 import traceback
 import json
+from discord import Webhook
 from discord.ext import commands, tasks
-from discord import Webhook, AsyncWebhookAdapter
 from datetime import datetime
 from yagoo.lib.dataUtils import botdb
 

@@ -22,7 +22,7 @@ import asyncio
 import aiohttp
 import discord
 import logging
-from discord import Webhook, AsyncWebhookAdapter
+from discord import Webhook
 from discord.ext import commands, tasks
 from yagoo.lib.dataUtils import botdb
 
