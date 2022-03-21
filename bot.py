@@ -33,6 +33,7 @@ from yagoo.cogs.dblUpdate import guildUpdate
 from yagoo.cogs.premiereCycle import PremiereCycle
 from yagoo.cogs.twtCycle import twtCycle
 from yagoo.commands.general import botHelp
+from yagoo.commands.slash import YagooSlash
 from yagoo.commands.subscribe import subCategory, subCustom, unsubChannel
 from yagoo.lib.botUtils import getRoles, subPerms, creatorCheck, userWhitelist
 from yagoo.lib.dataUtils import refreshWebhook, botdb, dbTools
@@ -109,11 +110,6 @@ async def helptext(ctx: commands.Context): # pylint: disable=redefined-builtin
         prefix = settings["prefix"]
     await ctx.send(embed=await botHelp(prefix))
 
-@bot.tree.command(name="help", description="List all commands under Yagoo bot")
-@app_commands.guilds(751669314196602972)
-async def helpslash(interaction: discord.Interaction): # pylint: disable=redefined-builtin
-    await interaction.response.send_message(embed=await botHelp("/"), ephemeral=True)
-
 @bot.command(aliases=['sub'])
 @commands.check(subPerms)
 async def subscribe(ctx: commands.Context, *, channel: str = None):
@@ -130,20 +126,13 @@ async def sub_error(ctx: commands.Context, error):
     if errEmbed:
         await ctx.send(embed=errEmbed)
 
-@bot.tree.command(name="subscribe", description="Subscribes to the specified channel(s)")
-@app_commands.describe(channel='The YouTube channel to subscribe to')
-@app_commands.guilds(751669314196602972)
-async def subscribeslash(interaction: discord.Interaction, channel: str = None):
-    await interaction.response.defer(ephemeral=True)
-    if channel is None:
-        await subCategory(interaction, bot)
-    else:
-        await subCustom(interaction, bot, channel)
-
+@bot.command(aliases=["unsub"])
 @commands.check(subPerms)
-async def unsubscribe(ctx, *, channel = None):
+async def unsubscribe(ctx: commands.Context, *, channel: str = None):
+    message = await ctx.send("Text commands will be deprecated soon! Please use the slash commands in the future.")
     await unsubChannel(ctx, bot, channel)
-
+    await message.delete()
+"""
 @unsubscribe.error
 async def unsub_error(ctx, error):
     errEmbed = await botError(ctx, error)
@@ -199,7 +188,7 @@ async def unfollow(ctx):
 async def follow_error(ctx, error):
     errEmbed = await botError(ctx, error)
     if errEmbed:
-        await ctx.send(embed=errEmbed)
+        await ctx.send(embed=errEmbed)"""
 
 @bot.command()
 @commands.check(subPerms)
@@ -242,42 +231,7 @@ async def testtext(ctx: commands.Context):
     else:
         await message.msg.edit(content="The message timed out!", embed=None, view=None)
 
-# POC: Recreation of subscription menu with new message class
-@bot.tree.command(name="test", description="A test command.")
-@app_commands.guilds(751669314196602972)
-async def test(interaction: discord.Interaction):
-    await interaction.response.defer()
-    message = YagooMessage(bot, interaction.user,
-                           "Subscribing to a VTuber", "Pick the VTuber's affiliation:",
-                           color=discord.Color.from_rgb(32, 34, 37))
-    message.embed.add_field(name="Action", value="Pick an entry in the list or use the buttons below for further actions.")
-    selectOptions = []
-    for i in range(1, 100):
-        selectOptions.append(YagooSelectOption(str(i)))
-    message.addSelect(selectOptions)
-    message.addButton(3, "search", "Search for a VTuber")
-    message.addButton(3, "all", "Subscribe to all VTubers")
-    message.addButton(4, "cancel", "Cancel", style=discord.ButtonStyle.red)
-    response = await message.post(interaction, True, True)
-    print(vars(response))
-    if response.selectValues:
-        await message.msg.edit(content=f"You picked the option: `{response.selectValues[0]}`", embed=None, view=None)
-    elif response.buttonID:
-        await message.msg.edit(content=f"You picked the button: `{response.buttonID}`", embed=None, view=None)
-    else:
-        await message.msg.edit(content="The message timed out!", embed=None, view=None)
-
-@bot.tree.command(name="modaltest", description="A modal test command.")
-@app_commands.guilds(751669314196602972)
-async def modalslash(interaction: discord.Interaction):
-    modal = YagooMessage(bot, interaction.user, "Test Modal", "This is a test modal.")
-    modal.addTextInput(label="Input 1", placeholder="Enter Something Here", text_id="input1")
-    modal.addTextInput(label="Input 2", placeholder="Enter Something Here Also", text_id="input2", row=1)
-    response = await modal.postModal(interaction)
-    print(vars(response))
-    await interaction.followup.send(content="Done!")
-
-@bot.command()
+"""@bot.command()
 @commands.check(creatorCheck)
 async def mscheck(ctx, vtuber):
     with open("data/channels.json") as f:
@@ -300,7 +254,7 @@ async def mscheck(ctx, vtuber):
         }
     }
     await milestoneNotify(msDict, bot, True)
-    await ctx.send(file=discord.File(f'milestone/generated/{vtuber}.png'))
+    await ctx.send(file=discord.File(f'milestone/generated/{vtuber}.png'))"""
 
 @bot.command()
 @commands.check(creatorCheck)
@@ -414,6 +368,7 @@ async def setup_hook():
         await bot.add_cog(PremiereCycle(bot))
     if settings["milestone"]:
         await bot.add_cog(msCycle(bot))
+    await bot.add_cog(YagooSlash(bot))
     #await bot.add_cog(updateStatus(bot))
 
 bot.setup_hook = setup_hook

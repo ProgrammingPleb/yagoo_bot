@@ -16,57 +16,72 @@ You should have received a copy of the GNU General Public License
 along with Yagoo Bot.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-import logging
+import discord
+from discord import app_commands
 from discord.ext import commands
-from discord_slash import cog_ext
-from discord_slash.utils.manage_commands import create_option
-from .general import botGetInfo, botHelp, botTwt
-from .subscribe import subCategory, subCustom, unsubChannel, sublistDisplay
-from ..lib.dataUtils import botdb
+from yagoo.commands.general import botHelp
+from yagoo.commands.subscribe import subCategory, subCustom, unsubChannel
+from yagoo.types.message import YagooMessage
+from yagoo.types.views import YagooSelectOption
 
 class YagooSlash(commands.Cog):
-    def __init__(self, bot, slash, prefix):
+    def __init__(self, bot):
         self.bot = bot
-        self.slash = slash
-        self.prefix = prefix
-        logging.info("Bot Slash Commands - Commands loaded!")
+        print("Loaded Slash Commands!")
     
-    @cog_ext.cog_slash(name="help", description="Shows the bot's help menu.", options=None)
-    async def _help(self, ctx):
-        db = await botdb.getDB()
-        if await botdb.checkIfExists(str(ctx.guild.id), "server", "prefixes", db):
-            prefix = (await botdb.getData(str(ctx.guild.id), "server", ("prefix",), "prefixes", db))["prefix"]
-        else:
-            prefix = self.prefix
-        await ctx.send(embed=await botHelp(prefix))
-
-    @cog_ext.cog_slash(name="info", description="Get information about a VTuber.",
-                       options=[create_option(name = "name", description = "The VTuber's name to search for.", option_type = 3, required = True)])
-    async def _info(self, ctx, name: str):
-        await botGetInfo(ctx, self.bot, name)
-
-    @cog_ext.cog_slash(name="subscribe", description="Subscribe to a VTuber's livestream/milestone notifications.",
-                       options=[create_option(name = "name", description = "The VTuber's name that is being subscribed to.", option_type = 3, required = False)])
-    async def _subscribe(self, ctx, name: str = None):
-        if name is None:
-            await subCategory(ctx, self.bot)
-        else:
-            await subCustom(ctx, self.bot, name)
-
-    @cog_ext.cog_slash(name="sublist", description="Lists all the VTubers this channel is subscribed to.", options=None)
-    async def _test(self, ctx):
-        await sublistDisplay(ctx, self.bot)
-
-    @cog_ext.cog_slash(name="unsubscribe", description="Unsubscribe to an existing VTuber's livestream/milestone notifications.",
-                       options=[create_option(name = "name", description = "The VTuber's name that is being unsubscribed from.", option_type = 3, required = False)])
-    async def _unsubscribe(self, ctx, name: str = None):
-        await unsubChannel(ctx, self.bot, name)
+    @app_commands.command(name="help", description="List all commands under Yagoo bot")
+    @app_commands.guilds(751669314196602972)
+    async def helpslash(interaction: discord.Interaction): # pylint: disable=redefined-builtin
+        await interaction.response.send_message(embed=await botHelp("/"), ephemeral=True)
     
-    @cog_ext.cog_slash(name="follow", description="Follow a Twitter user to the channel.",
-                       options=[create_option(name = "name", description = "The Twitter user's link or screen name.", option_type = 3, required = True)])
-    async def _follow(self, ctx, name: str = None):
-        await botTwt.follow(ctx, self.bot, name)
+    @app_commands.command(name="subscribe", description="Subscribes to the specified channel(s)")
+    @app_commands.describe(channel='The YouTube channel to subscribe to')
+    @app_commands.guilds(751669314196602972)
+    async def subscribeslash(self, interaction: discord.Interaction, channel: str = None):
+        await interaction.response.defer(ephemeral=True)
+        if channel is None:
+            await subCategory(interaction, self.bot)
+        else:
+            await subCustom(interaction, self.bot, channel)
+    
+    @app_commands.command(name="unsubscribe", description="Unsubscribes from the specified channel(s)")
+    @app_commands.describe(channel='The YouTube channel to unsubscribe from')
+    @app_commands.guilds(751669314196602972)
+    async def unsubscribeslash(self, interaction: discord.Interaction, channel: str = None):
+        await interaction.response.defer(ephemeral=True)
+        await unsubChannel(interaction, self.bot, channel)
+    
+    # POC: Recreation of subscription menu with new message class
+    @app_commands.command(name="test", description="A test command.")
+    @app_commands.guilds(751669314196602972)
+    async def test(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        message = YagooMessage(self.bot, interaction.user,
+                            "Subscribing to a VTuber", "Pick the VTuber's affiliation:",
+                            color=discord.Color.from_rgb(32, 34, 37))
+        message.embed.add_field(name="Action", value="Pick an entry in the list or use the buttons below for further actions.")
+        selectOptions = []
+        for i in range(1, 100):
+            selectOptions.append(YagooSelectOption(str(i)))
+        message.addSelect(selectOptions)
+        message.addButton(3, "search", "Search for a VTuber")
+        message.addButton(3, "all", "Subscribe to all VTubers")
+        message.addButton(4, "cancel", "Cancel", style=discord.ButtonStyle.red)
+        response = await message.post(interaction, True, True)
+        print(vars(response))
+        if response.selectValues:
+            await message.msg.edit(content=f"You picked the option: `{response.selectValues[0]}`", embed=None, view=None)
+        elif response.buttonID:
+            await message.msg.edit(content=f"You picked the button: `{response.buttonID}`", embed=None, view=None)
+        else:
+            await message.msg.edit(content="The message timed out!", embed=None, view=None)
 
-    @cog_ext.cog_slash(name="unfollow", description="Unfollow a Twitter user from the channel.", options=None)
-    async def _unfollow(self, ctx):
-        await botTwt.unfollow(ctx, self.bot)
+    @app_commands.command(name="modaltest", description="A modal test command.")
+    @app_commands.guilds(751669314196602972)
+    async def modalslash(self, interaction: discord.Interaction):
+        modal = YagooMessage(self.bot, interaction.user, "Test Modal", "This is a test modal.")
+        modal.addTextInput(label="Input 1", placeholder="Enter Something Here", text_id="input1")
+        modal.addTextInput(label="Input 2", placeholder="Enter Something Here Also", text_id="input2", row=1)
+        response = await modal.postModal(interaction)
+        print(vars(response))
+        await interaction.followup.send(content="Done!")
