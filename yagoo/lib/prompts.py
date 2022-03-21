@@ -400,9 +400,8 @@ class subPrompts:
             
             Returns
             ---
-            A `dict` with:
-            - status: `True` if the user choosed any subscription types.
-            - subTypes: The subscription types which were selected by the user (`dict` that contains `bool` states of subscriptions).
+            `SubscriptionData` if the user confirmed the choice.
+            `YagooViewResponse` if cancelled or timed out.
             """
             buttonStates = subTypes
             if not buttonStates:
