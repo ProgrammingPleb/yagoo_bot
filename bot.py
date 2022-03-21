@@ -355,7 +355,6 @@ async def setup_hook():
     if os.path.exists("yagoo/commands/custom.py"):
         from yagoo.commands.custom import customCommands
         await bot.add_cog(customCommands(bot, settings))
-        print("Loaded custom commands!")
     if settings["dblPublish"]:
         await bot.add_cog(guildUpdate(bot, settings["dblToken"]))
     if settings["channel"]:

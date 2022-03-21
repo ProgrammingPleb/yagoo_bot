@@ -27,7 +27,10 @@ from yagoo.types.views import YagooSelectOption
 class YagooSlash(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        print("Loaded Slash Commands!")
+    
+    @commands.Cog.listener()
+    async def on_ready(self):
+        print("Slash commands cog loaded in!")
     
     @app_commands.command(name="help", description="List all commands under Yagoo bot")
     @app_commands.guilds(751669314196602972)
