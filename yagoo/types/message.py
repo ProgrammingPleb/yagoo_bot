@@ -254,7 +254,7 @@ class YagooMessage():
             response = await self.wait_for_response()
             if response:
                 if self.pages > 1:
-                    if self.view.responseData.buttonID in ("next", "prev"):
+                    if self.view.responseData.buttonID in ("next", "prev") and self.select:
                         if self.view.responseData.buttonID == "next":
                             self.paginatorUpdate(True)
                         elif self.view.responseData.buttonID == "prev":
