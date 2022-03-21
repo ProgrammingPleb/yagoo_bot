@@ -165,10 +165,22 @@ async def sublistDisplay(ctx: Union[commands.Context, SlashContext], bot: comman
     await msgDelete(ctx)
     return
 
-async def defaultSubtype(ctx: Union[commands.Context, SlashContext], bot: commands.Bot):
+async def defaultSubtype(cmd: Union[commands.Context, discord.Interaction], bot: commands.Bot):
+    """
+    Prompts the user to either set or change the default subscription types for the channel.
+    
+    Arguments
+    ---
+    cmd: Context or interaction from the invoked command
+    bot: The Discord bot.
+    """
     db = await botdb.getDB()
-    subMsg = await ctx.send("Loading channel subscription defaults...")
-    server = await dbTools.serverGrab(bot, str(ctx.guild.id), str(ctx.channel.id), ("subDefault",), db)
+    server = await dbTools.serverGrab(bot, str(cmd.guild.id), str(cmd.channel.id), ("subDefault",), db)
+    if isinstance(cmd, commands.Context):
+        message = YagooMessage(bot, cmd.author)
+        message.msg = await cmd.send("Loading channel subscription defaults...")
+    else:
+        message = YagooMessage(bot, cmd.user)
     
     subTypes = {}
     for subType in allSubTypes(False):
@@ -177,34 +189,31 @@ async def defaultSubtype(ctx: Union[commands.Context, SlashContext], bot: comman
         for subType in await botdb.listConvert(server["subDefault"]):
             subTypes[subType] = True
     
-    result = await subPrompts.subTypes.prompt(ctx, bot, subMsg,
-                                              "Default Channel Subscription Types",
-                                              "Pick the subscription types for this channel to subscribe to by default.",
-                                              "Confirm", "confirm", subTypes, True)
-    if result["status"]:
-        subDefault = []
-        for subType in result["subTypes"]:
-            if result["subTypes"][subType]:
+    message.embed.title = "Default Channel Subscription Types"
+    message.embed.description = "Pick the subscription types for this channel to subscribe to by default."
+    result = await subPrompts.subTypes.prompt(cmd, message, "Confirm", "confirm", subTypes, True)
+    if isinstance(result, SubscriptionData):
+        subDefault: List[str] = []
+        for subType in result.subList:
+            if result.subList[subType]:
                 subDefault.append(subType)
-        await botdb.addData((str(ctx.channel.id), await botdb.listConvert(subDefault)), ("channel", "subDefault"), "servers", db)
+        await botdb.addData((str(cmd.channel.id), await botdb.listConvert(subDefault)), ("channel", "subDefault"), "servers", db)
         
-        defaultSubs = ""
+        message.resetEmbed()
+        message.embed.title = "Successfully Set Channel Defaults!"
         if subDefault == []:
-            defaultSubs = "No Defaults"
-            promptStatus = "Subscription commands will now ask for subscription types first."
+            message.embed.description = "Subscription commands will now ask for subscription types first."
+            message.embed.color = discord.Color.from_rgb(0, 0, 0)
         else:
+            defaultSubs = ""
             for sub in subDefault:
-                defaultSubs += f"{sub}, "
-            promptStatus = "Subscription commands will now follow the channel's defaults."
-        embed = discord.Embed(title="Successfully Set Channel Defaults!",
-                              description=f"This channel's defaults are now set.\n{promptStatus}",
-                              color=discord.Colour.green())
-        embed.add_field(name="Default Subscriptions", value=defaultSubs.strip(", "), inline=False)
-        await subMsg.edit(content=" ", embed=embed, components=[])
-        await msgDelete(ctx)
-        return
-    await subMsg.delete()
-    await msgDelete(ctx)
+                defaultSubs += f"{sub.capitalize()}, "
+            message.embed.description = "Subscription commands will now follow the channel's defaults."
+            message.embed.color = discord.Color.green()
+            message.embed.add_field(name="Default Subscriptions", value=defaultSubs.strip(", "), inline=False)
+        await message.msg.edit(content=" ", embed=message.embed, view=None)
+        return await removeMessage(cmd=cmd)
+    await removeMessage(message, cmd)
 
 class subUtils:
     async def checkDefault(data: dict):

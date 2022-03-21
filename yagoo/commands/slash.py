@@ -20,7 +20,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from yagoo.commands.general import botHelp
-from yagoo.commands.subscribe import subCategory, subCustom, unsubChannel
+from yagoo.commands.subscribe import defaultSubtype, subCategory, subCustom, unsubChannel
 from yagoo.lib.botUtils import subPerms
 from yagoo.lib.prompts import botError
 from yagoo.types.message import YagooMessage
@@ -67,6 +67,20 @@ class YagooSlash(commands.Cog):
     
     @unsubscribeSlash.error
     async def unsubscribeError(self, interaction: discord.Interaction, error):
+        if not interaction.response.is_done():
+            await interaction.response.defer(ephemeral=True)
+        
+        await interaction.followup.send(embed=await botError(interaction, error), ephemeral=True)
+    
+    @app_commands.command(name="subdefault", description="Sets the default channel subscription types")
+    @app_commands.check(subPerms)
+    @app_commands.guilds(751669314196602972)
+    async def subDefaultSlash(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        await defaultSubtype(interaction, self.bot)
+    
+    @subDefaultSlash.error
+    async def subDefaultSlashError(self, interaction: discord.Interaction, error):
         if not interaction.response.is_done():
             await interaction.response.defer(ephemeral=True)
         
