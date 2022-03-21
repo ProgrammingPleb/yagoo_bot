@@ -109,8 +109,7 @@ class ChannelSubscriptionData():
         """
         if channelID in self.__rawChannelListing__.keys():
             return self.__rawChannelListing__[channelID]
-        else:
-            raise ChannelNotFound(channelID)
+        raise ChannelNotFound(channelID)
     
     def findTypes(self, channelID: str) -> List[str]:
         """
@@ -136,8 +135,7 @@ class ChannelSubscriptionData():
                 if channel.channelID == channelSearch.channelID:
                     subTypes.append("premiere")
             return subTypes
-        else:
-            raise ChannelNotFound(channelID)
+        raise ChannelNotFound(channelID)
 
 class SubscriptionResponse():
     """
