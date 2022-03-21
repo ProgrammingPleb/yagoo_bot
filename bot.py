@@ -58,8 +58,7 @@ async def determine_prefix(bot: commands.Bot, message: discord.Message):
     if guild:
         if await botdb.checkIfExists(str(message.guild.id), "server", "prefixes", db):
             return commands.when_mentioned_or((await botdb.getData(str(message.guild.id), "server", ("prefix",), "prefixes", db))["prefix"])(bot, message)
-            return commands.when_mentioned_or(settings["prefix"])(bot, message)
-        return commands.when_mentioned_or(settings["prefix"])(bot, message)
+    return commands.when_mentioned_or(settings["prefix"])(bot, message)
 
 bot = commands.Bot(command_prefix=determine_prefix, help_command=None, intents=intents)
 bot.remove_command('help')
@@ -136,7 +135,7 @@ async def unsub_error(ctx: commands.Context, error):
     errEmbed = await botError(ctx, error)
     if errEmbed:
         await ctx.send(embed=errEmbed)
-"""
+
 @bot.command(aliases=['subdefault'])
 @commands.check(subPerms)
 async def subDefault(ctx):
@@ -186,7 +185,7 @@ async def unfollow(ctx):
 async def follow_error(ctx, error):
     errEmbed = await botError(ctx, error)
     if errEmbed:
-        await ctx.send(embed=errEmbed)"""
+        await ctx.send(embed=errEmbed)
 
 @bot.command()
 @commands.check(subPerms)
