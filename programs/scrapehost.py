@@ -149,7 +149,7 @@ async def streamParse(videos: list, channel: str):
                 if label == "LIVE":
                     live = True
                 if label == "Shorts":
-                    live = False
+                    continue
                 for part in video["gridVideoRenderer"]["title"]["runs"]:
                     title += part["text"]
                 if "simpleText" in video["gridVideoRenderer"]["viewCountText"]:
