@@ -26,7 +26,6 @@ import rpyc
 import tweepy
 import mysql.connector
 from discord.ext import commands
-from discord_slash.context import SlashContext
 from itertools import islice
 from typing import Union
 from yaml.loader import SafeLoader
@@ -58,7 +57,7 @@ def subPerms(cmd: Union[commands.Context, discord.Interaction]):
     userPerms = cmd.channel.permissions_for(user)
     return userPerms.administrator or userPerms.manage_webhooks or cmd.guild.owner_id == user.id
 
-async def msgDelete(ctx: Union[commands.Context, SlashContext]):
+async def msgDelete(ctx: commands.Context):
     """
     Removes the message that invoked the command (if any)
 
@@ -66,8 +65,7 @@ async def msgDelete(ctx: Union[commands.Context, SlashContext]):
     ---
     `ctx`: A discord.py `commands.Context` or discord-py-slash-commands `SlashContext`
     """
-    if type(ctx) != SlashContext:
-        await ctx.message.delete()
+    await ctx.message.delete()
 
 async def getRoles(ctx: commands.Context, noEveryone: bool = False):
     """
@@ -179,7 +177,7 @@ class fandomTextParse():
 
         return dictText
 
-async def vtuberSearch(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, searchTerm: str, searchMsg, askTerm: str, getOther: bool = False):
+async def vtuberSearch(ctx: commands.Context, bot: commands.Bot, searchTerm: str, searchMsg, askTerm: str, getOther: bool = False):
     """
     Searches for a VTuber and returns a `dict` with it's relevant data.
 
@@ -260,7 +258,7 @@ async def vtuberSearch(ctx: Union[commands.Context, SlashContext], bot: commands
                 "name": sPick['name']
             }
 
-async def embedContinue(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, embedMsg: discord.Message, section: str, text: str, name: str):
+async def embedContinue(ctx: commands.Context, bot: commands.Bot, embedMsg: discord.Message, section: str, text: str, name: str):
     textLines = text.split("\n")
     textFormatted = []
     pagePos = 0
@@ -431,7 +429,7 @@ class TwitterUtils:
     Twitter-related utilities to be used by the bot's functions.
     """
 
-    async def dbExists(twtID: str, db: mysql.connector.CMySQLConnection = None):
+    async def dbExists(twtID: str, db: mysql.connector.MySQLConnection = None):
         """
         Checks if the supplied Twitter user ID exists in the bot's Twitter database.
         
@@ -461,7 +459,7 @@ class TwitterUtils:
             "user": None
         }
 
-    async def newAccount(userData: tweepy.User, db: mysql.connector.CMySQLConnection = None):
+    async def newAccount(userData: tweepy.User, db: mysql.connector.MySQLConnection = None):
         """
         Adds a new Twitter account to the bot's database.
 
@@ -476,7 +474,7 @@ class TwitterUtils:
         await botdb.addData((userData.id_str, 1, userData.name, userData.screen_name),
                             ("twtID", "custom", "name", "screenName"), "twitter", db)
     
-    async def followActions(action: str, channel: str, userID: str = None, allAccounts: bool = False, db: mysql.connector.CMySQLConnection = None):
+    async def followActions(action: str, channel: str, userID: str = None, allAccounts: bool = False, db: mysql.connector.MySQLConnection = None):
         """
         Follow or unfollow a user based on the action argument given. Saves it inside the bot's database.
 

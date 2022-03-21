@@ -36,7 +36,7 @@ class YagooSlash(commands.Cog):
     
     @app_commands.command(name="help", description="List all commands under Yagoo bot")
     @app_commands.guilds(751669314196602972)
-    async def helpslash(interaction: discord.Interaction): # pylint: disable=redefined-builtin
+    async def helpslash(self, interaction: discord.Interaction): # pylint: disable=redefined-builtin
         await interaction.response.send_message(embed=await botHelp("/"), ephemeral=True)
     
     @app_commands.command(name="subscribe", description="Subscribes to the specified channel(s)")

@@ -187,29 +187,29 @@ async def searchConfirm(ctx, bot, sName: str, smsg, embedDesc, accept, decline, 
         await msg.delete()
 
 def checkCancel(responseData: YagooViewResponse):
-            """
+    """
     Checks if the user wants to cancel the command or check if the user gave any response.
-            
-            Arguments
-            ---
+    
+    Arguments
+    ---
     responseData: The response data from the invoked command.
-            """
+    """
     if responseData.responseType:
         if responseData.buttonID == "cancel":
             return True
-                return False
+        return False
     return True
 
 async def removeMessage(message: Optional[YagooMessage] = None, cmd: Union[commands.Context, discord.Interaction, None] = None):
-            """
+    """
     Removes the message resulting from an invoked command or remove the command invocation.
     Will also remove the command message if a command's context is given.
-            
-            Arguments
-            ---
+    
+    Arguments
+    ---
     message: The message from the bot.
     cmd: The command's context.
-            """
+    """
     if isinstance(cmd, commands.Context):
         if message:
             await message.msg.delete()
@@ -272,7 +272,7 @@ class subPrompts:
         ctgMsg.addButton(2, "search", "Search for a VTuber", disabled=True)
         ctgMsg.addButton(2, "all", "Subscribe to all VTubers")
         ctgMsg.addButton(3, "cancel", "Cancel", style=discord.ButtonStyle.red)
-    
+
         if isinstance(cmd, commands.Context):
             response = await ctgMsg.legacyPost(cmd)
         else:
@@ -309,11 +309,11 @@ class subPrompts:
             result = await message.legacyPost(cmd)
         else:
             result = await message.post(cmd, True, True)
-            
+        
         if not result.responseType or result.buttonID == "cancel":
             searchResult.failed()
             return searchResult
-    
+        
         searchResult.matched()
         searchResult.channelName = result.selectValues[0]
         return searchResult
@@ -552,7 +552,7 @@ class subPrompts:
             await msg.edit(content=" ", embed=embed, components=await generalPrompts.utils.convertToRows(buttons))
             return
         
-        async def prompt(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, msg: discord.Message, pages: list, server: dict):
+        async def prompt(ctx: commands.Context, bot: commands.Bot, msg: discord.Message, pages: list, server: dict):
             """
             Show the user about the current subscriptions for the channel.
             
@@ -616,7 +616,7 @@ class unsubPrompts:
                 message.addButton(4, "cancel", "Cancel", style=discord.ButtonStyle.red)
                 message.addButton(4, "select", "Select None", style=discord.ButtonStyle.grey)
                 message.addButton(4, "submit", "Unsubscribe", style=discord.ButtonStyle.green, disabled=not selected)
-        
+
         async def parseToChannels(channelIDs: List[str], subData: ChannelSubscriptionData):
             result: List[YouTubeChannel] = []
             
@@ -701,28 +701,28 @@ class unsubPrompts:
                     return UnsubscriptionResponse(False)
 
     async def displayResult(message: YagooMessage, unsubData: UnsubscriptionResponse):
-            """
+        """
         Displays the unsubscription result.
-            
+        
         message: The message used to display the result.
         unsubData: The unsubscription data.
-            """
+        """
         subTypeText = ""
         channels = ""
-            
+        
         for subType in unsubData.subTypes:
             subTypeText += f"{subType.capitalize()}, "
-            
+        
         if len(unsubData.channels) <= 5:
             for channel in unsubData.channels:
                 channels += f"{channel.channelName}, "
         else:
             channels = f"{len(unsubData.channels)} channels"
-    
+        
         message.resetEmbed()
         message.embed.title = "Successfully Unsubscribed!"
         message.embed.description = f"This channel is now unsubscribed from {channels.strip(', ')}."
         message.embed.color = discord.Color.green()
         message.embed.add_field(name="Subscription Types", value=subTypeText.strip(", "), inline=False)
         message.msg = await message.msg.edit(content=None, embed=message.embed, view=None)
-                return
+        return
