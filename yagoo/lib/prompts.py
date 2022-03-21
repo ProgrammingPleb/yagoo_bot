@@ -280,8 +280,7 @@ class subPrompts:
         """
         choices = []
         
-        message.embed.clear_fields()
-        message.resetComponents()
+        message.resetMessage()
         message.embed.title = "Searching for a VTuber"
         message.embed.description = f"Displaying search results for: `{searchTerm}`\n"
         for item in searchResult.searchResults:
@@ -312,7 +311,7 @@ class subPrompts:
         subResult: The `SubscriptionResponse` from the subscription prompts.
         """
         channels = ""
-        message.embed.clear_fields()
+        message.resetEmbed()
         for name in subResult.channelNames:
             channels += f"{name}, "
         if subResult.subTypes:
@@ -366,10 +365,9 @@ class subPrompts:
             """
             options = await subPrompts.channelPick.parseToPages(category)
             
-            message.resetComponents()
+            message.resetMessage()
             message.embed.title = f"Subscribing to {catName} VTubers"
             message.embed.description = "Pick a VTuber in the select below."
-            message.embed.clear_fields()
             message.embed.add_field(name="Not finding a VTuber in this category?",
                                     value="Search for a VTuber by adding the VTuber's name after the `subscribe` command.")
             message.addSelect(options, f"Pick the {catName} VTubers here", max_values=25)
@@ -486,8 +484,7 @@ class subPrompts:
             - status: `True` if a user requested to search or confirms the choice.
             - action: The action that is requested by the user (`search`/`confirm`).
             """
-            message.embed.clear_fields()
-            message.resetComponents()
+            message.resetMessage()
             message.embed.title = title
             if action.lower() == "unsubscribe":
                 message.embed.description = "Are you sure you want to unsubscribe from this channel?"

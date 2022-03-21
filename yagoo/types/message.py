@@ -209,6 +209,27 @@ class YagooMessage():
         self.pages = 0
         self.currentPage = 1
     
+    def resetEmbed(self):
+        """
+        Resets the embed of the message.
+        """
+        self.embed.clear_fields()
+        self.embed.title = ""
+        self.embed.description = ""
+        self.embed.color = discord.Color.blurple()
+        self.embed.url = None
+        self.embed.set_image(None)
+        self.embed.set_thumbnail(None)
+        self.embed.remove_author()
+        self.embed.remove_footer()
+    
+    def resetMessage(self):
+        """
+        Resets the message.
+        """
+        self.resetComponents()
+        self.resetEmbed()
+    
     async def legacyPost(self, ctx: commands.Context):
         """
         Post the message (or edit if it is an existing message) to the channel that invoked the command.
