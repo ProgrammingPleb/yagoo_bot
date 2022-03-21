@@ -231,31 +231,6 @@ async def testtext(ctx: commands.Context):
     else:
         await message.msg.edit(content="The message timed out!", embed=None, view=None)
 
-"""@bot.command()
-@commands.check(creatorCheck)
-async def mscheck(ctx, vtuber):
-    with open("data/channels.json") as f:
-        channels = json.load(f)
-
-    ytch = await channelInfo(vtuber)
-    if ytch["roundSubs"] < 1000000:
-        subtext = f'{int(ytch["roundSubs"] / 1000)}K Subscribers'
-    else:
-        if ytch["roundSubs"] == ytch["roundSubs"] - (ytch["roundSubs"] % 1000000):
-            subtext = f'{int(ytch["roundSubs"] / 1000000)}M Subscribers'
-        else:
-            subtext = f'{ytch["roundSubs"] / 1000000}M Subscribers'
-    msDict = {
-        vtuber: {
-            "name": ytch["name"],
-            "image": ytch["image"],
-            "banner": ytch["mbanner"],
-            "msText": subtext
-        }
-    }
-    await milestoneNotify(msDict, bot, True)
-    await ctx.send(file=discord.File(f'milestone/generated/{vtuber}.png'))"""
-
 @bot.command()
 @commands.check(creatorCheck)
 async def removeChannel(ctx, channelId):
