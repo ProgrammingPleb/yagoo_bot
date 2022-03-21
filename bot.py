@@ -132,13 +132,13 @@ async def unsubscribe(ctx: commands.Context, *, channel: str = None):
     message = await ctx.send("Text commands will be deprecated soon! Please use the slash commands in the future.")
     await unsubChannel(ctx, bot, channel)
     await message.delete()
-"""
+
 @unsubscribe.error
-async def unsub_error(ctx, error):
+async def unsub_error(ctx: commands.Context, error):
     errEmbed = await botError(ctx, error)
     if errEmbed:
         await ctx.send(embed=errEmbed)
-
+"""
 @bot.command(aliases=['subdefault'])
 @commands.check(subPerms)
 async def subDefault(ctx):

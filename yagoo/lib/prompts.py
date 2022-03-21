@@ -26,12 +26,19 @@ from discord.ext import commands
 from yagoo.lib.botVars import allSubTypes
 from yagoo.lib.dataUtils import botdb
 from yagoo.types.data import CategorySubscriptionResponse, ChannelSearchResponse, ChannelSubscriptionData, SubscriptionData, SubscriptionResponse, UnsubscriptionResponse, YouTubeChannel
+from yagoo.types.error import ChannelNotFound, NoSubscriptions
 from yagoo.types.message import YagooMessage
 from yagoo.types.views import YagooSelectOption, YagooViewResponse
 
-async def botError(ctx: commands.Context, error):
+async def botError(cmd: Union[commands.Context, discord.Interaction],
+                   error: Union[commands.errors.CommandInvokeError, discord.app_commands.CommandInvokeError]):
     errEmbed = discord.Embed(title="An error has occurred!", color=discord.Colour.red())
     if "403 Forbidden" in str(error):
+        if isinstance(cmd, commands.Context):
+            user = cmd.author
+        else:
+            user = cmd.user
+        
         permData = [{
             "formatName": "Manage Webhooks",
             "dataName": "manage_webhooks"
@@ -40,7 +47,7 @@ async def botError(ctx: commands.Context, error):
             "dataName": "manage_messages"
         }]
         permOutput = []
-        for perm in iter(ctx.guild.permissions_for(ctx.author)):
+        for perm in iter(cmd.guild.permissions_for(user)):
             for pCheck in permData:
                 if perm[0] == pCheck["dataName"]:
                     if not perm[1]:
@@ -54,9 +61,12 @@ async def botError(ctx: commands.Context, error):
             errEmbed.description += f'\n - `{perm}`'
     elif "Missing Arguments" in str(error):
         errEmbed.description = "A command argument was not given when required to."
-    elif "No Subscriptions" in str(error):
+    elif isinstance(error.original, NoSubscriptions):
         errEmbed.description = "There are no subscriptions for this channel.\n" \
-                               "Subscribe to a channel's notifications by using `y!sub` or `/sub` command."
+                               "Subscribe to a channel's notifications by using the `subscribe` command."
+    elif isinstance(error.original, ChannelNotFound):
+        errEmbed.description = "The YouTube channel is not subscribed to this Discord channel." \
+                               "Subscribe to the channel's notifications by using `subscribe` command."
     elif "No Twitter ID" in str(error):
         errEmbed.description = "There was no Twitter account link given!\n" \
                                "Ensure that the account's Twitter link or screen name is supplied to the command."
@@ -66,7 +76,7 @@ async def botError(ctx: commands.Context, error):
     elif "No Follows" in str(error):
         errEmbed.description = "This channel is not following any Twitter accounts.\n" \
                                "Follow a Twitter account's tweets by using `y!follow` or `/follow` command."
-    elif isinstance(error, commands.CheckFailure):
+    elif isinstance(error, commands.CheckFailure) or isinstance(error, discord.app_commands.errors.CheckFailure):
         errEmbed.description = "You are missing permissions to use this bot.\n" \
                                "Ensure that you have one of these permissions for the channel/server:\n\n" \
                                " - `Administrator (Server)`\n - `Manage Webhooks (Channel/Server)`"

@@ -21,6 +21,7 @@ from discord import app_commands
 from discord.ext import commands
 from yagoo.commands.general import botHelp
 from yagoo.commands.subscribe import subCategory, subCustom, unsubChannel
+from yagoo.lib.prompts import botError
 from yagoo.types.message import YagooMessage
 from yagoo.types.views import YagooSelectOption
 
@@ -47,12 +48,26 @@ class YagooSlash(commands.Cog):
         else:
             await subCustom(interaction, self.bot, channel)
     
+    @subscribeSlash.error
+    async def subscribeError(self, interaction: discord.Interaction, error):
+        if not interaction.response.is_done():
+            await interaction.response.defer(ephemeral=True)
+        
+        await interaction.followup.send(embed=await botError(interaction, error), ephemeral=True)
+    
     @app_commands.command(name="unsubscribe", description="Unsubscribes from the specified channel(s)")
     @app_commands.describe(channel='The YouTube channel to unsubscribe from')
     @app_commands.guilds(751669314196602972)
     async def unsubscribeslash(self, interaction: discord.Interaction, channel: str = None):
         await interaction.response.defer(ephemeral=True)
         await unsubChannel(interaction, self.bot, channel)
+    
+    @unsubscribeSlash.error
+    async def unsubscribeError(self, interaction: discord.Interaction, error):
+        if not interaction.response.is_done():
+            await interaction.response.defer(ephemeral=True)
+        
+        await interaction.followup.send(embed=await botError(interaction, error), ephemeral=True)
     
     # POC: Recreation of subscription menu with new message class
     @app_commands.command(name="test", description="A test command.")
