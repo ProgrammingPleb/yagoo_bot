@@ -339,7 +339,9 @@ class YagooMessage():
     async def wait_for_response(self, timeout: int = 60):
         """Waits for a response from the message components. Should only be used inside `message.py`."""
         def check(interaction: discord.Interaction):
-            return interaction.user.id == self.user.id and interaction.message.id == self.msg.id
+            if interaction.message:
+                return interaction.user.id == self.user.id and interaction.message.id == self.msg.id
+            return False
         
         try:
             await self.bot.wait_for("interaction", check=check, timeout=timeout)
