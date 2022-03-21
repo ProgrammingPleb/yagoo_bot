@@ -218,8 +218,8 @@ class YagooMessage():
         self.embed.description = ""
         self.embed.color = discord.Color.blurple()
         self.embed.url = None
-        self.embed.set_image(None)
-        self.embed.set_thumbnail(None)
+        self.embed.set_image(url=None)
+        self.embed.set_thumbnail(url=None)
         self.embed.remove_author()
         self.embed.remove_footer()
     
