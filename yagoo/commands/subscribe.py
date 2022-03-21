@@ -301,9 +301,10 @@ class subUtils:
         if channelData.success:
                 db = await botdb.getDB()
             if not await botdb.checkIfExists(channelData.channelID, "id", "channels", db):
-                message.embed.clear_fields()
+                message.resetEmbed()
                 message.embed.title = "Getting Channel Data..."
                 message.embed.description = "This channel is new in the database.\nPlease wait while we're getting the channel's info."
+                message.embed.color = discord.Color.from_rgb(0, 0, 0)
                 message.msg = await message.msg.edit(content=None, embed=message.embed, view=None)
                 chData = await subUtils.addChannel(channelData.channelID, channelData.channelName, ("id", "name"), db)
                 else:
@@ -341,7 +342,7 @@ class subUtils:
         else:
             ytChName = channels[0].channelName
         if subDefault == [''] or subDefault is None:
-            message.embed.clear_fields()
+            message.resetEmbed()
             message.embed.title = f"Subscribing to {ytChName}"
             message.embed.description = "Pick the notifications to be posted to this channel.\n" \
                                         "(This prompt can be bypassed by setting a default subscription type " \
@@ -426,7 +427,7 @@ class subUtils:
         
         if subDefault == [''] or subDefault is None:
             subDefault = []
-            message.embed.clear_fields()
+            message.resetEmbed()
             message.embed.title = f"Subscribing to all {category}VTubers"
             message.embed.description = "Pick the notifications to be posted to this channel.\n" \
                                         "(This prompt can be bypassed by setting a default subscription type " \
