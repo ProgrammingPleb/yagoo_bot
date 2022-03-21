@@ -104,7 +104,7 @@ async def channelInfo(channelId: Union[str, int], scrape = False, debug: bool = 
             else:
                 proxy = None
                 proxyauth = None
-            async with session.get(f'https://www.youtube.com/channel/{channelId}?hl=en-US', proxy=proxy, proxy_auth=proxyauth) as r:
+            async with session.get(f'https://www.youtube.com/channel/{channelId}/videos?hl=en-US', proxy=proxy, proxy_auth=proxyauth) as r:
                 soup = BeautifulSoup(await r.text(), "lxml")
                 scripts = soup.find_all("script")
                 for script in scripts:

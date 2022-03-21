@@ -323,22 +323,30 @@ async def premiereScrape(ytData):
     pEvents = {}
 
     try:
-        cFirstTab = ytData["contents"]["twoColumnBrowseResultsRenderer"]["tabs"][0]["tabRenderer"]["content"]["sectionListRenderer"]["contents"]
+        exists = True
+        count = 0
+        if "messageRenderer" in ytData["contents"]["twoColumnBrowseResultsRenderer"]["tabs"][1]["tabRenderer"]["content"] \
+                                      ["sectionListRenderer"]["contents"][0]["itemSectionRenderer"]["contents"][0]:
+            exists = False
 
-        for oContents in cFirstTab:
-            if "shelfRenderer" in oContents["itemSectionRenderer"]["contents"][0]:
-                if "horizontalListRenderer" in oContents["itemSectionRenderer"]["contents"][0]["shelfRenderer"]["content"]:
-                    for iContents in oContents["itemSectionRenderer"]["contents"][0]["shelfRenderer"]["content"]["horizontalListRenderer"]["items"]:
-                        if "gridVideoRenderer" in iContents:
-                            if "upcomingEventData" in iContents["gridVideoRenderer"]:
-                                for runs in iContents["gridVideoRenderer"]["upcomingEventData"]["upcomingEventText"]["runs"]:
-                                    if "Premieres" in runs["text"]:
-                                        cPremiereVid = iContents["gridVideoRenderer"]
-                                        if cPremiereVid["videoId"] not in pEvents and (int(cPremiereVid["upcomingEventData"]["startTime"]) - datetime.datetime.now().timestamp()) > 10:
-                                            pEvents[cPremiereVid["videoId"]] = {
-                                                "title": cPremiereVid["title"]["simpleText"],
-                                                "time": int(cPremiereVid["upcomingEventData"]["startTime"])
-                                            }
+        if exists:
+            videos = ytData["contents"]["twoColumnBrowseResultsRenderer"]["tabs"][1]["tabRenderer"]["content"]["sectionListRenderer"]["contents"] \
+                    [0]["itemSectionRenderer"]["contents"][0]["gridRenderer"]["items"]
+            
+            for video in videos:
+                if count <= 6:
+                    videoData = video["gridVideoRenderer"]
+                    if "upcomingEventData" in videoData:
+                        for runs in videoData["upcomingEventData"]["upcomingEventText"]["runs"]:
+                            if "Premieres" in runs["text"]:
+                                title = ""
+                                for runs in videoData["title"]["runs"]:
+                                    title += runs["text"]
+                                pEvents[videoData["videoId"]] = {
+                                    "title": title,
+                                    "time": int(videoData["upcomingEventData"]["startTime"])
+                                }
+                count += 1
     except Exception as e:
         logging.error("Premiere Scrape - An error has occured!", exc_info=True)
 
