@@ -204,6 +204,13 @@ async def removeMessage(message: Optional[YagooMessage] = None, cmd: Union[comma
         if message:
             await message.msg.delete()
         await cmd.message.delete()
+    else:
+        if message:
+            message.resetMessage()
+            message.embed.title = "This command was cancelled or has timed out."
+            message.embed.description = "Please dismiss the message using the `Dismiss message` text below."
+            message.embed.color = discord.Color.red()
+            await message.msg.edit(content=None, embed=message.embed, view=None)
 
 class subPrompts:
     async def categoryPages(data: dict):

@@ -80,7 +80,7 @@ async def subCustom(cmd: Union[commands.Context, discord.Interaction], bot: comm
             await subPrompts.displaySubbed(message, subResult)
             await removeMessage(cmd=cmd)
             return
-    await removeMessage(cmd=cmd)
+    await removeMessage(message, cmd)
 
 async def unsubChannel(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, channel: str = None):
     """
