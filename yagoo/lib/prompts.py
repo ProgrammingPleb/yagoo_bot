@@ -471,75 +471,70 @@ class subPrompts:
             return result
 
     class sublistDisplay:
-        async def parseToPages(server: dict):
+        async def parseToPages(server: ChannelSubscriptionData):
             """
             Parses the channel's subscriptions into pages that can be used by `pageNav.message`.
             
             Arguments
             ---
-            server: The server's channel subscriptions, obtained from `unsubUtils.parseToSubTypes`.
+            server: The channel's subscription data.
             
             Returns
             ---
-            A `list` following the page format in `pageNav.message`.
+            A `list` of pages to be used as embed descriptions.
             """
-            result = []
+            result: List[str] = []
             pos = 1
             text = ""
-            for channel in server["channels"]:
-                text += f"{pos}. {server['channels'][channel]['name']}\n"
+            for channel in server.allChannels:
+                text += f"{pos}. {channel.channelName}\n"
                 pos += 1
                 if pos == 11:
-                    result.append({"text": text.strip(), "entries": [], "ids": [], "names": []})
+                    result.append(text.strip())
                     pos = 1
                     text = ""
             if pos > 1:
-                result.append({"text": text.strip(), "entries": [], "ids": [], "names": []})
+                result.append(text.strip())
             return result
         
-        async def editMsg(msg: discord.Message, embed: discord.Embed, pages: list, pagePos: int):
-            buttons = []
-            if len(pages) > 1:
-                buttons = await pageNav.utils.pageRow(pages, pagePos)
-            await msg.edit(content=" ", embed=embed, components=await generalPrompts.utils.convertToRows(buttons))
-            return
-        
-        async def prompt(ctx: commands.Context, bot: commands.Bot, msg: discord.Message, pages: list, server: dict):
+        async def prompt(cmd: Union[commands.Context, discord.Interaction], message: YagooMessage, pages: List[str], subData: ChannelSubscriptionData):
             """
             Show the user about the current subscriptions for the channel.
             
             Arguments
             ---
-            ctx: Context from the executed command.
-            bot: The Discord bot.
-            msg: The message that will be used as the prompt.
+            ctx: Context or interaction from the invoked command.
+            message: The message that will be used as the prompt.
             pages: A `list` containing the pages of the Discord channel's subscriptions.
-            server: The server's channel subscriptions, obtained from `unsubUtils.parseToSubTypes`.
+            subData: The channel's subscription data.
             """
-            embed = discord.Embed(title="Current Channel Subscriptions")
+            message.embed.title = "Current Channel Subscriptions"
             pagePos = 0
-            subFilter = []          # TODO: (LATER) Subscription filter as a sub-update after core rewrite
+            subFilter = []          # TODO: (LATER) Subscription filter after this update
+            if len(pages) > 1:
+                message.pages = len(pages)
+                message.addPaginator(1)
             
             while True:
-                embed.description = pages[pagePos]["text"]
-                await subPrompts.sublistDisplay.editMsg(msg, embed, pages, pagePos)
-                result = await generalPrompts.utils.buttonCheck(ctx, bot, msg)
+                message.embed.description = pages[pagePos]
+                if isinstance(cmd, commands.Context):
+                    result = await message.legacyPost(cmd)
+                else:
+                    result = await message.post(cmd, True, True)
                 
-                if result:
-                    await result.defer(edit_origin=True)
-                    if result.component["custom_id"] == "next":
+                if result.responseType:
+                    if result.buttonID == "next":
                         pagePos += 1
-                    elif result.component["custom_id"] == "back":
+                    elif result.buttonID == "prev":
                         pagePos -= 1
                 else:
                     break
             
-            if len(server['subbed']) > 1:
-                embed.description = f"This channel is currently subscribed to {len(server['subbed'])} channels."
+            if len(subData.allChannels) > 1:
+                message.embed.description = f"This channel is currently subscribed to {len(subData.allChannels)} channels."
             else:
-                embed.description = f"This channel is currently subscribed to 1 channel."
-            await msg.edit(content=" ", embed=embed, components=[])
-            return
+                message.embed.description = f"This channel is currently subscribed to 1 channel."
+            await message.msg.edit(content=None, embed=message.embed, view=None)
 
 class unsubPrompts:
     class removePrompt:

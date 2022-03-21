@@ -86,6 +86,20 @@ class YagooSlash(commands.Cog):
         
         await interaction.followup.send(embed=await botError(interaction, error), ephemeral=True)
     
+    @app_commands.command(name="sublist", description="List this channel's YouTube subscriptions")
+    @app_commands.check(subPerms)
+    @app_commands.guilds(751669314196602972)
+    async def sublistSlash(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        await sublistDisplay(interaction, self.bot)
+    
+    @sublistSlash.error
+    async def subListSlashError(self, interaction: discord.Interaction, error):
+        if not interaction.response.is_done():
+            await interaction.response.defer(ephemeral=True)
+        
+        await interaction.followup.send(embed=await botError(interaction, error), ephemeral=True)
+    
     # POC: Recreation of subscription menu with new message class
     @app_commands.command(name="test", description="A test command.")
     @app_commands.guilds(751669314196602972)

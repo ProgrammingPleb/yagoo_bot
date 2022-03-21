@@ -39,16 +39,16 @@ async def subCategory(cmd: Union[commands.Context, discord.Interaction], bot: co
     if ctgPick.buttonID == "all":
         subResult = await subUtils.subAll(cmd, message, server, str(cmd.channel.id), db)
         subResult.channelNames = ["all VTubers"]
-        else:
+    else:
         channels = await botdb.getAllData("channels", ("id", "name"), ctgPick.selectValues[0], "category", keyDict="id", db=db)
         result = await subPrompts.channelPick.prompt(cmd, message, channels, ctgPick.selectValues[0])
         if result.status:
             if result.allInCategory:
                 subResult = await subUtils.subAll(cmd, message, server, str(cmd.channel.id), db, ctgPick.selectValues[0])
                 subResult.channelNames = [f"all {ctgPick.selectValues[0]} VTubers"]
-    else:
+            else:
                 subResult = await subUtils.subOne(cmd, message, server, str(cmd.channel.id), result.channels, db)
-                else:
+        else:
             subResult = SubscriptionResponse(False)
     if subResult.status:
         await subPrompts.displaySubbed(message, subResult)
@@ -116,9 +116,9 @@ async def unsubChannel(cmd: Union[commands.Context, discord.Interaction], bot: c
         
         if isinstance(cmd, commands.Context):
             result = await message.legacyPost(cmd)
-    else:
-            result = await message.post(cmd, True, True)
         else:
+            result = await message.post(cmd, True, True)
+    else:
         wikiName = await subUtils.channelSearch(cmd, message, channel, "unsubscribe")
         if wikiName.success:
             result = YagooViewResponse()
@@ -144,26 +144,29 @@ async def unsubChannel(cmd: Union[commands.Context, discord.Interaction], bot: c
         return await removeMessage(cmd=cmd)
     await removeMessage(message, cmd)
 
-async def sublistDisplay(ctx: Union[commands.Context, SlashContext], bot: commands.Bot):
+async def sublistDisplay(cmd: Union[commands.Context, discord.Interaction], bot: commands.Bot):
     """
     Show the user about the current subscriptions for the channel.
     
     Arguments
     ---
-    ctx: Context from the executed command.
+    cmd: Context or interaction from the invoked command.
     bot: The Discord bot.
     """
     db = await botdb.getDB()
-    listMsg = await ctx.send("Loading channel subscriptions...")
-    server = await dbTools.serverGrab(bot, str(ctx.guild.id), str(ctx.channel.id), tuple(allSubTypes(False)), db)
+    server = await dbTools.serverGrab(bot, str(cmd.guild.id), str(cmd.channel.id), tuple(allSubTypes(False)), db)
+    if isinstance(cmd, commands.Context):
+        message = YagooMessage(bot, cmd.author)
+        message.msg = await cmd.send("Loading channel subscriptions...")
+    else:
+        message = YagooMessage(bot, cmd.user)
     
     subList = await unsubUtils.parseToSubTypes(server, db)
     pages = await subPrompts.sublistDisplay.parseToPages(subList)
     if len(pages) == 0:
-        raise ValueError("No Subscriptions")
-    await subPrompts.sublistDisplay.prompt(ctx, bot, listMsg, pages, subList)
-    await msgDelete(ctx)
-    return
+        raise NoSubscriptions(str(cmd.channel.id))
+    await subPrompts.sublistDisplay.prompt(cmd, message, pages, subList)
+    await removeMessage(cmd=cmd)
 
 async def defaultSubtype(cmd: Union[commands.Context, discord.Interaction], bot: commands.Bot):
     """
@@ -287,28 +290,28 @@ class subUtils:
         - channelName: The name of the channel.
         """
         wikiName = await FandomScrape.searchChannel(channel)
-            
-            while True:
+        
+        while True:
             if wikiName.status.cannotMatch:
                 wikiName = await subPrompts.searchPick(cmd, message, channel, wikiName)
-
+                
                 if not wikiName.status.matched:
                     return FandomChannel()
 
             uConfirm = await subPrompts.vtuberConfirm.prompt(cmd, message, wikiName.channelName, action)
             if uConfirm.responseType:
                 if uConfirm.buttonID == "confirm":
-                        break
+                    break
                 elif uConfirm.buttonID == "results":
                     wikiName.cannotMatch()
-                    else:
-                    return FandomChannel()
                 else:
+                    return FandomChannel()
+            else:
                 return FandomChannel()
-            
+        
         channelData = await FandomScrape.getChannelURL(wikiName.channelName)
         if channelData.success:
-                db = await botdb.getDB()
+            db = await botdb.getDB()
             if not await botdb.checkIfExists(channelData.channelID, "id", "channels", db):
                 message.resetEmbed()
                 message.embed.title = "Getting Channel Data..."
@@ -316,7 +319,7 @@ class subUtils:
                 message.embed.color = discord.Color.from_rgb(0, 0, 0)
                 message.msg = await message.msg.edit(content=None, embed=message.embed, view=None)
                 chData = await subUtils.addChannel(channelData.channelID, channelData.channelName, ("id", "name"), db)
-                else:
+            else:
                 chData = await botdb.getData(channelData.channelID, "id", ("id", "name"), "channels", db)
             return FandomChannel(True, chData["id"], chData["name"])
         return FandomChannel()
@@ -509,13 +512,13 @@ class unsubUtils:
             channelSubbed[subType] = temp
         
         if channelSubs.exists:
-        for channel in channels:
-            if channel["id"] not in subbed:
-                for subType in subTypes:
+            for channel in channels:
+                if channel["id"] not in subbed:
+                    for subType in subTypes:
                         if channel["id"] in channelSubbed[subType] or channel["twitter"] in channelSubbed[subType]:
-                        if subType != "twitter":
+                            if subType != "twitter":
                                 channelSubs.addChannel(subType, channel["id"], channel["name"])
-                        else:
+                            else:
                                 channelSubs.addChannel(subType, channel["id"], channel["name"], channel["twitter"])
         return channelSubs
     
