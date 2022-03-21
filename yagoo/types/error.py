@@ -61,3 +61,36 @@ class ValueTooLong(ValueError):
     def __init__(self, value: str):
         super().__init__(f"The value \"{value}\" is longer than 100 characters!"
                          f" (Value length: {len(value)})")
+
+class InvalidSubscriptionType(TypeError):
+    """
+    Exception used for when an invalid subscription type was passed through.
+    
+    Arguments
+    ---
+    subType: The subscription type that was used.
+    """
+    def __init__(self, subType: str):
+        super().__init__(f"\"{subType}\" is an invalid subscription type!")
+
+class NoSubscriptions(Exception):
+    """
+    Exception used for when a Discord channel does not have any subscriptions.
+    
+    Arguments
+    ---
+    channelID: The Discord channel ID.
+    """
+    def __init__(self, channelID: str):
+        super().__init__(f"Discord Channel \"{channelID}\" does not have any subscriptions!")
+
+class ChannelNotFound(Exception):
+    """
+    Exception used for when a non-existent YouTube channel was searched.
+    
+    Arguments
+    ---
+    channelID: The YouTube channel ID.
+    """
+    def __init__(self, channelID: str):
+        super().__init__(f"There is no YouTube channel with the ID \"{channelID}\"!")

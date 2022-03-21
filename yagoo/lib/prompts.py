@@ -25,7 +25,7 @@ from typing import Optional, Union, List
 from discord.ext import commands
 from yagoo.lib.botVars import allSubTypes
 from yagoo.lib.dataUtils import botdb
-from yagoo.types.data import CategorySubscriptionResponse, ChannelSearchResponse, SubscriptionData, SubscriptionResponse
+from yagoo.types.data import CategorySubscriptionResponse, ChannelSearchResponse, ChannelSubscriptionData, SubscriptionData, SubscriptionResponse, UnsubscriptionResponse, YouTubeChannel
 from yagoo.types.message import YagooMessage
 from yagoo.types.views import YagooSelectOption, YagooViewResponse
 
@@ -581,40 +581,55 @@ class subPrompts:
 
 class unsubPrompts:
     class removePrompt:
-        async def editMsg(msg: discord.Message, embed: discord.Embed, subTypes: dict):
-            buttons = []
+        async def editMsg(message: YagooMessage, subTypes: dict):
+            message.resetComponents()
             allSubs = True
             selected = False
+            rowSort = {
+                "livestream": 0,
+                "milestone": 1,
+                "premiere": 2,
+                "twitter": 3
+            }
             for subType in subTypes:
                 if subTypes[subType]:
-                    buttons.append([create_button(label=f"{subType.capitalize()} Notifications", custom_id=subType, style=ButtonStyle.green)])
+                    message.addButton(rowSort[subType], subType, f"{subType.capitalize()} Notifications", style=discord.ButtonStyle.green)
                     allSubs = False
                 else:
-                    buttons.append([create_button(label=f"{subType.capitalize()} Notifications", custom_id=subType, style=ButtonStyle.grey)])
+                    message.addButton(rowSort[subType], subType, f"{subType.capitalize()} Notifications", style=discord.ButtonStyle.grey)
                     selected = True
             if not allSubs:
-                buttons.append([create_button(label="Cancel", custom_id="cancel", style=ButtonStyle.red),
-                                create_button(label="Select All", custom_id="select", style=ButtonStyle.blue),
-                                create_button(label="Unsubscribe", custom_id="unsub", style=ButtonStyle.red, disabled=not selected)])
+                message.addButton(4, "cancel", "Cancel", style=discord.ButtonStyle.red)
+                message.addButton(4, "select", "Select All")
+                message.addButton(4, "submit", "Unsubscribe", style=discord.ButtonStyle.green, disabled=not selected)
             else:
-                buttons.append([create_button(label="Cancel", custom_id="cancel", style=ButtonStyle.red),
-                                create_button(label="Select None", custom_id="select", style=ButtonStyle.grey),
-                                create_button(label="Unsubscribe", custom_id="unsub", style=ButtonStyle.red, disabled=not selected)])
-            await msg.edit(content=" ", embed=embed, components=await generalPrompts.utils.convertToRows(buttons))
-            return
+                message.addButton(4, "cancel", "Cancel", style=discord.ButtonStyle.red)
+                message.addButton(4, "select", "Select None", style=discord.ButtonStyle.grey)
+                message.addButton(4, "submit", "Unsubscribe", style=discord.ButtonStyle.green, disabled=not selected)
         
-        async def prompt(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, msg: discord.Message, ids: list, names: list, subStates: dict):
+        async def parseToChannels(channelIDs: List[str], subData: ChannelSubscriptionData):
+            result: List[YouTubeChannel] = []
+            
+            for channelID in channelIDs:
+                result.append(subData.findChannel(channelID))
+            
+            return result
+        
+        async def prompt(cmd: Union[commands.Context, discord.Interaction],
+                         message: YagooMessage,
+                         channelIDs: Optional[List[str]] = None,
+                         subData: Optional[ChannelSubscriptionData] = None,
+                         allChannels: bool = False):
             """
             Prompts the user for which subscription type to unsubscribe from.
             
             Arguments
             ---
             ctx: Context from the executed command.
-            bot: The Discord bot.
             msg: The message that will be used as the prompt.
-            ids: IDs of the VTuber channels to be unsubscribed from.
-            names: Names of the VTuber channels to be unsubscribed from.
-            subStates: The current active subscriptions for all the subscribed VTuber channels.
+            channelIDs: IDs of the VTuber channels to be unsubscribed from.
+            subData: The subscription data of the current channel.
+            allChannels: If all channels are to be unsubscribed.
             
             Returns
             ---
@@ -622,41 +637,48 @@ class unsubPrompts:
             - status: `True` if an option was chosen by the user.
             - unsubbed: A `list` with subscription types to unsubscribe from.
             """
-            if len(ids) > 1:
+            if not allChannels:
+                channels = await unsubPrompts.removePrompt.parseToChannels(channelIDs, subData)
+            else:
+                channels = subData.allChannels
+            subTypes = {}
+            
+            if allChannels:
+                name = "All Channels"
+            elif len(channelIDs) > 1:
                 name = "Multiple Channels"
             else:
-                name = names[0]
-            embed = discord.Embed(title=f"Unsubscribing from {name}", description="Choose the subscription types to unsubscribe from.")
+                name = channels[0].channelName
+            message.resetEmbed()
+            message.embed.title = f"Unsubscribing from {name}"
+            message.embed.description = "Choose the subscription types to unsubscribe from."
             
-            subTypes = {}
-            if ids[0] != "channelAllUnsub":
-                for channel in ids:
-                    for subType in subStates[channel]["subTypes"]:
+            if not allChannels:
+                for channel in channels:
+                    for subType in subData.findTypes(channel.channelID):
                         if subType not in subTypes:
                             subTypes[subType] = True
             else:
-                subTypes = subStates
+                for subType in allSubTypes(False):
+                    subTypes[subType] = True
             
             while True:
-                await unsubPrompts.removePrompt.editMsg(msg, embed, subTypes)
-                result = await generalPrompts.utils.buttonCheck(ctx, bot, msg)
+                await unsubPrompts.removePrompt.editMsg(message, subTypes)
+                if isinstance(cmd, commands.Context):
+                    result = await message.legacyPost(cmd)
+                else:
+                    result = await message.post(cmd, True, True)
                 
-                if result:
-                    await result.defer(edit_origin=True)
-                    if result.component["custom_id"] == "cancel":
-                        return {
-                            "status": False
-                        }
-                    if result.component["custom_id"] == "unsub":
+                if result.responseType:
+                    if result.buttonID == "cancel":
+                        return UnsubscriptionResponse(False)
+                    if result.buttonID == "submit":
                         unsubbed = []
                         for subType in subTypes:
                             if not subTypes[subType]:
                                 unsubbed.append(subType)
-                        return {
-                            "status": True,
-                            "unsubbed": unsubbed
-                        }
-                    if result.component["custom_id"] == "select":
+                        return UnsubscriptionResponse(True, unsubbed, channels)
+                    if result.buttonID == "select":
                         allSubs = True
                         for subType in subTypes:
                             if subTypes[subType]:
@@ -664,247 +686,33 @@ class unsubPrompts:
                         for subType in subTypes:
                             subTypes[subType] = allSubs
                     else:
-                        subTypes[result.component["custom_id"]] = not subTypes[result.component["custom_id"]]
+                        subTypes[result.buttonID] = not subTypes[result.buttonID]
                 else:
-                    return {
-                        "status": False
-                    }
+                    return UnsubscriptionResponse(False)
 
-    async def displayResult(msg: discord.Message, name: str, subTypes: list):
+    async def displayResult(message: YagooMessage, unsubData: UnsubscriptionResponse):
+            """
+        Displays the unsubscription result.
+            
+        message: The message used to display the result.
+        unsubData: The unsubscription data.
+            """
         subTypeText = ""
-        
-        embed = discord.Embed(title="Successfully Unsubscribed!",
-                              description=f"This channel is now unsubscribed from {name}.",
-                              color=discord.Colour.green())
-        for subType in subTypes:
+        channels = ""
+            
+        for subType in unsubData.subTypes:
             subTypeText += f"{subType.capitalize()}, "
-        embed.add_field(name="Subscription Types", value=subTypeText.strip(", "), inline=False)
-        await msg.edit(content=" ", embed=embed, components=[])
-        return
-
-class TwitterPrompts:
-    class unfollow:
-        async def parseToOptions(subbed: list, data: dict):
-            """
-            Parses a list of Twitter accounts into a list matching the pages specification in `pageNav.picker`.
             
-            Arguments
-            ---
-            subbed: A `list` containing the Twitter accounts to be parsed.
-            data: A `dict` containing the Twitter custom accounts data.
-            
-            Returns
-            ---
-            A list containing `dict` objects matching the specification in `pageNav.picker`.
-            """
-            options = []
-            
-            for twtID in subbed:
-                if 22 < len(data[twtID]["name"]) > 25:
-                    name = data[twtID]["name"][:22] + "..."
-                else:
-                    name = data[twtID]["name"]
-                options.append({"name": name, "id": twtID})
-            
-            return options
-        
-        async def parseToPages(options: list):
-            """
-            Parses a list of options into select pages.
-            
-            Arguments
-            ---
-            options: A `list` of all the available options.
-            
-            Returns
-            ---
-            A `list` with with `list` objects up to 25 options.
-            """
-            pages = []
-            temp = []
-            
-            for option in options:
-                if len(temp) == 25:
-                    pages.append(temp)
-                    temp = []
-                temp.append(option)
-            if len(temp) != 0:
-                pages.append(temp)
-            
-            return pages
-        
-        async def prompt(ctx: Union[SlashContext, commands.Context], bot: commands.Bot, msg: discord.Message, options: dict):
-            """
-            Prompts the user for which Twitter accounts to be unfollowed.
-            
-            Arguments
-            ---
-            ctx: Context from the executed command.
-            bot: The Discord bot.
-            msg: The message that will be used as the prompt.
-            options: A `dict` containing the Twitter custom accounts data.
-            
-            Returns
-            ---
-            A `dict` with:
-            - status: `True` if an option was chosen by the user.
-            - all: A `bool` indicating whether all the Twitter accounts should be unfollowed.
-            - unfollowed: A `dict` with the Twitter accounts name and ids as keys to be unfollowed.
-            """
-            result = await pageNav.remove.prompt(ctx, bot, msg, options, "Unfollowing from Twitter Accounts", "Unfollow all accounts", "Choose the account to be unfollowed.", True, 1, 25)
-            if not result["status"]:
-                return {
-                    "status": False,
-                    "all": False,
-                    "unfollowed": {}
-                }
-            if result["all"]:
-                return {
-                    "status": True,
-                    "all": True,
-                    "unfollowed": {}
-                }
-            return {
-                "status": True,
-                "all": False,
-                "unfollowed": {"names": [item for item in result["item"]["name"]],
-                                "ids": [item for item in result["item"]["id"]]},
-            }
-    
-    async def displayResult(msg: discord.Message, action: str, success: bool, username: str = None, allAccount = False):
-        """
-        Display the result of the follow/unfollow action to the user.
-        
-        Arguments
-        ---
-        msg: The message that will be used as the prompt.
-        action: The Twitter action that has been done.
-        success: A `bool` that indicates if the action was successful or otherwise.
-        username: The Twitter handle of the account.
-        all: A `bool` that indicates if all Twitter accounts were unfollowed.
-        """
-        embed = discord.Embed()
-        if success:
-            embed.color = discord.Colour.green()
-            if action == "add":
-                embed.title = "Successfully Followed!"
-                embed.description = f"This channel is now following @{username}'s tweets."
-            elif action == "remove":
-                embed.title = "Successfully Unfollowed!"
-                if not allAccount:
-                    embed.description = f"This channel has now been unfollowed from {username} tweets."
-                else:
-                    embed.description = "This channel has now been unfollowed from all Twitter accounts in the list."
+        if len(unsubData.channels) <= 5:
+            for channel in unsubData.channels:
+                channels += f"{channel.channelName}, "
         else:
-            embed.color = discord.Colour.red()
-            embed.title="An error has occurred!"
-            if action == "add":
-                embed.description = f"This channel has already been following @{username}'s tweets."
-            elif action == "remove":
-                embed.description = f"This channel has not been following @{username}'s tweets."
-        await msg.edit(content=" ", embed=embed, components=[])
-        return
-
-class rolePrompts:
-    async def affiliationSelect(affiliations: list):
-        result = []
-        
-        for affiliation in affiliations:
-            result.append({"name": affiliation, "id": affiliation})
-        
-        return result
+            channels = f"{len(unsubData.channels)} channels"
     
-    async def channelSelect(channels: dict):
-        result = []
-        
-        for channel in channels:
-            result.append({"name": channels[channel], "id": channel})
-        
-        return result
-    
-    async def getAffiliations(channelSubs: dict, channelData: dict):
-        """
-        Gets the affiliations of the channel's current subscriptions.
-        
-        Arguments
-        ---
-        channelSubs: A `dict` containing the channel's current subscriptions.
-        channelData: A `dict` containing all YouTube channels data.
-        
-        Returns
-        ---
-        A `dict` with the affiliations as keys and the corresponding channel IDs as values.
-        """
-        allChannels = []
-        remove = []
-        result = {}
-        
-        for subType in channelSubs:
-            subs = await botdb.listConvert(channelSubs[subType])
-            if subs:
-                for channel in await botdb.listConvert(channelSubs[subType]):
-                    if channel not in allChannels:
-                        allChannels.append(channel)
-        
-        for channel in channelData:
-            if channelData[channel]["category"] not in result:
-                result[channelData[channel]["category"]] = {}
-        
-        for channel in allChannels:
-            result[channelData[channel]["category"]][channel] = channelData[channel]["name"]
-        
-        for affiliation in result:
-            if result[affiliation] == {}:
-                remove.append(affiliation)
-        
-        for dictKey in remove:
-            del result[dictKey]
-        
-        return result
-    
-    async def promptAffiliate(ctx: commands.Context, bot: commands.Bot, msg: discord.Message, channelSubs: dict):
-        affiliations = []
-        for subType in channelSubs:
-            affiliations.append(subType)
-        affChoice = await pageNav.search.prompt(ctx, bot, msg, await rolePrompts.affiliationSelect(affiliations),
-                                                "Adding Role Pings", "Search for a channel", "Add a role ping to every VTuber",
-                                                "other", description="Pick an affiliation of the channel's notifications be role pinged.",
-                                                usePicker=True, maxItems=1)
-        if affChoice["status"]:
-            if affChoice["other"]:
-                return {
-                    "status": True,
-                    "action": "all"
-                }
-            if affChoice["search"]:
-                return {
-                    "status": True,
-                    "action": "search"
-                }
-            return {
-                "status": True,
-                "action": "pick",
-                "pick": affChoice["item"]["name"][0]
-            }
-        return {
-            "status": False
-        }
-    
-    async def promptChannel(ctx: commands.Context, bot: commands.Bot, msg: discord.Message, channelSubs: dict):
-        chChoice = await pageNav.search.prompt(ctx, bot, msg,
-                                            await rolePrompts.channelSelect(channelSubs[affChoice["item"]["name"][0]]),
-                                            "Adding Role Pings", "Search for a channel",
-                                            f"Add a role to every {affChoice['item']['name'][0]} VTubers", "other",
-                                            description="Pick the channel's notifications to be role pinged.", usePicker=True,
-                                            maxItems=25)
-        if chChoice["status"]:
-            if chChoice["other"]:
+        message.resetEmbed()
+        message.embed.title = "Successfully Unsubscribed!"
+        message.embed.description = f"This channel is now unsubscribed from {channels.strip(', ')}."
+        message.embed.color = discord.Color.green()
+        message.embed.add_field(name="Subscription Types", value=subTypeText.strip(", "), inline=False)
+        message.msg = await message.msg.edit(content=None, embed=message.embed, view=None)
                 return
-            if chChoice["search"]:
-                return
-            return {
-                "status": True
-            }
-        return {
-            "status": False
-        }

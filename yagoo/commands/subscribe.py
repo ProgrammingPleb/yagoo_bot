@@ -2,14 +2,15 @@ import discord
 import mysql.connector
 from discord.ext import commands
 from typing import Union, List
-from yagoo.types.data import FandomChannel, SubscriptionData, SubscriptionResponse, YouTubeChannel
+from yagoo.types.data import ChannelSubscriptionData, FandomChannel, SubscriptionData, SubscriptionResponse, UnsubscriptionResponse, YouTubeChannel
+from yagoo.types.error import NoSubscriptions
 from yagoo.types.message import YagooMessage
 from yagoo.scrapers.infoscraper import FandomScrape, channelInfo
 from yagoo.lib.botUtils import msgDelete
 from yagoo.lib.botVars import allSubTypes
 from yagoo.lib.dataUtils import botdb, dbTools
-from yagoo.lib.prompts import checkCancel, removeMessage, subPrompts
-from yagoo.types.views import YagooViewResponse
+from yagoo.lib.prompts import checkCancel, removeMessage, subPrompts, unsubPrompts
+from yagoo.types.views import YagooSelectOption, YagooViewResponse
 
 async def subCategory(cmd: Union[commands.Context, discord.Interaction], bot: commands.Bot):
     """
@@ -82,82 +83,66 @@ async def subCustom(cmd: Union[commands.Context, discord.Interaction], bot: comm
             return
     await removeMessage(message, cmd)
 
-async def unsubChannel(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, channel: str = None):
+async def unsubChannel(cmd: Union[commands.Context, discord.Interaction], bot: commands.Bot, channel: str = None):
     """
     Unsubscribes from a VTuber. (bypasses a prompt if a channel is given)
     
     Arguments
     ---
-    ctx: Context from the executed command.
+    ctx: Context or interaction from the invoked command.
     bot: The Discord bot.
     channel: The search term for the VTuber.
     """
     db = await botdb.getDB()
-    listMsg = await ctx.send("Loading channel subscriptions...")
-    server = await dbTools.serverGrab(bot, str(ctx.guild.id), str(ctx.channel.id), tuple(allSubTypes(False)), db)
-    
-    subList = await unsubUtils.parseToSubTypes(server, db)
-    if not subList["subbed"]:
-        raise ValueError("No Subscriptions")
-    if not channel:
-        subPages = await unsubUtils.parseToPages(subList)
-        result = await pageNav.search.prompt(ctx, bot, listMsg,
-                                             subPages, "Unsubscribing from a Channel",
-                                             "Search for a VTuber", "Unsubscribe from all VTubers",
-                                             "removeAll", ButtonStyle.red, "Choose the VTuber to be unsubscribed from:",
-                                             True, 1, 25)
+    if isinstance(cmd, commands.Context):
+        message = YagooMessage(bot, cmd.author)
+        message.msg = await cmd.send("Loading channel subscriptions...")
     else:
-        wikiName = await subUtils.channelSearch(ctx, bot, listMsg, channel, "unsubscribe")
-        if wikiName["status"]:
-            result = {
-                "status": True, 
-                "other": False, 
-                "search": False, 
-                "item": {
-                    "name": wikiName["channelName"],
-                    "id": wikiName["channelID"]
-                }
-            }
-        else:
-            result = {
-                "status": False
-            }
+        message = YagooMessage(bot, cmd.user)
+    server = await dbTools.serverGrab(bot, str(cmd.guild.id), str(cmd.channel.id), tuple(allSubTypes(False)), db)
     
-    if result["status"]:
-        if result["other"]:
-            currentSubs = {}
-            for subType in allSubTypes(False):
-                currentSubs[subType] = True
-            unsubResult = await unsubPrompts.removePrompt.prompt(ctx, bot, listMsg, ["channelAllUnsub"], ["all VTubers"], currentSubs)
-            if not unsubResult["status"]:
-                await listMsg.delete()
-                await msgDelete(ctx)
-                return
-            result = await unsubUtils.unsubAll(str(ctx.channel.id), unsubResult["unsubbed"], db)      
-        elif result["search"]:
-            searchResult = await subUtils.channelSearch(ctx, bot, listMsg, action = "unsubscribe")
-            if not searchResult["status"]:
-                await listMsg.delete()
-                await msgDelete(ctx)
-                return
-            unsubResult = await unsubPrompts.removePrompt.prompt(ctx, bot, listMsg, searchResult["channelID"], searchResult["channelName"], subList["channels"])
-            if not unsubResult["status"]:
-                await listMsg.delete()
-                await msgDelete(ctx)
-                return
-            result = await unsubUtils.unsubOne(server, str(ctx.channel.id), searchResult["channelID"], searchResult["channelName"], unsubResult["unsubbed"], db)
+    subData = await unsubUtils.parseToSubTypes(server, db)
+    if not subData.exists:
+        raise NoSubscriptions(cmd.channel.id)
+    if not channel:
+        message.resetMessage()
+        message.embed.title = "Unsubscribing from VTuber Channels"
+        message.embed.description = "Choose the VTuber(s) to be unsubscribed from."
+        message.embed.add_field(name="Searching for a VTuber?", value="Enter the VTuber's name after the `unsubscribe` command.")
+        message.addSelect(await unsubUtils.parseToPages(subData), "Choose the VTuber(s) here", max_values=25)
+        message.addButton(2, "search", label="Search for a VTuber", disabled=True)
+        message.addButton(2, "all", "Unsubscribe from all VTubers")
+        message.addButton(3, "cancel", "Cancel", style=discord.ButtonStyle.red)
+        
+        if isinstance(cmd, commands.Context):
+            result = await message.legacyPost(cmd)
+    else:
+            result = await message.post(cmd, True, True)
         else:
-            unsubResult = await unsubPrompts.removePrompt.prompt(ctx, bot, listMsg, result["item"]["id"], result["item"]["name"], subList["channels"])
-            if not unsubResult["status"]:
-                await listMsg.delete()
-                await msgDelete(ctx)
-                return
-            result = await unsubUtils.unsubOne(server, str(ctx.channel.id), result["item"]["id"], result["item"]["name"], unsubResult["unsubbed"], db)
-        await unsubPrompts.displayResult(listMsg, result["name"], result["subTypes"])
-        await msgDelete(ctx)
-        return
-    await listMsg.delete()
-    await msgDelete(ctx)
+        wikiName = await subUtils.channelSearch(cmd, message, channel, "unsubscribe")
+        if wikiName.success:
+            result = YagooViewResponse()
+            result.responseType = "select"
+            result.selectValues = [wikiName.channelID]
+        else:
+            result = YagooViewResponse()
+    
+    if result.responseType:
+        if result.buttonID == "all":
+            unsubResult = await unsubPrompts.removePrompt.prompt(cmd, message, None, subData, True)
+            if not unsubResult.status:
+                return await removeMessage(message, cmd)
+            await unsubUtils.unsubAll(str(cmd.channel.id), unsubResult, db)
+        elif result.buttonID == "cancel":
+            return await removeMessage(message, cmd)
+        else:
+            unsubResult = await unsubPrompts.removePrompt.prompt(cmd, message, result.selectValues, subData)
+            if not unsubResult.status:
+                return await removeMessage(message, cmd)
+            await unsubUtils.unsubOne(server, str(cmd.channel.id), unsubResult, db)
+        await unsubPrompts.displayResult(message, unsubResult)
+        return await removeMessage(cmd=cmd)
+    await removeMessage(message, cmd)
 
 async def sublistDisplay(ctx: Union[commands.Context, SlashContext], bot: commands.Bot):
     """
@@ -465,31 +450,26 @@ class subUtils:
         return SubscriptionResponse(True, subDefault)
 
 class unsubUtils:
-    async def parseToPages(server: dict):
+    async def parseToPages(subData: ChannelSubscriptionData):
         """
         Parses the current channel's subscriptions into a page format to be used in `pageNav.message()`.
         
         Arguments
         ---
-        server: The Discord channel's subscription data as a `dict`, obtained from `parseToSubTypes`.
-        db: A MySQL connection to the database to reduce unnecessary connections.
+        subData: The channel's subscription data.
         
         Returns
         ---
-        A `list` following the pages format specified in `pageNav.message()`.
+        A `list` containing `YagooSelectOption`.
         """
         result = []
         
-        for channel in server["channels"]:
-            if 25 < len(server["channels"][channel]["name"]) > 22:
-                name = (server["channels"][channel]["name"])[:22] + "..."
-            else:
-                name = server["channels"][channel]["name"]
-            result.append({"name": name, "id": channel})
+        for channel in subData.allChannels:
+            result.append(YagooSelectOption(channel.channelName, channel.channelID))
         
         return result
     
-    async def parseToSubTypes(server: dict, db: mysql.connector.CMySQLConnection):
+    async def parseToSubTypes(server: dict, db: mysql.connector.MySQLConnection):
         """
         Parses the current channel's subscriptions to subscription indicators.
         
@@ -508,38 +488,28 @@ class unsubUtils:
         
         subTypes = allSubTypes(False)
         subbed = []
-        subbedTypes = {}
-        cTypeSubbed = {}
+        channelSubbed = {}
+        channelSubs = ChannelSubscriptionData()
         for subType in subTypes:
             temp = await botdb.listConvert(server[subType])
             if temp is None:
                 temp = []
-            cTypeSubbed[subType] = temp
+            if temp != [] and not channelSubs.exists:
+                channelSubs.exists = True
+            channelSubbed[subType] = temp
         
+        if channelSubs.exists:
         for channel in channels:
             if channel["id"] not in subbed:
-                subStatus = False
-                subbedTypes[channel["id"]] = {
-                    "name": channel["name"],
-                    "subTypes": {}
-                }
                 for subType in subTypes:
-                    if channel["id"] in cTypeSubbed[subType] or channel["twitter"] in cTypeSubbed[subType]:
+                        if channel["id"] in channelSubbed[subType] or channel["twitter"] in channelSubbed[subType]:
                         if subType != "twitter":
-                            subbedTypes[channel["id"]]["subTypes"][subType] = channel["id"] in cTypeSubbed[subType]
+                                channelSubs.addChannel(subType, channel["id"], channel["name"])
                         else:
-                            subbedTypes[channel["id"]]["subTypes"][subType] = channel["twitter"] in cTypeSubbed[subType]
-                        subStatus = True
-                if subStatus:
-                    subbed.append(channel["id"])
-                else:
-                    subbedTypes.pop(channel["id"])
-        return {
-            "subbed": subbed,
-            "channels": subbedTypes
-        }
+                                channelSubs.addChannel(subType, channel["id"], channel["name"], channel["twitter"])
+        return channelSubs
     
-    async def unsubOne(server: dict, serverID: str, channelIDs: list, channelNames: list, subTypes: list, db: mysql.connector.CMySQLConnection):
+    async def unsubOne(server: dict, serverID: str, unsubData: UnsubscriptionResponse, db: mysql.connector.MySQLConnection):
         """
         Unsubscribe from one or multiple VTuber channels from the Discord channel.
         
@@ -547,9 +517,7 @@ class unsubUtils:
         ---
         server: The current channel's subscriptions as a `dict`. (subscription types as keys)
         serverID: The Discord channel's ID.
-        channelIDs: The VTuber channel IDs.
-        channelNames: The VTuber channel names.
-        subTypes: The subscription types to unsubscribe from as a `list`.
+        unsubData: The unsubscription data.
         db: A MySQL connection to reduce the amount of unnecessary connections.
         
         Returns
@@ -559,39 +527,27 @@ class unsubUtils:
         - subTypes: The subscription types given in the respective argument.
         """
         data = {}
-        for subType in subTypes:
+        for subType in unsubData.subTypes:
             data[subType] = await botdb.listConvert(server[subType])
         
-        for channelID in channelIDs:
+        for channel in unsubData.channels:
             for subType in data:
-                if subType == "twitter":
-                    twitter = await botdb.getData(channelID, "id", ("twitter",), "channels", db)
-                    if twitter["twitter"] in data[subType]:
-                        data[subType].remove(twitter["twitter"])
+                if subType == "twitter" and channel.twitter:
+                    if channel.twitter in data[subType]:
+                        data[subType].remove(channel.twitter)
                         await botdb.addData((serverID, await botdb.listConvert(data[subType])), ("channel", subType), "servers", db)
-                elif channelID in data[subType]:
-                    data[subType].remove(channelID)
+                elif channel.channelID in data[subType]:
+                    data[subType].remove(channel.channelID)
                     await botdb.addData((serverID, await botdb.listConvert(data[subType])), ("channel", subType), "servers", db)
-        
-        nameText = ""
-        if len(channelNames) <= 5:
-            for name in channelNames:
-                nameText += f"{name}, "
-        else:
-            nameText = f"{len(channelNames)} channels  "
-        return {
-            "name": nameText[:-2],
-            "subTypes": subTypes
-        }
     
-    async def unsubAll(serverID: str, subTypes: list, db: mysql.connector.CMySQLConnection):
+    async def unsubAll(serverID: str, unsubData: UnsubscriptionResponse, db: mysql.connector.MySQLConnection):
         """
         Unsubscribe from every VTuber channel from the Discord channel.
         
         Arguments
         ---
         serverID: The Discord channel's ID.
-        subTypes: The subscription types to unsubscribe from as a `list`.
+        unsubData: The unsubscription data.
         db: A MySQL connection to reduce the amount of unnecessary connections.
         
         Returns
@@ -600,9 +556,5 @@ class unsubUtils:
         - name: The name of the VTuber being unsubscribed from. (`all Vtubers`)
         - subTypes: The subscription types given in the respective argument.
         """
-        for subType in subTypes:
+        for subType in unsubData.subTypes:
             await botdb.deleteCell(subType, serverID, "channel", "servers", db)
-        return {
-            "name": "all VTubers",
-            "subTypes": subTypes
-        }

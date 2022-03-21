@@ -1,4 +1,5 @@
 from typing import Optional, Union, TypedDict, List
+from yagoo.types.error import ChannelNotFound, InvalidSubscriptionType
 
 class SubscriptionList(TypedDict, total=False):
     livestream: bool
@@ -17,9 +18,11 @@ class YouTubeChannel():
     """
     def __init__(self,
                  channelID: str,
-                 channelName: str):
+                 channelName: str,
+                 twitter: str = None):
         self.channelID = channelID
         self.channelName = channelName
+        self.twitter = twitter
 
 class SubscriptionData():
     """
@@ -33,9 +36,110 @@ class SubscriptionData():
                  subList: Optional[SubscriptionList] = None):
         self.subList = subList
 
+class ChannelSubscriptionData():
+    """
+    Returned when a channel subscription data is requested.
+    
+    Attributes
+    ---
+    exists: If any YouTube channels are being subscribed on the Discord channel.
+    allChannels: A list of every YouTube channel being subscribed.
+    subscriptions: A subscription type-seperated object with individual subscription types as a `list`.
+    """
+    class SubscriptionType():
+        def __init__(self):
+            self.livestream: List[YouTubeChannel] = []
+            self.milestone: List[YouTubeChannel] = []
+            self.premiere: List[YouTubeChannel] = []
+            self.twitter: List[YouTubeChannel] = []
+        
+    def __init__(self, exists: bool = False):
+        self.exists: bool = exists
+        self.allChannels: list[YouTubeChannel] = []
+        self.subscriptions = self.SubscriptionType()
+        self.__rawChannelID__: List[str] = []
+        self.__rawChannelListing__: dict = {}
+    
+    def addChannel(self,
+                   subscriptionType: str,
+                   channelID: str,
+                   channelName: str,
+                   twitter: str = None):
+        """
+        Add a YouTube channel that is subscribed to the Discord channel.
+        
+        Arguments
+        ---
+        subscriptionType: The channel subscription type.
+        channelID: The YouTube channel's ID.
+        channelName: The YouTube channel's name.
+        twitter: The Twitter account associated with the YouTube channel. (Required if the subscription type is "twitter")
+        """
+        if channelID not in self.__rawChannelID__:
+            self.__rawChannelID__.append(channelID)
+            self.__rawChannelListing__[channelID] = YouTubeChannel(channelID, channelName, twitter)
+            self.allChannels.append(YouTubeChannel(channelID, channelName))
+        else:
+            if twitter and not (self.__rawChannelListing__[channelID]).twitter:
+                self.__rawChannelListing__[channelID] = YouTubeChannel(channelID, channelName, twitter)
+                for channel in self.allChannels:
+                    if channel.channelID == channelID:
+                        self.allChannels.remove(channel)
+                self.allChannels.append(YouTubeChannel(channelID, channelName, twitter))
+        if subscriptionType == "livestream":
+            self.subscriptions.livestream.append(YouTubeChannel(channelID, channelName))
+        elif subscriptionType == "milestone":
+            self.subscriptions.milestone.append(YouTubeChannel(channelID, channelName))
+        elif subscriptionType == "premiere":
+            self.subscriptions.premiere.append(YouTubeChannel(channelID, channelName))
+        elif subscriptionType == "twitter":
+            self.subscriptions.twitter.append(YouTubeChannel(channelID, channelName, twitter))
+        else:
+            raise InvalidSubscriptionType(subscriptionType)
+    
+    def findChannel(self, channelID: str) -> YouTubeChannel:
+        """
+        Finds a YouTube channel that the Discord channel is subscribed to.
+        
+        Arguments
+        ---
+        channelID: The channel ID corresponding to the YouTube channel.
+        """
+        if channelID in self.__rawChannelListing__.keys():
+            return self.__rawChannelListing__[channelID]
+        else:
+            raise ChannelNotFound(channelID)
+    
+    def findTypes(self, channelID: str) -> List[str]:
+        """
+        Finds the subscription types of a certain channel.
+        
+        Arguments
+        ---
+        channelID: The channel ID corresponding to the YouTube channel.
+        """
+        if channelID in self.__rawChannelListing__.keys():
+            subTypes = []
+            channelSearch = self.findChannel(channelID)
+            
+            if channelSearch.twitter:
+                subTypes.append("twitter")
+            for channel in self.subscriptions.livestream:
+                if channel.channelID == channelSearch.channelID:
+                    subTypes.append("livestream")
+            for channel in self.subscriptions.milestone:
+                if channel.channelID == channelSearch.channelID:
+                    subTypes.append("milestone")
+            for channel in self.subscriptions.premiere:
+                if channel.channelID == channelSearch.channelID:
+                    subTypes.append("premiere")
+            return subTypes
+        else:
+            raise ChannelNotFound(channelID)
+
 class SubscriptionResponse():
     """
-    Returned when a response for a subscription command was given.
+    Returned when a response for a subscription command is given.
     
     Attributes
     ---
@@ -62,6 +166,23 @@ class SubscriptionResponse():
                 self.channelNames.append(channelData[channelID])
         if channelNames:
             self.channelNames = channelNames
+
+class UnsubscriptionResponse():
+    """
+    Returned when a response for an unsubscribe command is given.
+    
+    Attributes
+    ---
+    status: Whether the command was successfully finished or not.
+    subTypes: The subscription types to be unsubscribed from
+    """
+    def __init__(self,
+                 status: bool,
+                 subTypes: Optional[List[str]] = None,
+                 channels: Optional[List[YouTubeChannel]] = None):
+        self.status = status
+        self.subTypes = subTypes
+        self.channels = channels
 
 class CategorySubscriptionResponse():
     """
