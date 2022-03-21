@@ -39,15 +39,23 @@ class YagooViewResponse():
 
 class YagooButton(discord.ui.Button):
     """A button used for Yagoo Bot messages. Cannot be used by itself."""
-    def __init__(self, id: str, label: str, url: str, style: discord.ButtonStyle, disabled: bool, row: int):
-        super().__init__(style=style, custom_id=id, label=label, url=url, disabled=disabled, row=row)
+    def __init__(self,
+                 button_id: str,
+                 label: str,
+                 url: str,
+                 style: discord.ButtonStyle,
+                 disabled: bool,
+                 row: int):
+        super().__init__(style=style, custom_id=button_id, label=label, url=url, disabled=disabled, row=row)
     
     async def callback(self, interaction: discord.Interaction):
-        assert self.view is not None
-        view: YagooView = self.view
-        view.responseData.responseType = "button"
-        view.responseData.buttonID = self.custom_id
-        await interaction.response.defer()
+        if self.view:
+            view: YagooView = self.view
+            view.responseData.responseType = "button"
+            view.responseData.buttonID = self.custom_id
+            await interaction.response.defer()
+        else:
+            raise AssertionError()
 
 class YagooSelect(discord.ui.Select):
     """A select used for Yagoo Bot messages. Cannot be used by itself."""
@@ -57,11 +65,13 @@ class YagooSelect(discord.ui.Select):
         self.absoluteMax = max_values
     
     async def callback(self, interaction: discord.Interaction):
-        assert self.view is not None
-        view: YagooView = self.view
-        view.responseData.responseType = "select"
-        view.responseData.selectValues = self.values
-        await interaction.response.defer()
+        if self.view:
+            view: YagooView = self.view
+            view.responseData.responseType = "select"
+            view.responseData.selectValues = self.values
+            await interaction.response.defer()
+        else:
+            raise AssertionError()
 
 class YagooSelectOption(discord.SelectOption):
     def __init__(self,
@@ -82,7 +92,7 @@ class YagooSelectOption(discord.SelectOption):
 
 class YagooTextInput(discord.ui.TextInput):
     """A text input box used for Yagoo Bot messages. Cannot be used by itself."""
-    def __init__(self, id: str,
+    def __init__(self, text_id: str,
                  label: str,
                  style: discord.TextStyle,
                  placeholder: str,
@@ -91,7 +101,7 @@ class YagooTextInput(discord.ui.TextInput):
                  min_length: int,
                  max_length: int,
                  row: int):
-        super().__init__(custom_id=id, label=label, style=style, placeholder=placeholder, default=default, required=required, min_length=min_length, max_length=max_length, row=row)
+        super().__init__(custom_id=text_id, label=label, style=style, placeholder=placeholder, default=default, required=required, min_length=min_length, max_length=max_length, row=row)
 
 class YagooView(discord.ui.View):
     """A view UI used for Yagoo Bot messages. Cannot be used by itself."""

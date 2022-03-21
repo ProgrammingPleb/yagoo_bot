@@ -348,7 +348,7 @@ class YagooMessage():
             return False
         return True
 
-    def paginatorUpdate(self, next: bool):
+    def paginatorUpdate(self, nextPage: bool):
         """
         Updates the select and paginator to it's respective state. Should only be used inside `message.py`.
         
@@ -356,7 +356,7 @@ class YagooMessage():
         ---
         next: Indicate if the next page button is clicked. False will indicate for the previous page button instead.
         """
-        if next:
+        if nextPage:
             self.currentPage += 1
         else:
             self.currentPage -= 1

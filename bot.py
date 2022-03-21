@@ -58,9 +58,7 @@ async def determine_prefix(bot: commands.Bot, message: discord.Message):
     if guild:
         if await botdb.checkIfExists(str(message.guild.id), "server", "prefixes", db):
             return commands.when_mentioned_or((await botdb.getData(str(message.guild.id), "server", ("prefix",), "prefixes", db))["prefix"])(bot, message)
-        else:
             return commands.when_mentioned_or(settings["prefix"])(bot, message)
-    else:
         return commands.when_mentioned_or(settings["prefix"])(bot, message)
 
 bot = commands.Bot(command_prefix=determine_prefix, help_command=None, intents=intents)
