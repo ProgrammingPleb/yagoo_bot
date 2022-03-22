@@ -59,8 +59,8 @@ class ChannelSubscriptionData():
         self.exists: bool = exists
         self.allChannels: list[YouTubeChannel] = []
         self.subscriptions = self.SubscriptionType()
-        self.__rawChannelID__: List[str] = []
-        self.__rawChannelListing__: dict = {}
+        self._rawChannelID: List[str] = []
+        self._rawChannelListing: dict = {}
     
     def addChannel(self,
                    subscriptionType: str,
@@ -77,13 +77,13 @@ class ChannelSubscriptionData():
         channelName: The YouTube channel's name.
         twitter: The Twitter account associated with the YouTube channel. (Required if the subscription type is "twitter")
         """
-        if channelID not in self.__rawChannelID__:
-            self.__rawChannelID__.append(channelID)
-            self.__rawChannelListing__[channelID] = YouTubeChannel(channelID, channelName, twitter)
+        if channelID not in self._rawChannelID:
+            self._rawChannelID.append(channelID)
+            self._rawChannelListing[channelID] = YouTubeChannel(channelID, channelName, twitter)
             self.allChannels.append(YouTubeChannel(channelID, channelName))
         else:
-            if twitter and not (self.__rawChannelListing__[channelID]).twitter:
-                self.__rawChannelListing__[channelID] = YouTubeChannel(channelID, channelName, twitter)
+            if twitter and not (self._rawChannelListing[channelID]).twitter:
+                self._rawChannelListing[channelID] = YouTubeChannel(channelID, channelName, twitter)
                 for channel in self.allChannels:
                     if channel.channelID == channelID:
                         self.allChannels.remove(channel)
@@ -107,8 +107,8 @@ class ChannelSubscriptionData():
         ---
         channelID: The channel ID corresponding to the YouTube channel.
         """
-        if channelID in self.__rawChannelListing__.keys():
-            return self.__rawChannelListing__[channelID]
+        if channelID in self._rawChannelListing.keys():
+            return self._rawChannelListing[channelID]
         raise ChannelNotFound(channelID)
     
     def findTypes(self, channelID: str) -> List[str]:
@@ -119,7 +119,7 @@ class ChannelSubscriptionData():
         ---
         channelID: The channel ID corresponding to the YouTube channel.
         """
-        if channelID in self.__rawChannelListing__.keys():
+        if channelID in self._rawChannelListing.keys():
             subTypes = []
             channelSearch = self.findChannel(channelID)
             
