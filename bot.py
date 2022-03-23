@@ -324,6 +324,7 @@ async def guildCount(ctx):
     await ctx.send(f"Yagoo Bot is now live in {totalGuilds} servers!")
 
 async def setup_hook():
+    db = await botdb.getDB(False)
     if os.path.exists("yagoo/commands/custom.py"):
         from yagoo.commands.custom import customCommands
         await bot.add_cog(customCommands(bot, settings))
@@ -334,9 +335,9 @@ async def setup_hook():
     if settings["twitter"]["enabled"]:
         await bot.add_cog(twtCycle(bot))
     if settings["notify"]:
-        await bot.add_cog(StreamCycle(bot))
+        await bot.add_cog(StreamCycle(bot, db))
     if settings["premiere"]:
-        await bot.add_cog(PremiereCycle(bot))
+        await bot.add_cog(PremiereCycle(bot, db))
     if settings["milestone"]:
         await bot.add_cog(msCycle(bot))
     await bot.add_cog(YagooSlash(bot))

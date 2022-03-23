@@ -24,10 +24,9 @@ import discord
 import logging
 from discord import Webhook
 from discord.ext import commands, tasks
-from yagoo.lib.dataUtils import botdb
+from yagoo.lib.dataUtils import botdb, checkNotified
 
-async def streamNotify():
-    db = await botdb.getDB()
+async def streamNotify(db):
     channels = await botdb.getAllData("scrape", ("id", "name", "image", "streams"), db=db)
     servers = await botdb.getAllData("servers", ("server", "channel", "url", "livestream"), db=db)
     
@@ -56,22 +55,20 @@ async def streamNotify():
                     for video in data:
                         notifiedData = (await botdb.getData(server["channel"], "channel", ("notified",), "servers", db))["notified"]
                         notified = json.loads(notifiedData)
-                        if channel["id"] in subList:
-                            if channel["id"] not in notified:
-                                notified[channel["id"]] = ""
-                            if notified[channel["id"]] != video:
-                                notified[channel["id"]] = video
-                                try:
-                                    queue.append(postMsg(server, channel, data[video], video, notified))
-                                    await botdb.addData((server["channel"], json.dumps(notified)), ("channel", "notified"), "servers", db=db)
-                                except Exception as e:
-                                    logging.error("Livestreams - An error has occured while queueing a notification!", exc_info=True)
+                        if not checkNotified(video, "livestream", channel["id"], notified):
+                            notified[channel["id"]]["livestream"] = video
+                            try:
+                                queue.append(postMsg(server, channel, data[video], video, notified))
+                                await botdb.addData((server["channel"], json.dumps(notified)), ("channel", "notified"), "servers", db=db)
+                            except Exception as e:
+                                logging.error("Livestreams - An error has occured while queueing a notification!", exc_info=True)
     
     await asyncio.gather(*queue)
 
 class StreamCycle(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot, db):
         self.bot = bot
+        self.db = db
         self.timecheck.start()
 
     def cog_unload(self):
@@ -81,7 +78,7 @@ class StreamCycle(commands.Cog):
     async def timecheck(self):
         logging.info("Starting stream checks.")
         try:
-            await streamNotify()
+            await streamNotify(self.db)
         except Exception as e:
             logging.error("Stream - An error has occurred in the cog!", exc_info=True)
             traceback.print_exception(type(e), e, e.__traceback__)

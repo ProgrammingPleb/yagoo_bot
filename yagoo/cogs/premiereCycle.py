@@ -25,10 +25,9 @@ import json
 from discord import Webhook
 from discord.ext import commands, tasks
 from datetime import datetime
-from yagoo.lib.dataUtils import botdb
+from yagoo.lib.dataUtils import botdb, checkNotified
 
-async def premiereNotify():
-    db = await botdb.getDB()
+async def premiereNotify(db):
     servers = await botdb.getAllData("servers", ("server", "channel", "url", "premiere"), db=db)
     channels = await botdb.getAllData("scrape", ("id", "name", "image", "premieres"), db=db)
 
@@ -60,18 +59,17 @@ async def premiereNotify():
                         
                         for video in premieres:
                             if int(premieres[video]["upcoming"]) < datetime.now().timestamp():
-                                if channel["id"] not in notified:
-                                    notified[channel["id"]] = ""
-                                if notified[channel["id"]] != video:
+                                if not checkNotified(video, "premiere", channel["id"], notified):
                                     queue.append(postMsg(server, channel, premieres[video], video, notified))
-                                    notified[channel["id"]] = video
+                                    notified[channel["id"]]["premiere"] = video
                                     await botdb.addData((server["channel"], json.dumps(notified)), ("channel", "notified"), "servers", db)
     
     await asyncio.gather(*queue)
 
 class PremiereCycle(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot, db):
         self.bot = bot
+        self.db = db
         self.timecheck.start()
 
     def cog_unload(self):
@@ -81,7 +79,7 @@ class PremiereCycle(commands.Cog):
     async def timecheck(self):
         logging.debug("Starting premiere checks.")
         try:
-            await premiereNotify()
+            await premiereNotify(self.db)
         except Exception as e:
             logging.error("Premieres - An error has occurred in the cog!", exc_info=True)
             traceback.print_exception(type(e), e, e.__traceback__)
