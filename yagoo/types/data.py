@@ -17,6 +17,7 @@ class YouTubeChannel():
     ---
     channelID: The channel's ID.
     channelName: The channel's name.
+    twitter: The channel's Twitter account handle.
     """
     def __init__(self,
                  channelID: str,
@@ -147,7 +148,7 @@ class SubscriptionResponse():
     subTypes: The subscription types that the user requested.
     channelNames: A `list` containing all the names of the channels to be subscribed to.
     
-    Additonal Initialization Arguments
+    Additional Initialization Arguments
     ---
     channelIDs: The channel IDs of the channels to be subscribed to. Should not be used with `channelNames`.
     channelData: Channels data with `id` as the main key and the channel name as the data. Should not be used with `channelNames`.
