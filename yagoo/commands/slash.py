@@ -19,7 +19,7 @@ along with Yagoo Bot.  If not, see <http://www.gnu.org/licenses/>.
 import discord
 from discord import app_commands
 from discord.ext import commands
-from yagoo.commands.general import botHelp
+from yagoo.commands.general import botHelp, botTwt
 from yagoo.commands.subscribe import defaultSubtype, subCategory, subCustom, sublistDisplay, unsubChannel
 from yagoo.lib.botUtils import subPerms
 from yagoo.lib.prompts import botError
@@ -95,6 +95,35 @@ class YagooSlash(commands.Cog):
     
     @sublistSlash.error
     async def subListSlashError(self, interaction: discord.Interaction, error):
+        if not interaction.response.is_done():
+            await interaction.response.defer(ephemeral=True)
+        
+        await interaction.followup.send(embed=await botError(interaction, error), ephemeral=True)
+    
+    @app_commands.command(name="follow", description="Follow a Twitter account's tweets")
+    @app_commands.describe(handle="The Twitter account's handle/username")
+    @app_commands.check(subPerms)
+    @app_commands.guilds(751669314196602972)
+    async def followSlash(self, interaction: discord.Interaction, handle: str):
+        await interaction.response.defer(ephemeral=True)
+        await botTwt.follow(interaction, self.bot, handle)
+    
+    @followSlash.error
+    async def followSlashError(self, interaction: discord.Interaction, error):
+        if not interaction.response.is_done():
+            await interaction.response.defer(ephemeral=True)
+        
+        await interaction.followup.send(embed=await botError(interaction, error), ephemeral=True)
+    
+    @app_commands.command(name="unfollow", description="Unfollow from any followed Twitter accounts")
+    @app_commands.check(subPerms)
+    @app_commands.guilds(751669314196602972)
+    async def unfollowSlash(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        await botTwt.unfollow(interaction, self.bot)
+    
+    @unfollowSlash.error
+    async def unfollowSlashError(self, interaction: discord.Interaction, error):
         if not interaction.response.is_done():
             await interaction.response.defer(ephemeral=True)
         

@@ -27,7 +27,7 @@ import tweepy
 import mysql.connector
 from discord.ext import commands
 from itertools import islice
-from typing import Union
+from typing import List, Union
 from yaml.loader import SafeLoader
 from yagoo.lib.prompts import searchConfirm, searchPrompt
 from yagoo.lib.dataUtils import botdb
@@ -482,7 +482,7 @@ class TwitterUtils:
         await botdb.addData((userData.id_str, 1, userData.name, userData.screen_name),
                             ("twtID", "custom", "name", "screenName"), "twitter", db)
     
-    async def followActions(action: str, channel: str, userID: str = None, allAccounts: bool = False, db: mysql.connector.MySQLConnection = None):
+    async def followActions(action: str, channel: str, userIDs: List[str] = None, allAccounts: bool = False, db: mysql.connector.MySQLConnection = None):
         """
         Follow or unfollow a user based on the action argument given. Saves it inside the bot's database.
 
@@ -490,7 +490,7 @@ class TwitterUtils:
         ---
         action: Can be either `add` to follow or `remove` to unfollow.
         channel: The channel's ID in `str` type.
-        userID: The user's Twitter ID. Optional if `all` is set to `True`.
+        userIDs: A list of the Twitter accounts' ID. Optional if `all` is set to `True`.
         all: Selects all currently followed users of the channel. Can be used only if `action` is `remove`.
         db: An existing MySQL connection to avoid making a new uncesssary connection.
 
@@ -505,23 +505,25 @@ class TwitterUtils:
         custom = await botdb.listConvert(server["custom"])
         if not custom:
             custom = []
+        success = False
         
         if action == "add":
-            if userID not in custom:
-                custom.append(userID)
-            else:
-                return False
+            for userID in userIDs:
+                if userID not in custom:
+                    custom.append(userID)
+                    success = True
         elif action == "remove":
             if allAccounts:
                 custom = []
-            elif userID != []:
-                for x in userID:
-                    custom.remove(x)
-            else:
-                return False
+                success = True
+            elif userIDs != []:
+                for userID in userIDs:
+                    custom.remove(userID)
+                success = True
         
-        await botdb.addData((channel, await botdb.listConvert(custom)), ("channel", "custom"), "servers", db)
-        return True
+        if success:
+            await botdb.addData((channel, await botdb.listConvert(custom)), ("channel", "custom"), "servers", db)
+        return success
     
     async def getScreenName(accLink: str):
         """

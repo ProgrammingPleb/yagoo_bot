@@ -21,11 +21,12 @@ along with Yagoo Bot.  If not, see <http://www.gnu.org/licenses/>.
 import asyncio
 import traceback
 import discord
+import tweepy
 from typing import Optional, Union, List
 from discord.ext import commands
 from yagoo.lib.botVars import allSubTypes
 from yagoo.lib.dataUtils import botdb
-from yagoo.types.data import CategorySubscriptionResponse, ChannelSearchResponse, ChannelSubscriptionData, ErrorReport, SubscriptionData, SubscriptionResponse, UnsubscriptionResponse, YouTubeChannel
+from yagoo.types.data import CategorySubscriptionResponse, ChannelSearchResponse, ChannelSubscriptionData, ErrorReport, SubscriptionData, SubscriptionResponse, TwitterFollowData, TwitterUnfollowResponse, UnsubscriptionResponse, YouTubeChannel
 from yagoo.types.error import ChannelNotFound, NoSubscriptions
 from yagoo.types.message import YagooMessage
 from yagoo.types.views import YagooSelectOption, YagooViewResponse
@@ -673,3 +674,139 @@ class unsubPrompts:
         message.embed.add_field(name="Subscription Types", value=subTypeText.strip(", "), inline=False)
         message.msg = await message.msg.edit(content=None, embed=message.embed, view=None)
         return
+
+class TwitterPrompts:
+    class follow:
+        async def confirm(cmd: Union[commands.Context, discord.Interaction], message: YagooMessage, twtUser: tweepy.User):
+            """
+            Asks for confirmation of following the Twitter account that was requested.
+            
+            Arguments
+            ---
+            cmd: Context or interaction from the invoked command.
+            message: The message used to display the confirmation.
+            twtUser: The Twitter account.
+            """
+            message.embed.title = f"Following {twtUser.name} to this channel"
+            message.embed.description = "Do you want to follow this Twitter account?"
+            message.addButton(1, "cancel", "Cancel", style=discord.ButtonStyle.red)
+            message.addButton(1, "confirm", "Confirm", style=discord.ButtonStyle.green)
+            
+            if isinstance(cmd, commands.Context):
+                result = await message.legacyPost(cmd)
+            else:
+                result = await message.post(cmd, True, True)
+            
+            return result
+        
+        def displayResult(message: YagooMessage, accName: str, status: bool):
+            """
+            Display the result of the follow action.
+            
+            Arguments
+            ---
+            message: The message used to display the result.
+            accName: The Twitter account name.
+            status: The status from the follow command.
+            """
+            message.resetEmbed()
+            if status:
+                message.embed.title = "Successfully Followed Account!"
+                message.embed.description = f"This channel is now following @{accName}."
+                message.embed.color = discord.Color.green()
+            else:
+                message.embed.title = "Already Followed Account!"
+                message.embed.description = f"This channel is already following @{accName}."
+                message.embed.color = discord.Color.red()
+    
+    class unfollow:
+        async def parse(followed: list, data: dict):
+            """
+            Parses a list of followed Twitter accounts.
+            
+            Arguments
+            ---
+            followed: A `list` containing the Twitter accounts followed in the Discord channel.
+            data: A `dict` containing the Twitter custom accounts data.
+            
+            Returns
+            ---
+            `TwitterFollowData`.
+            """
+            follows = TwitterFollowData(True)
+            
+            for twtID in followed:
+                follows.addAccount(twtID, data[twtID]["screenName"], data[twtID]["name"])
+            
+            return follows
+        
+        async def prompt(cmd: Union[commands.Context, discord.Interaction],
+                         message: YagooMessage,
+                         followData: TwitterFollowData):
+            """
+            Prompts the user for which Twitter accounts to be unfollowed.
+            
+            Arguments
+            ---
+            cmd: Context or interaction from the invoked command.
+            msg: The message that will be used as the prompt.
+            options: The Discord channel's Twitter follows.
+            
+            Returns
+            ---
+            `TwitterUnfollowResponse`
+            """
+            response = TwitterUnfollowResponse(False)
+            
+            message.resetMessage()
+            message.embed.title = "Unfollowing from Twitter Accounts"
+            message.embed.description = "Choose the account(s) to be unfollowed."
+            message.embed.add_field(name="Note seeing the Twitter account on this list?",
+                                    value="Twitter accounts followed through the `subscribe` command "
+                                          "will need to be unfollowed through the `unsubscribe` command.")
+            
+            options = []
+            for account in followData.accounts:
+                options.append(YagooSelectOption(account.name, account.accountID, f"@{account.handle}"))
+            message.addSelect(options, "Pick the Twitter account(s) here", max_values=25)
+            message.addButton(3, "all", "Unfollow from all Twitter Channels")
+            message.addButton(4, "cancel", "Cancel", style=discord.ButtonStyle.red)
+            
+            if isinstance(cmd, commands.Context):
+                result = await message.legacyPost(cmd)
+            else:
+                result = await message.post(cmd, True, True)
+            
+            if result.responseType:
+                if result.selectValues:
+                    response.status = True
+                    for handle in result.selectValues:
+                        account = followData.findAccount(handle)
+                        response.addAccount(account.accountID, account.handle, account.name)
+                elif result.buttonID == "all":
+                    response.status = True
+                    response.allAccounts = True
+            return response
+
+        def displayResult(message: YagooMessage, unfollowData: TwitterUnfollowResponse):
+            """
+            Display the result of the follow action.
+            
+            Arguments
+            ---
+            message: The message used to display the result.
+            unfollowData: The channel's unfollow data.
+            """
+            message.resetEmbed()
+            message.embed.title = "Successfully Unfollowed Accounts!"
+            message.embed.color = discord.Color.green()
+            
+            accounts = ""
+            if len(unfollowData.accounts) <= 3:
+                for account in unfollowData.accounts:
+                    accounts += f"@{account.handle}, "
+            else:
+                accounts = f"{len(unfollowData.accounts)} accounts'"
+            if unfollowData.allAccounts:
+                accounts = "all Twitter accounts'"
+            message.embed.description = f"The channel has been unfollowed from {accounts.strip(', ')} tweets."

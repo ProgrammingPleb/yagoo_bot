@@ -20,9 +20,12 @@ import discord
 import asyncio
 from typing import Union
 from discord.ext import commands
+from yagoo.lib.prompts import TwitterPrompts, removeMessage
 from yagoo.scrapers.infoscraper import FandomScrape, TwitterScrape
 from yagoo.lib.botUtils import TwitterUtils, embedContinue, getRoles, msgDelete, fandomTextParse, vtuberSearch
 from yagoo.lib.dataUtils import botdb, dbTools
+from yagoo.types.error import NoFollows
+from yagoo.types.message import YagooMessage
 
 async def botHelp(prefix: str):
     hembed = discord.Embed(title="Yagoo Bot Commands")
@@ -128,56 +131,60 @@ async def botAssignRoles(ctx: Union[commands.Context, SlashContext], bot: comman
 # Tasklist:
 # TODO: Create disclaimer on core unsubscribe command
 class botTwt:
-    async def follow(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, accLink: str):
+    async def follow(cmd: Union[commands.Context, discord.Interaction], bot: commands.Bot, accLink: str):
         db = await botdb.getDB()
         if not accLink:
             raise ValueError("No Twitter ID")
         
-        twtMsg = await ctx.send("Searching for the Twitter user...")
+        if isinstance(cmd, commands.Context):
+            message = YagooMessage(bot, cmd.author)
+            message.msg = await cmd.send("Searching for the Twitter user...")
+        else:
+            message = YagooMessage(bot, cmd.user)
         twtHandle = await TwitterUtils.getScreenName(accLink)
         twtUser = await TwitterScrape.getUserDetails(twtHandle)
         
-        result = await generalPrompts.confirm(ctx, bot, twtMsg,
-                                              f"Following {twtUser.name} to this channel",
-                                              "subscribe to this Twitter account")
+        message.embed.title = f"Following {twtUser.name} to this channel"
+        message.embed.description = "Do you want to follow this Twitter account?"
+        message.addButton(1, "cancel", "Cancel", style=discord.ButtonStyle.red)
+        message.addButton(1, "confirm", "Confirm", style=discord.ButtonStyle.green)
         
-        if result["status"] and result["choice"]:
-            await dbTools.serverGrab(bot, str(ctx.guild.id), str(ctx.channel.id), ("url",), db)
+        if isinstance(cmd, commands.Context):
+            result = await message.legacyPost(cmd)
+        else:
+            result = await message.post(cmd, True, True)
+        
+        if result.buttonID == "confirm":
+            await dbTools.serverGrab(bot, str(cmd.guild.id), str(cmd.channel.id), ("url",), db)
             dbExist = await TwitterUtils.dbExists(twtUser.id_str, db)
             if not dbExist["status"]:
                 await TwitterUtils.newAccount(twtUser, db)
-            status = await TwitterUtils.followActions("add", str(ctx.channel.id), twtUser.id_str, db=db)
-            await TwitterPrompts.displayResult(twtMsg, "add", status, twtUser.screen_name)
-            await msgDelete(ctx)
+            status = await TwitterUtils.followActions("add", str(cmd.channel.id), [twtUser.id_str], db=db)
+            TwitterPrompts.follow.displayResult(message, twtUser.screen_name, status)
+            message.msg = await message.msg.edit(content=None, embed=message.embed, view=None)
+            await removeMessage(cmd=cmd)
             return
-        await twtMsg.delete()
-        await msgDelete(ctx)
+        await removeMessage(message, cmd)
     
-    async def unfollow(ctx: commands.Context, bot: commands.Bot):
+    async def unfollow(cmd: Union[commands.Context, discord.Interaction], bot: commands.Bot):
         db = await botdb.getDB()
-        twtMsg: discord.Message = await ctx.send("Loading custom Twitter accounts.")
-
-        server = await dbTools.serverGrab(bot, str(ctx.guild.id), str(ctx.channel.id), ("custom",), db)
-        customTwt = await botdb.getAllData("twitter", ("twtID", "name", "screenName"), 1, "custom", "twtID", db)
-        if await botdb.listConvert(server["custom"]) == [''] or await botdb.listConvert(server["custom"]) == []:
-            raise ValueError("No Follows")
-        options = await TwitterPrompts.unfollow.parseToOptions(await botdb.listConvert(server["custom"]), customTwt)
-        userPick = await TwitterPrompts.unfollow.prompt(ctx, bot, twtMsg, options)
-        if userPick["status"]:
-            if userPick["all"]:
-                status = await TwitterUtils.followActions("remove", str(ctx.channel.id), allAccounts=True, db=db)
-                names = None
-            else:
-                status = await TwitterUtils.followActions("remove", str(ctx.channel.id), userPick["unfollowed"]["ids"], db=db)
-                names = ""
-                if len(userPick["unfollowed"]["names"]) <= 5:
-                    for userID in userPick["unfollowed"]["ids"]:
-                        names += f"@{customTwt[userID]['screenName']}, "
-                    names = names[:-2]
-                else:
-                    names = f"{len(userPick['unfollowed']['names'])} Twitter accounts'"
-            await TwitterPrompts.displayResult(twtMsg, "remove", status, names, userPick["all"])
-            await msgDelete(ctx)
+        if isinstance(cmd, commands.Context):
+            message = YagooMessage(bot, cmd.author)
+            message.msg = await cmd.send("Loading custom Twitter accounts...")
         else:
-            await twtMsg.delete()
-            await msgDelete(ctx)
+            message = YagooMessage(bot, cmd.user)
+
+        server = await dbTools.serverGrab(bot, str(cmd.guild.id), str(cmd.channel.id), ("custom",), db)
+        customTwt = await botdb.getAllData("twitter", ("twtID", "name", "screenName"), 1, "custom", "twtID", db)
+        followedData = await botdb.listConvert(server["custom"])
+        if followedData == [''] or followedData == [] or not followedData:
+            raise NoFollows(cmd.channel.id)
+        followData = await TwitterPrompts.unfollow.parse(followedData, customTwt)
+        userPick = await TwitterPrompts.unfollow.prompt(cmd, message, followData)
+        if userPick.status:
+            await TwitterUtils.followActions("remove", str(cmd.channel.id), userPick.accountIDs(), userPick.allAccounts, db)
+            TwitterPrompts.unfollow.displayResult(message, userPick)
+            message.msg = await message.msg.edit(content=None, embed=message.embed, view=None)
+            await removeMessage(cmd=cmd)
+        else:
+            await removeMessage(message, cmd)

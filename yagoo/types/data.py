@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from typing import Optional, Union, TypedDict, List
-from yagoo.types.error import ChannelNotFound, InvalidSubscriptionType, NoSubscriptions
+from yagoo.types.error import AccountNotFound, ChannelNotFound, InvalidSubscriptionType, NoArguments, NoFollows, NoSubscriptions
 
 class SubscriptionList(TypedDict, total=False):
     livestream: bool
@@ -26,6 +26,21 @@ class YouTubeChannel():
         self.channelID = channelID
         self.channelName = channelName
         self.twitter = twitter
+
+class TwitterAccount():
+    """
+    Represents a Twitter account.
+    
+    Attributes
+    ---
+    accountID: The account's ID.
+    handle: The account's handle/username.
+    name: The account's display name.
+    """
+    def __init__(self, accountID: str, handle: str, name: str):
+        self.accountID = accountID
+        self.handle = handle
+        self.name = name
 
 class SubscriptionData():
     """
@@ -137,6 +152,44 @@ class ChannelSubscriptionData():
                     subTypes.append("premiere")
             return subTypes
         raise ChannelNotFound(channelID)
+
+class TwitterFollowData():
+    """
+    Returned when a channel's Twitter follows are requested.
+    
+    Attributes
+    ---
+    exists: If any Twitter accounts are being followed on the channel.
+    accounts: A list of every Twitter accounts being followed.
+    """
+    def __init__(self, exists: bool = False):
+        self.exists = exists
+        self.accounts: List[TwitterAccount] = []
+        self._rawAccountListing: dict = {}
+    
+    def addAccount(self, accountID: str, handle: str, name: str):
+        """
+        Adds an account to the Twitter follows data.
+        
+        Arguments
+        ---
+        accountID: The Twitter account's ID.
+        name: The Twitter account's display name.
+        """
+        self.accounts.append(TwitterAccount(accountID, handle, name))
+        self._rawAccountListing[accountID] = TwitterAccount(accountID, handle, name)
+    
+    def findAccount(self, accountID: str) -> TwitterAccount:
+        """
+        Finds the account by the Twitter account's handle/username.
+        
+        Arguments
+        ---
+        accountID: The Twitter account's ID.
+        """
+        if accountID in self._rawAccountListing.keys():
+            return self._rawAccountListing[accountID]
+        raise AccountNotFound(accountID)
 
 class SubscriptionResponse():
     """
@@ -260,6 +313,44 @@ class ChannelSearchResponse():
         self.status.matched = False
         self.status.cannotMatch = False
 
+class TwitterUnfollowResponse():
+    """
+    Returned when a Twitter unfollow response was given.
+    
+    Attributes
+    ---
+    status: Whether the command was successfully finished or not.
+    allAccounts: If the user wants to unfollow all the accounts in the 
+    accounts: The Twitter accounts to be unfollowed.
+    """
+    def __init__(self, status: bool = False, allAccounts: bool = False):
+        self.status = status
+        self.allAccounts = allAccounts
+        self.accounts: List[TwitterAccount] = []
+    
+    def addAccount(self, accountID: str, handle: str, name: str):
+        """
+        Adds an account to the Twitter follows data.
+        
+        Arguments
+        ---
+        accountID: The Twitter account's ID.
+        handle: The Twitter account's handle.
+        name: The Twitter account's display name.
+        """
+        self.accounts.append(TwitterAccount(accountID, handle, name))
+    
+    def accountIDs(self):
+        """
+        Returns a list of Twitter account IDs to unfollow from.
+        """
+        result: List[str] = []
+        
+        for account in self.accounts:
+            result.append(account.accountID)
+        
+        return result
+
 class FandomChannel():
     def __init__(self, success: bool = False,
                  channelID: Optional[str] = None,
@@ -306,17 +397,12 @@ class ErrorReport():
                          f"Please allow the bot {plural}:\n"
             for perm in permOutput:
                 self.report += f'\n - `{perm}`'
-        elif "Missing Arguments" in str(self.error):
-            self.report = "A command argument was not given when required to."
         elif "No Twitter ID" in str(self.error):
             self.report = "There was no Twitter account link given!\n" \
                           "Ensure that the account's Twitter link or screen name is supplied to the command."
         elif "50 - User not found." in str(self.error):
             self.report = "This user was not found on Twitter!\n" \
                           "Make sure the spelling of the user's Twitter link/screen name is correct!"
-        elif "No Follows" in str(self.error):
-            self.report = "This channel is not following any Twitter accounts.\n" \
-                          "Follow a Twitter account's tweets by using `y!follow` or `/follow` command."
     
     def yagooErrors(self):
         if isinstance(self.error.original, NoSubscriptions):
@@ -324,7 +410,12 @@ class ErrorReport():
                           "Subscribe to a channel's notifications by using the `subscribe` command."
         elif isinstance(self.error.original, ChannelNotFound):
             self.report = "The YouTube channel is not subscribed to this Discord channel." \
-                          "Subscribe to the channel's notifications by using `subscribe` command."
+                          "Subscribe to the channel's notifications by using the `subscribe` command."
+        elif isinstance(self.error.original, NoFollows):
+            self.report = "This channel is not following any Twitter accounts.\n" \
+                          "Follow a Twitter account's tweets by using the `follow` command."
+        elif isinstance(self.error.original, NoArguments):
+            self.report = "A command argument was not given when required to."
     
     def discordErrors(self):
         if isinstance(self.error, (commands.CheckFailure, discord.app_commands.errors.CheckFailure)):

@@ -32,12 +32,13 @@ from yagoo.cogs.msCycle import msCycle, milestoneNotify
 from yagoo.cogs.dblUpdate import guildUpdate
 from yagoo.cogs.premiereCycle import PremiereCycle
 from yagoo.cogs.twtCycle import twtCycle
-from yagoo.commands.general import botHelp
+from yagoo.commands.general import botHelp, botTwt
 from yagoo.commands.slash import YagooSlash
 from yagoo.commands.subscribe import defaultSubtype, subCategory, subCustom, sublistDisplay, unsubChannel
 from yagoo.lib.botUtils import getRoles, subPerms, creatorCheck, userWhitelist
 from yagoo.lib.dataUtils import refreshWebhook, botdb, dbTools
 from yagoo.lib.prompts import botError
+from yagoo.types.error import NoArguments
 from yagoo.types.message import YagooMessage
 from yagoo.types.views import YagooSelectOption
 
@@ -167,22 +168,24 @@ async def info(ctx, *, name: str = None):
 
 @bot.command()
 @commands.check(subPerms)
-async def follow(ctx, accLink: str = None):
+async def follow(ctx: commands.Context, accLink: str = None):
+    if not accLink:
+        raise NoArguments(str(ctx.channel.id))
     await botTwt.follow(ctx, bot, accLink)
 
 @follow.error
-async def follow_error(ctx, error):
+async def follow_error(ctx: commands.Context, error):
     errEmbed = await botError(ctx, error)
     if errEmbed:
         await ctx.send(embed=errEmbed)
 
 @bot.command()
 @commands.check(subPerms)
-async def unfollow(ctx):
+async def unfollow(ctx: commands.Context):
     await botTwt.unfollow(ctx, bot)
 
 @unfollow.error
-async def follow_error(ctx, error):
+async def follow_error(ctx: commands.Context, error):
     errEmbed = await botError(ctx, error)
     if errEmbed:
         await ctx.send(embed=errEmbed)

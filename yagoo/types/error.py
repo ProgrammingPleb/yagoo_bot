@@ -73,6 +73,17 @@ class InvalidSubscriptionType(TypeError):
     def __init__(self, subType: str):
         super().__init__(f"\"{subType}\" is an invalid subscription type!")
 
+class NoArguments(Exception):
+    """
+    Exception used for when a required argument was not filled in.
+    
+    Arguments
+    ---
+    channelID: The Discord channel ID.
+    """
+    def __init__(self, channelID: str):
+        super().__init__(f"User in Discord Channel \"{channelID}\" did not supply a required argument!")
+
 class NoSubscriptions(Exception):
     """
     Exception used for when a Discord channel does not have any subscriptions.
@@ -84,6 +95,17 @@ class NoSubscriptions(Exception):
     def __init__(self, channelID: str):
         super().__init__(f"Discord Channel \"{channelID}\" does not have any subscriptions!")
 
+class NoFollows(Exception):
+    """
+    Exception used for when a Discord channel does not have any custom Twitter account follows.
+    
+    Arguments
+    ---
+    channelID: The Discord channel ID.
+    """
+    def __init__(self, channelID: str):
+        super().__init__(f"Discord Channel \"{channelID}\" does not have any custom Twitter account follows!")
+
 class ChannelNotFound(Exception):
     """
     Exception used for when a non-existent YouTube channel was searched.
@@ -94,3 +116,14 @@ class ChannelNotFound(Exception):
     """
     def __init__(self, channelID: str):
         super().__init__(f"There is no YouTube channel with the ID \"{channelID}\"!")
+
+class AccountNotFound(Exception):
+    """
+    Exception used for when a non-existent Twitter account was searched.
+    
+    Arguments
+    ---
+    handle: The Twitter account's handle/username.
+    """
+    def __init__(self, handle: str):
+        super().__init__(f"There is no Twitter account with the ID \"{handle}\"!")
