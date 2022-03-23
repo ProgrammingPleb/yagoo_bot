@@ -160,11 +160,8 @@ async def sublist_error(ctx: commands.Context, error):
         await ctx.send(embed=errEmbed)
         
 @bot.command(aliases=["getinfo"])
-async def info(ctx, *, name: str = None):
-    if name is None:
-        await ctx.send(embed=await botError(ctx, "Missing Arguments"))
-        return
-    await botGetInfo(ctx, bot, name)
+async def info(ctx: commands.Context):
+    await ctx.send("This command is currently being reworked!")
 
 @bot.command()
 @commands.check(subPerms)
