@@ -20,7 +20,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from yagoo.commands.general import botHelp
-from yagoo.commands.subscribe import defaultSubtype, subCategory, subCustom, unsubChannel
+from yagoo.commands.subscribe import defaultSubtype, subCategory, subCustom, sublistDisplay, unsubChannel
 from yagoo.lib.botUtils import subPerms
 from yagoo.lib.prompts import botError
 from yagoo.types.message import YagooMessage

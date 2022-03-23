@@ -34,7 +34,7 @@ from yagoo.cogs.premiereCycle import PremiereCycle
 from yagoo.cogs.twtCycle import twtCycle
 from yagoo.commands.general import botHelp
 from yagoo.commands.slash import YagooSlash
-from yagoo.commands.subscribe import defaultSubtype, subCategory, subCustom, unsubChannel
+from yagoo.commands.subscribe import defaultSubtype, subCategory, subCustom, sublistDisplay, unsubChannel
 from yagoo.lib.botUtils import getRoles, subPerms, creatorCheck, userWhitelist
 from yagoo.lib.dataUtils import refreshWebhook, botdb, dbTools
 from yagoo.lib.prompts import botError
@@ -142,18 +142,18 @@ async def subDefault(ctx):
     await defaultSubtype(ctx, bot)
 
 @subDefault.error
-async def subdef_error(ctx, error):
+async def subdef_error(ctx: commands.Context, error):
     errEmbed = await botError(ctx, error)
     if errEmbed:
         await ctx.send(embed=errEmbed)
 
 @bot.command(aliases=["subs", "subslist", "subscriptions", "subscribed"])
 @commands.check(subPerms)
-async def sublist(ctx):
+async def sublist(ctx: commands.Context):
     await sublistDisplay(ctx, bot)
 
 @sublist.error
-async def sublist_error(ctx, error):
+async def sublist_error(ctx: commands.Context, error):
     errEmbed = await botError(ctx, error)
     if errEmbed:
         await ctx.send(embed=errEmbed)
