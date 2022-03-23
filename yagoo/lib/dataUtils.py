@@ -37,6 +37,40 @@ async def refreshWebhook(bot: commands.Bot, server: discord.Guild, channel: disc
     
     await botdb.addData((str(channel.id), webhook.url), ("channel", "url"), "servers", db)
 
+def checkNotified(videoID: str, videoType: str, channelID: str, notifiedData: dict):
+    """
+    Checks if the channel has been notified of the livestream/premiere.
+    
+    Arguments
+    ---
+    videoID: The video's ID.
+    videoType: Whether the video is a `livestream` or a `premiere`.
+    channelID: The YouTube channel's ID.
+    notifiedData: The Discord channel's `videos notified` data.
+    
+    Returns
+    ---
+    `True` if the channel has already been notified, `False` if otherwise.
+    """
+    if channelID not in notifiedData:
+        notifiedData[channelID] = {
+            "livestream": "",
+            "premiere": ""
+        }
+    
+    if "livestream" not in notifiedData[channelID]:
+        originalVideo = str(notifiedData[channelID])
+        notifiedData[channelID] = {
+            "livestream": "",
+            "premiere": ""
+        }
+        if notifiedData[channelID] == videoID:
+            notifiedData[channelID][videoType] = originalVideo
+    
+    if notifiedData[channelID][videoType] != videoID:
+        return False
+    return True
+
 class dbTools:
     """
     Database tools for usage in other commands.
