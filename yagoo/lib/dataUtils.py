@@ -133,8 +133,11 @@ class botdb:
         sql = f"SELECT {keyType} FROM {table} WHERE {keyType} = %s"
         arg = (key,)
         cursor.execute(sql, arg)
+        result = cursor.fetchone()
+        cursor.close()
+        db.commit()
 
-        if cursor.fetchone() is None:
+        if result is None:
             return False
         return True
         
@@ -303,7 +306,11 @@ class botdb:
         sql = sql.strip(", ") + f" FROM {table} WHERE {keyType} = %s"
 
         cursor.execute(sql, (key, ))
-        return cursor.fetchone()
+        result = cursor.fetchone()
+        
+        cursor.close()
+        db.commit()
+        return result
     
     async def getMultiData(keyList: list, keyType: str, returnType: tuple, table: str, db: mysql.connector.MySQLConnection = None) -> dict:
         """
@@ -334,6 +341,9 @@ class botdb:
         for key in keyList:
             cursor.execute(sql, (key, ))
             finalData[key] = cursor.fetchone()
+        
+        cursor.close()
+        db.commit()
         return finalData
 
     async def getAllData(table: str, keyTypes: tuple = None, filterKey: str = None, filterType: str = None, keyDict: str = None, db: mysql.connector.MySQLConnection = None):
@@ -373,14 +383,18 @@ class botdb:
             cursor.execute(sql, (filterKey, ))
         else:
             cursor.execute(sql)
+        result = {}
         if keyDict:
-            result = {}
             for item in cursor.fetchall():
                 mainKey = item[keyDict]
                 item.pop(keyDict)
                 result[mainKey] = item
-            return result
-        return cursor.fetchall()
+        else:
+            result = cursor.fetchall()
+
+        cursor.close()
+        db.commit()
+        return result
     
     async def listConvert(data: Union[str, list]):
         """
