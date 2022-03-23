@@ -71,9 +71,13 @@ class botdb:
     """
     Communication layer for the bot to communicate to it's MySQL database.
     """
-    async def getDB():
+    async def getDB(buffered: bool = True):
         """
         Returns a `MySQLConnection` object to be used for database queries/modifications.
+        
+        Arguments
+        ---
+        buffered: Whether to load in the database on creation.
         """
         with open("settings.yaml") as f:
             db = (yaml.load(f, Loader=yaml.SafeLoader))["sql"]
@@ -83,7 +87,7 @@ class botdb:
             username=db["username"],
             password=db["password"],
             database=db["database"],
-            buffered=True
+            buffered=buffered
         )
     
     async def changeToMany(data: tuple, dataTypes: tuple, table: str) -> list:
