@@ -37,23 +37,25 @@ async def botHelp(prefix: str):
                          "Meanwhile, anything in square brackets `[]` are optional, so leaving them will also make the command work."
     
     hembed.add_field(name="Commands",
-                     value=f"**{prefix}sub** [VTuber Name] (Alias: subscribe)\n"
+                     value=f"**{prefix}subscribe** [VTuber Name] (Alias: sub)\n"
                            "Brings up a list of channels to subscribe to.\n"
                            "Add a non-Hololive VTuber's name to the command to opt in to their notifications.\n\n"
-                           f"**{prefix}unsub** (Alias: unsubscribe)\n"
+                           f"**{prefix}unsubscribe** (Alias: unsub)\n"
                            "Brings up a list of channels to unsubscribe to.\n\n"
                            f"**{prefix}sublist** (Alias: subs, subslist)\n"
                            "Brings up a list of channels that the current chat channel has subscribed to.\n\n"
                            f"**{prefix}subdefault** (Alias: subDefault)\n"
                            "Set's the default subscription type for the channel.\n\n"
-                           f"**{prefix}follow** (Alias: subDefault)\n"
+                           f"**{prefix}follow**\n"
                            "Follows a custom Twitter account's tweets to the channel.\n\n"
-                           f"**{prefix}follow** (Alias: subDefault)\n"
+                           f"**{prefix}unfollow**\n"
                            "Unfollows an already followed custom Twitter account from the channel.\n\n"
                            f"**{prefix}info** <VTuber Name> (Alias: getinfo)\n"
-                           "Gets information about a VTuber.\n\n"
+                           "Gets information about a VTuber. [Being reworked]\n\n"
                            f"**{prefix}prefix** <VTuber Name>\n"
-                           "Changes the prefix used by the bot.",
+                           "Changes the prefix used by the bot. [Only on non-slash commands]\n\n"
+                           f"**{prefix}refresh** (Alias: chRefresh)\n"
+                           "Refreshes the webhook associated with the channel",
                      inline=False)
     
     hembed.add_field(name="Issues/Suggestions?",
