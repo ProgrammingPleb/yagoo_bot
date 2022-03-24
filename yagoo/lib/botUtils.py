@@ -31,6 +31,7 @@ from typing import List, Union
 from yaml.loader import SafeLoader
 from yagoo.lib.prompts import searchConfirm, searchPrompt
 from yagoo.lib.dataUtils import botdb
+from yagoo.types.error import NoDatabaseConnection
 
 def round_down(num, divisor):
     return num - (num%divisor)
@@ -453,7 +454,7 @@ class TwitterUtils:
         - user: User's account data if `status` is `True`, `None` if otherwise.
         """
         if not db:
-            db = await botdb.getDB()
+            raise NoDatabaseConnection()
         
         result = await botdb.getData(twtID, "twtID", ("twtID", ), "twitter", db)
         
@@ -477,7 +478,7 @@ class TwitterUtils:
         db: An existing MySQL connection to avoid making a new uncesssary connection.
         """
         if not db:
-            db = await botdb.getDB()
+            raise NoDatabaseConnection()
         
         await botdb.addData((userData.id_str, 1, userData.name, userData.screen_name),
                             ("twtID", "custom", "name", "screenName"), "twitter", db)
@@ -499,7 +500,7 @@ class TwitterUtils:
         `True` if the action was successful, `False` if otherwise.
         """
         if not db:
-            db = await botdb.getDB()
+            raise NoDatabaseConnection()
         
         server = await botdb.getData(channel, "channel", ("custom", ), "servers", db)
         custom = await botdb.listConvert(server["custom"])

@@ -17,18 +17,19 @@ along with Yagoo Bot.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import asyncio
-import json
 import logging
 import os
+import aiomysql
 import imgkit
 import discord
 import traceback
 import concurrent.futures
+import functools
 from discord.ext import commands, tasks
 from yagoo.lib.dataUtils import botdb
 
-async def milestoneCheck():
-    db = await botdb.getDB()
+async def milestoneCheck(pool: aiomysql.Pool):
+    db = await botdb.getDB(pool)
     channels = await botdb.getAllData("channels", ("id", "name", "milestone", "image"), db=db)
     scrape = await botdb.getAllData("scrape", ("id", "roundSubs", "mbanner"), keyDict="id", db=db)
     
@@ -72,7 +73,7 @@ async def milestoneCheck():
     return milestone
 
 async def milestoneNotify(msDict: dict, bot: commands.Bot):
-    db = await botdb.getDB()
+    db = await botdb.getDB(bot.pool)
     servers = await botdb.getAllData("servers", ("channel", "milestone"), db=db)
     queue = []
     
@@ -111,8 +112,8 @@ async def milestoneNotify(msDict: dict, bot: commands.Bot):
     
     await asyncio.gather(*queue)
 
-def mcWrapper():
-    return asyncio.run(milestoneCheck())
+def mcWrapper(pool: aiomysql.Pool):
+    return asyncio.run(milestoneCheck(pool))
 
 class msCycle(commands.Cog):
     def __init__(self, bot):
@@ -128,7 +129,7 @@ class msCycle(commands.Cog):
         try:
             with concurrent.futures.ThreadPoolExecutor() as pool:
                 loop = asyncio.get_running_loop()
-                msData = await loop.run_in_executor(pool, mcWrapper)
+                msData = await loop.run_in_executor(pool, functools.partial(mcWrapper, self.bot.pool))
             if msData != {}:
                 logging.info("Milestone - Notifying channels.")
                 await milestoneNotify(msData, self.bot)

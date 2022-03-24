@@ -89,7 +89,7 @@ async def streamInfo(channelId: Union[str, int]):
         }
     return output
 
-async def channelInfo(channelId: Union[str, int], scrape = False, debug: bool = False):
+async def channelInfo(channelId: Union[str, int], scrape = False):
     channelData = None
 
     if scrape:

@@ -16,6 +16,7 @@ You should have received a copy of the GNU General Public License
 along with Yagoo Bot.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+import aiomysql
 import discord
 import asyncio
 import json
@@ -54,7 +55,7 @@ intents = discord.Intents.default()
 intents.message_content = True
 
 async def determine_prefix(bot: commands.Bot, message: discord.Message):
-    db = await botdb.getDB()
+    db = await botdb.getDB(bot.pool)
     guild = message.guild
     if guild:
         if await botdb.checkIfExists(str(message.guild.id), "server", "prefixes", db):
@@ -74,7 +75,7 @@ class updateStatus(commands.Cog):
 
     @tasks.loop(minutes=20)
     async def updateStatus(self):
-        channels = await botdb.getAllData("channels", ("id",))
+        channels = await botdb.getAllData("channels", ("id",), db=await botdb.getDB(bot.pool))
         await self.bot.change_presence(status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.watching, name=f'over {len(channels)} VTubers'))
         await asyncio.sleep(10*60)
         guildCount = 0
@@ -97,11 +98,11 @@ async def on_ready():
 @bot.event
 async def on_guild_remove(server):
     logging.info(f'Got removed from a server, cleaning up server data for: {str(server)}')
-    await botdb.deleteRow(str(server), "server", "servers")
+    await botdb.deleteRow(str(server), "server", "servers", await botdb.getDB(bot.pool))
 
 @bot.command(alias=['help'])
 async def helptext(ctx: commands.Context): # pylint: disable=redefined-builtin
-    db = await botdb.getDB()
+    db = await botdb.getDB(bot.pool)
     if await botdb.checkIfExists(str(ctx.guild.id), "server", "prefixes", db):
         prefix = (await botdb.getData(str(ctx.guild.id), "server", ("prefix",), "prefixes", db))["prefix"]
     else:
@@ -120,7 +121,7 @@ async def subscribe(ctx: commands.Context, *, channel: str = None):
 
 @subscribe.error
 async def sub_error(ctx: commands.Context, error):
-    errEmbed = await botError(ctx, error)
+    errEmbed = await botError(ctx, bot, error)
     if errEmbed:
         await ctx.send(embed=errEmbed)
 
@@ -133,7 +134,7 @@ async def unsubscribe(ctx: commands.Context, *, channel: str = None):
 
 @unsubscribe.error
 async def unsub_error(ctx: commands.Context, error):
-    errEmbed = await botError(ctx, error)
+    errEmbed = await botError(ctx, bot, error)
     if errEmbed:
         await ctx.send(embed=errEmbed)
 
@@ -144,7 +145,7 @@ async def subDefault(ctx):
 
 @subDefault.error
 async def subdef_error(ctx: commands.Context, error):
-    errEmbed = await botError(ctx, error)
+    errEmbed = await botError(ctx, bot, error)
     if errEmbed:
         await ctx.send(embed=errEmbed)
 
@@ -155,7 +156,7 @@ async def sublist(ctx: commands.Context):
 
 @sublist.error
 async def sublist_error(ctx: commands.Context, error):
-    errEmbed = await botError(ctx, error)
+    errEmbed = await botError(ctx, bot, error)
     if errEmbed:
         await ctx.send(embed=errEmbed)
         
@@ -172,7 +173,7 @@ async def follow(ctx: commands.Context, accLink: str = None):
 
 @follow.error
 async def follow_error(ctx: commands.Context, error):
-    errEmbed = await botError(ctx, error)
+    errEmbed = await botError(ctx, bot, error)
     if errEmbed:
         await ctx.send(embed=errEmbed)
 
@@ -183,14 +184,14 @@ async def unfollow(ctx: commands.Context):
 
 @unfollow.error
 async def follow_error(ctx: commands.Context, error):
-    errEmbed = await botError(ctx, error)
+    errEmbed = await botError(ctx, bot, error)
     if errEmbed:
         await ctx.send(embed=errEmbed)
 
 @bot.command()
 @commands.check(subPerms)
 async def prefix(ctx: commands.Context, *, prefix: str = None):
-    db = await botdb.getDB()
+    db = await botdb.getDB(bot.pool)
     if prefix is None:
         if await botdb.checkIfExists(str(ctx.guild.id), "server", "prefixes", db):
             prefix = (await botdb.getData(str(ctx.guild.id), "server", ("prefix",), "prefixes", db))["prefix"]
@@ -266,7 +267,7 @@ async def omedetou(ctx: commands.Context):
 @bot.command()
 @commands.check(creatorCheck)
 async def ytchCount(ctx):
-    await ctx.send(f"Yagoo Bot has {len(await botdb.getAllData('channels'))} channels in the database.")
+    await ctx.send(f"Yagoo Bot has {len(await botdb.getAllData('channels', db=await botdb.getDB(bot.pool)))} channels in the database.")
 
 @bot.command()
 @commands.check(subPerms)
@@ -324,7 +325,10 @@ async def guildCount(ctx):
     await ctx.send(f"Yagoo Bot is now live in {totalGuilds} servers!")
 
 async def setup_hook():
-    db = await botdb.getDB(False)
+    bot.pool = await aiomysql.create_pool(host=settings["sql"]["host"],
+                                          user=settings["sql"]["username"],
+                                          password=settings["sql"]["password"],
+                                          db=settings["sql"]["database"])
     if os.path.exists("yagoo/commands/custom.py"):
         from yagoo.commands.custom import customCommands
         await bot.add_cog(customCommands(bot, settings))
@@ -335,9 +339,9 @@ async def setup_hook():
     if settings["twitter"]["enabled"]:
         await bot.add_cog(twtCycle(bot))
     if settings["notify"]:
-        await bot.add_cog(StreamCycle(bot, db))
+        await bot.add_cog(StreamCycle(bot, await botdb.getDB(bot.pool)))
     if settings["premiere"]:
-        await bot.add_cog(PremiereCycle(bot, db))
+        await bot.add_cog(PremiereCycle(bot, await botdb.getDB(bot.pool)))
     if settings["milestone"]:
         await bot.add_cog(msCycle(bot))
     await bot.add_cog(YagooSlash(bot))

@@ -117,7 +117,7 @@ async def botGetInfo(ctx: Union[commands.Context, SlashContext], bot: commands.B
                             excessLoop = False
 
 async def botAssignRoles(ctx: Union[commands.Context, SlashContext], bot: commands.Bot):
-    db = await botdb.getDB()
+    db = await botdb.getDB(bot.pool)
     roles = await getRoles(ctx, True)
     subs = await dbTools.serverGrab(bot, str(ctx.guild.id), str(ctx.channel.id), ("livestream", "milestone", "premiere"), db)
     channels = await botdb.getAllData("channels", ("id", "name", "category"), keyDict="id", db=db)
@@ -132,7 +132,7 @@ async def botAssignRoles(ctx: Union[commands.Context, SlashContext], bot: comman
 # TODO: Create disclaimer on core unsubscribe command
 class botTwt:
     async def follow(cmd: Union[commands.Context, discord.Interaction], bot: commands.Bot, accLink: str):
-        db = await botdb.getDB()
+        db = await botdb.getDB(bot.pool)
         if not accLink:
             raise ValueError("No Twitter ID")
         
@@ -167,7 +167,7 @@ class botTwt:
         await removeMessage(message, cmd)
     
     async def unfollow(cmd: Union[commands.Context, discord.Interaction], bot: commands.Bot):
-        db = await botdb.getDB()
+        db = await botdb.getDB(bot.pool)
         if isinstance(cmd, commands.Context):
             message = YagooMessage(bot, cmd.author)
             message.msg = await cmd.send("Loading custom Twitter accounts...")

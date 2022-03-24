@@ -18,11 +18,12 @@ along with Yagoo Bot.  If not, see <http://www.gnu.org/licenses/>.
 
 import logging
 import traceback
+import aiomysql
 from discord.ext import commands, tasks
 from yagoo.lib.dataUtils import botdb
 
-async def channelUpdate():
-    db = await botdb.getDB()
+async def channelUpdate(pool: aiomysql.Pool):
+    db = await botdb.getDB(pool)
     updates = {}
     scrape = await botdb.getAllData("scrape", ("id", "name", "image"), db=db)
     channels = await botdb.getAllData("channels", ("id", "name", "image"), keyDict="id", db=db)
@@ -61,7 +62,7 @@ class chCycle(commands.Cog):
     async def chCheck(self):
         logging.info("Starting channel update checks.")
         try:
-            await channelUpdate()
+            await channelUpdate(self.bot.pool)
         except Exception as e:
             logging.error("Channel Update - An error has occurred in the cog!", exc_info=True)
             traceback.print_exception(type(e), e, e.__traceback__)

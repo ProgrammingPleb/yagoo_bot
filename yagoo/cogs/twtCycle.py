@@ -17,9 +17,11 @@ along with Yagoo Bot.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import asyncio
+import functools
 import aiohttp
 import logging
 import traceback
+import aiomysql
 from discord import Webhook
 from discord.ext import commands, tasks
 import concurrent.futures
@@ -28,7 +30,7 @@ from tweepy.asynchronous import AsyncStream
 from yagoo.scrapers.infoscraper import TwitterScrape
 from yagoo.lib.dataUtils import botdb, dbTools
 
-async def twtUpdater():
+async def twtUpdater(pool: aiomysql.Pool):
     """
     Update Twitter user IDs.
     Has to be run every 15 minutes, and shouldn't be less as quotas renew every 15 minutes.
@@ -38,7 +40,7 @@ async def twtUpdater():
     channelUpdate = []
     twitterUpdate = []
     
-    db = await botdb.getDB()
+    db = await botdb.getDB(pool)
     channels = await botdb.getAllData("channels", ("id", "twitter"), db=db)
     scrape = await botdb.getAllData("scrape", ("id", "twitter"), keyDict="id", db=db)
     
@@ -68,7 +70,7 @@ async def twtSubscribe(bot):
     """
     twtUsers = []
     
-    db = await botdb.getDB()
+    db = await botdb.getDB(bot.pool)
     customAcc = await botdb.getAllData("twitter", ("twtID", ), db=db)
     
     for account in customAcc:
@@ -90,6 +92,7 @@ class twtPost(AsyncStream):
         logging.info("Twitter - Connected to Twitter Tweets stream!")
 
     async def on_status(self, tweet):
+        print(tweet)
         # Twitter URL String: f"https://twitter.com/{tweet.user.screen_name}/status/{tweet.id_str}"
         # Useful data points: User - tweet.user (dict), Tweet ID - tweet.id_str (string, no "_str" for actual number), Retweet - tweet.retweeted (boolean)
         # Retweeted Tweet - tweet.retweeted_status (Tweet Object), Quote Retweet - tweet.is_quote_status (boolean), Quoted Tweet - tweet.quoted_status (Tweet Object)
@@ -170,7 +173,7 @@ class twtCycle(commands.Cog):
         try:
             with concurrent.futures.ThreadPoolExecutor() as pool:
                 loop = asyncio.get_running_loop()
-                await loop.run_in_executor(pool, updateWrapper)
+                await loop.run_in_executor(pool, functools.partial(updateWrapper, self.bot.pool))
         except Exception as e:
             traceback.print_exception(type(e), e, e.__traceback__)
         logging.info("Twitter ID checks done.")

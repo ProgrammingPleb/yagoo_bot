@@ -21,7 +21,7 @@ async def subCategory(cmd: Union[commands.Context, discord.Interaction], bot: co
     cmd: Context or interaction from the executed command.
     bot: The Discord bot.
     """
-    db = await botdb.getDB()
+    db = await botdb.getDB(bot.pool)
     if isinstance(cmd, commands.Context):
         message = YagooMessage(bot, cmd.author)
         message.msg = await cmd.send("Loading channels list...")
@@ -66,14 +66,14 @@ async def subCustom(cmd: Union[commands.Context, discord.Interaction], bot: comm
     bot: The Discord bot.
     search: The name of the channel to search for.
     """
-    db = await botdb.getDB()
+    db = await botdb.getDB(bot.pool)
     if isinstance(cmd, commands.Context):
         message = YagooMessage(bot, cmd.author)
         message.msg = await cmd.send("Loading channels list...")
     else:
         message = YagooMessage(bot, cmd.user)
     
-    result = await subUtils.channelSearch(cmd, message, search)
+    result = await subUtils.channelSearch(cmd, bot, message, search)
     if result.success:
         server = await dbTools.serverGrab(bot, str(cmd.guild.id), str(cmd.channel.id), tuple(["subDefault"] +  allSubTypes(False)), db)
         subResult = await subUtils.subOne(cmd, message, server, str(cmd.channel.id), [YouTubeChannel(result.channelID, result.channelName)], db)
@@ -93,7 +93,7 @@ async def unsubChannel(cmd: Union[commands.Context, discord.Interaction], bot: c
     bot: The Discord bot.
     channel: The search term for the VTuber.
     """
-    db = await botdb.getDB()
+    db = await botdb.getDB(bot.pool)
     if isinstance(cmd, commands.Context):
         message = YagooMessage(bot, cmd.author)
         message.msg = await cmd.send("Loading channel subscriptions...")
@@ -119,7 +119,7 @@ async def unsubChannel(cmd: Union[commands.Context, discord.Interaction], bot: c
         else:
             result = await message.post(cmd, True, True)
     else:
-        wikiName = await subUtils.channelSearch(cmd, message, channel, "unsubscribe")
+        wikiName = await subUtils.channelSearch(cmd, bot, message, channel, "unsubscribe")
         if wikiName.success:
             result = YagooViewResponse()
             result.responseType = "select"
@@ -153,7 +153,7 @@ async def sublistDisplay(cmd: Union[commands.Context, discord.Interaction], bot:
     cmd: Context or interaction from the invoked command.
     bot: The Discord bot.
     """
-    db = await botdb.getDB()
+    db = await botdb.getDB(bot.pool)
     server = await dbTools.serverGrab(bot, str(cmd.guild.id), str(cmd.channel.id), tuple(allSubTypes(False)), db)
     if isinstance(cmd, commands.Context):
         message = YagooMessage(bot, cmd.author)
@@ -177,7 +177,7 @@ async def defaultSubtype(cmd: Union[commands.Context, discord.Interaction], bot:
     cmd: Context or interaction from the invoked command
     bot: The Discord bot.
     """
-    db = await botdb.getDB()
+    db = await botdb.getDB(bot.pool)
     server = await dbTools.serverGrab(bot, str(cmd.guild.id), str(cmd.channel.id), ("subDefault",), db)
     if isinstance(cmd, commands.Context):
         message = YagooMessage(bot, cmd.author)
@@ -271,13 +271,14 @@ class subUtils:
         
         return chData
     
-    async def channelSearch(cmd: Union[commands.Context, discord.Interaction], message: YagooMessage, channel: str, action: str = "subscribe"):
+    async def channelSearch(cmd: Union[commands.Context, discord.Interaction], bot: commands.Bot, message: YagooMessage, channel: str, action: str = "subscribe"):
         """
         Searches for a channel with input from the user.
         
         Arguments
         ---
         ctx: Context or interaction from the invoked command.
+        bot: The Discord bot.
         message: The message that will be used for the prompt.
         channel: The name of the channel if already provided by the user.
         action: The action that is currently is being done with this search.
@@ -311,7 +312,7 @@ class subUtils:
         
         channelData = await FandomScrape.getChannelURL(wikiName.channelName)
         if channelData.success:
-            db = await botdb.getDB()
+            db = await botdb.getDB(bot.pool)
             if not await botdb.checkIfExists(channelData.channelID, "id", "channels", db):
                 message.resetEmbed()
                 message.embed.title = "Getting Channel Data..."
