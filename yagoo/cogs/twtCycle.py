@@ -79,69 +79,70 @@ async def twtSubscribe(bot):
                 twtUsers.append(account["twtID"])
 
     twtCred = await TwitterScrape.getCredentials()
-    stream = twtPost(bot, db, twtCred["apiKey"], twtCred["apiSecret"], twtCred["accessKey"], twtCred["accessSecret"])
+    stream = twtPost(bot, db, twtUsers, twtCred["apiKey"], twtCred["apiSecret"], twtCred["accessKey"], twtCred["accessSecret"])
     await stream.filter(follow=twtUsers)
 
 class twtPost(AsyncStream):
-    def __init__(self, bot, db, *args, **kwargs):
+    def __init__(self, bot, db, twtUsers, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.bot = bot
         self.db = db
+        self.twtUsers = twtUsers
 
     async def on_connect(self):
         logging.info("Twitter - Connected to Twitter Tweets stream!")
 
     async def on_status(self, tweet):
-        print(tweet)
         # Twitter URL String: f"https://twitter.com/{tweet.user.screen_name}/status/{tweet.id_str}"
         # Useful data points: User - tweet.user (dict), Tweet ID - tweet.id_str (string, no "_str" for actual number), Retweet - tweet.retweeted (boolean)
         # Retweeted Tweet - tweet.retweeted_status (Tweet Object), Quote Retweet - tweet.is_quote_status (boolean), Quoted Tweet - tweet.quoted_status (Tweet Object)
         # Like - tweet.favorited (boolean)
         # Wrap the url in "<>" to ensure no embeds are loaded (Which is probably not going to be used as we cannot send two embeds in one message)
-        channels = await botdb.getAllData("servers", ("server", "channel", "twitter", "custom"), keyDict="channel", db=self.db)
+        if tweet.user.id_str in self.twtUsers:
+            channels = await botdb.getAllData("servers", ("server", "channel", "twitter", "custom"), keyDict="channel", db=self.db)
 
-        if tweet.is_quote_status:
-            twtString = f'@{tweet.user.screen_name} just retweeted @{tweet.quoted_status.user.screen_name}\'s tweet: https://twitter.com/{tweet.user.screen_name}/status/{tweet.id_str}\n'\
-                        f'Quoted Tweet: https://twitter.com/{tweet.quoted_status.user.screen_name}/status/{tweet.quoted_status.id_str}'
-        elif tweet.in_reply_to_screen_name is not None:
-            twtString = f'@{tweet.user.screen_name} just replied to @{tweet.in_reply_to_screen_name}\'s tweet: https://twitter.com/{tweet.user.screen_name}/status/{tweet.id_str}\n'\
-                        f'Replied Tweet: https://twitter.com/{tweet.in_reply_to_screen_name}/status/{tweet.in_reply_to_status_id_str}'
-        elif "retweeted_status" in tweet._json:
-            twtString = f'@{tweet.user.screen_name} just retweeted @{tweet.retweeted_status.user.screen_name}\'s tweet: https://twitter.com/{tweet.user.screen_name}/status/{tweet.id_str}'                
-        elif tweet.favorited:
-            twtString = f'@{tweet.user.screen_name} just liked @{tweet.retweeted_status.user.screen_name}\' tweet: https://twitter.com/{tweet.user.screen_name}/status/{tweet.id_str}'
-        else:
-            twtString = f'@{tweet.user.screen_name} tweeted just now: https://twitter.com/{tweet.user.screen_name}/status/{tweet.id_str}'
+            if tweet.is_quote_status:
+                twtString = f'@{tweet.user.screen_name} just retweeted @{tweet.quoted_status.user.screen_name}\'s tweet: https://twitter.com/{tweet.user.screen_name}/status/{tweet.id_str}\n'\
+                            f'Quoted Tweet: https://twitter.com/{tweet.quoted_status.user.screen_name}/status/{tweet.quoted_status.id_str}'
+            elif tweet.in_reply_to_screen_name is not None:
+                twtString = f'@{tweet.user.screen_name} just replied to @{tweet.in_reply_to_screen_name}\'s tweet: https://twitter.com/{tweet.user.screen_name}/status/{tweet.id_str}\n'\
+                            f'Replied Tweet: https://twitter.com/{tweet.in_reply_to_screen_name}/status/{tweet.in_reply_to_status_id_str}'
+            elif "retweeted_status" in tweet._json:
+                twtString = f'@{tweet.user.screen_name} just retweeted @{tweet.retweeted_status.user.screen_name}\'s tweet: https://twitter.com/{tweet.user.screen_name}/status/{tweet.id_str}'                
+            elif tweet.favorited:
+                twtString = f'@{tweet.user.screen_name} just liked @{tweet.retweeted_status.user.screen_name}\' tweet: https://twitter.com/{tweet.user.screen_name}/status/{tweet.id_str}'
+            else:
+                twtString = f'@{tweet.user.screen_name} tweeted just now: https://twitter.com/{tweet.user.screen_name}/status/{tweet.id_str}'
 
-        async def postTweet(ptServer, ptChannel, db):
-            try:
-                whurl = (await dbTools.serverGrab(self.bot, ptServer, ptChannel, ("url",), db))["url"]
-                async with aiohttp.ClientSession() as session:
-                    webhook = Webhook.from_url(whurl, session=session)
-                    await webhook.send(twtString, avatar_url=tweet.user.profile_image_url_https, username=tweet.user.name)
-            except Exception as e:
-                if "429 Too Many Requests" in str(e):
-                    logging.warning(f"Too many requests for {ptChannel}! Sleeping for 10 seconds.")
-                    await asyncio.sleep(10)
-                logging.error(f"Twitter - An error has occurred while publishing Twitter notification to {ptChannel}!", exc_info=True)
+            async def postTweet(ptServer, ptChannel, db):
+                try:
+                    whurl = (await dbTools.serverGrab(self.bot, ptServer, ptChannel, ("url",), db))["url"]
+                    async with aiohttp.ClientSession() as session:
+                        webhook = Webhook.from_url(whurl, session=session)
+                        await webhook.send(twtString, avatar_url=tweet.user.profile_image_url_https, username=tweet.user.name)
+                except Exception as e:
+                    if "429 Too Many Requests" in str(e):
+                        logging.warning(f"Too many requests for {ptChannel}! Sleeping for 10 seconds.")
+                        await asyncio.sleep(10)
+                    logging.error(f"Twitter - An error has occurred while publishing Twitter notification to {ptChannel}!", exc_info=True)
 
-        queue = []
-        for channel in channels:
-            twitter = await botdb.listConvert(channels[channel]["twitter"])
-            custom = await botdb.listConvert(channels[channel]["custom"])
-            if twitter:
-                if tweet.user.id_str in twitter:
-                    queue.append(postTweet(channels[channel]["server"], channel, self.db))
-            if custom:
-                if tweet.user.id_str in custom:
-                    queue.append(postTweet(channels[channel]["server"], channel, self.db))
-        await asyncio.gather(*queue)
+            queue = []
+            for channel in channels:
+                twitter = await botdb.listConvert(channels[channel]["twitter"])
+                custom = await botdb.listConvert(channels[channel]["custom"])
+                if twitter:
+                    if tweet.user.id_str in twitter or tweet.user.screen_name in twitter:
+                        queue.append(postTweet(channels[channel]["server"], channel, self.db))
+                if custom:
+                    if tweet.user.id_str in custom:
+                        queue.append(postTweet(channels[channel]["server"], channel, self.db))
+            await asyncio.gather(*queue)
 
     async def on_error(self, status):
         logging.error(f"Twitter - An error has occured!\nTweepy Error: {status}")
 
-def updateWrapper():
-    asyncio.run(twtUpdater())
+def updateWrapper(pool: aiomysql.Pool):
+    asyncio.run(twtUpdater(pool))
 
 class twtCycle(commands.Cog):
     def __init__(self, bot):
