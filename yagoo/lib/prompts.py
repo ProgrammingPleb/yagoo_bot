@@ -32,9 +32,17 @@ from yagoo.types.message import YagooMessage
 from yagoo.types.views import YagooSelectOption, YagooViewResponse
 
 async def botError(cmd: Union[commands.Context, discord.Interaction],
+                   bot: commands.Bot,
                    error: Union[commands.errors.CommandInvokeError, discord.app_commands.CommandInvokeError]):
     errEmbed = discord.Embed(title="An error has occurred!", color=discord.Colour.red())
     errReport = ErrorReport(cmd, error)
+    
+    if errReport.internal:
+        errorTrace = ""
+        for line in traceback.format_exception(type(error.original), error.original, error.original.__traceback__):
+            errorTrace += line
+        await bot.get_user(bot.owner_id).send("An internal error has occurred!"
+                                              f"\nTraceback:```{errorTrace}```")
     
     if errReport.report:
         errEmbed.description = errReport.report

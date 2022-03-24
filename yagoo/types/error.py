@@ -15,6 +15,12 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with Yagoo Bot.  If not, see <http://www.gnu.org/licenses/>.
 """
+class NoDatabaseConnection(Exception):
+    """
+    Exception used for when a database connection was not supplied.
+    """
+    def __init__(self):
+        super().__init__(f"A database connection was not supplied!")
 
 class ButtonReserved(Exception):
     """

@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from typing import Optional, Union, TypedDict, List
-from yagoo.types.error import AccountNotFound, ChannelNotFound, InvalidSubscriptionType, NoArguments, NoFollows, NoSubscriptions
+from yagoo.types.error import AccountNotFound, ChannelNotFound, InvalidSubscriptionType, NoArguments, NoDatabaseConnection, NoFollows, NoSubscriptions
 
 class SubscriptionList(TypedDict, total=False):
     livestream: bool
@@ -365,6 +365,7 @@ class ErrorReport():
                  error: Union[commands.errors.CommandInvokeError, discord.app_commands.CommandInvokeError]):
         self.cmd = cmd
         self.error = error
+        self.internal = False
         self.report: str = None
         self.strErrors()
         self.yagooErrors()
@@ -416,6 +417,10 @@ class ErrorReport():
                           "Follow a Twitter account's tweets by using the `follow` command."
         elif isinstance(self.error.original, NoArguments):
             self.report = "A command argument was not given when required to."
+        elif isinstance(self.error.original, NoDatabaseConnection):
+            self.report = "An internal database error has occurred.\n" \
+                          "This error has been reported automatically."
+            self.internal = True
     
     def discordErrors(self):
         if isinstance(self.error, (commands.CheckFailure, discord.app_commands.errors.CheckFailure)):

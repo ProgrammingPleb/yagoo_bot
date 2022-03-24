@@ -55,7 +55,7 @@ class YagooSlash(commands.Cog):
         if not interaction.response.is_done():
             await interaction.response.defer(ephemeral=True)
         
-        await interaction.followup.send(embed=await botError(interaction, error), ephemeral=True)
+        await interaction.followup.send(embed=await botError(interaction, self.bot, error), ephemeral=True)
     
     @app_commands.command(name="unsubscribe", description="Unsubscribes from the specified channel(s)")
     @app_commands.describe(channel='The YouTube channel to unsubscribe from')
@@ -70,7 +70,7 @@ class YagooSlash(commands.Cog):
         if not interaction.response.is_done():
             await interaction.response.defer(ephemeral=True)
         
-        await interaction.followup.send(embed=await botError(interaction, error), ephemeral=True)
+        await interaction.followup.send(embed=await botError(interaction, self.bot, error), ephemeral=True)
     
     @app_commands.command(name="subdefault", description="Sets the default channel subscription types")
     @app_commands.check(subPerms)
@@ -84,7 +84,7 @@ class YagooSlash(commands.Cog):
         if not interaction.response.is_done():
             await interaction.response.defer(ephemeral=True)
         
-        await interaction.followup.send(embed=await botError(interaction, error), ephemeral=True)
+        await interaction.followup.send(embed=await botError(interaction, self.bot, error), ephemeral=True)
     
     @app_commands.command(name="sublist", description="List this channel's YouTube subscriptions")
     @app_commands.check(subPerms)
@@ -98,7 +98,7 @@ class YagooSlash(commands.Cog):
         if not interaction.response.is_done():
             await interaction.response.defer(ephemeral=True)
         
-        await interaction.followup.send(embed=await botError(interaction, error), ephemeral=True)
+        await interaction.followup.send(embed=await botError(interaction, self.bot, error), ephemeral=True)
     
     @app_commands.command(name="follow", description="Follow a Twitter account's tweets")
     @app_commands.describe(handle="The Twitter account's handle/username")
@@ -113,7 +113,7 @@ class YagooSlash(commands.Cog):
         if not interaction.response.is_done():
             await interaction.response.defer(ephemeral=True)
         
-        await interaction.followup.send(embed=await botError(interaction, error), ephemeral=True)
+        await interaction.followup.send(embed=await botError(interaction, self.bot, error), ephemeral=True)
     
     @app_commands.command(name="unfollow", description="Unfollow from any followed Twitter accounts")
     @app_commands.check(subPerms)
@@ -127,7 +127,7 @@ class YagooSlash(commands.Cog):
         if not interaction.response.is_done():
             await interaction.response.defer(ephemeral=True)
         
-        await interaction.followup.send(embed=await botError(interaction, error), ephemeral=True)
+        await interaction.followup.send(embed=await botError(interaction, self.bot, error), ephemeral=True)
     
     # POC: Recreation of subscription menu with new message class
     @app_commands.command(name="test", description="A test command.")
