@@ -35,14 +35,12 @@ class YagooSlash(commands.Cog):
         print("Slash commands cog loaded in!")
     
     @app_commands.command(name="help", description="List all commands under Yagoo bot")
-    @app_commands.guilds(751669314196602972)
     async def helpslash(self, interaction: discord.Interaction): # pylint: disable=redefined-builtin
         await interaction.response.send_message(embed=await botHelp("/"), ephemeral=True)
     
     @app_commands.command(name="subscribe", description="Subscribes to the specified channel(s)")
     @app_commands.describe(channel='The YouTube channel to subscribe to')
     @app_commands.check(subPerms)
-    @app_commands.guilds(751669314196602972)
     async def subscribeSlash(self, interaction: discord.Interaction, channel: str = None):
         await interaction.response.defer(ephemeral=True)
         if channel is None:
@@ -60,7 +58,6 @@ class YagooSlash(commands.Cog):
     @app_commands.command(name="unsubscribe", description="Unsubscribes from the specified channel(s)")
     @app_commands.describe(channel='The YouTube channel to unsubscribe from')
     @app_commands.check(subPerms)
-    @app_commands.guilds(751669314196602972)
     async def unsubscribeSlash(self, interaction: discord.Interaction, channel: str = None):
         await interaction.response.defer(ephemeral=True)
         await unsubChannel(interaction, self.bot, channel)
@@ -74,7 +71,6 @@ class YagooSlash(commands.Cog):
     
     @app_commands.command(name="subdefault", description="Sets the default channel subscription types")
     @app_commands.check(subPerms)
-    @app_commands.guilds(751669314196602972)
     async def subDefaultSlash(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         await defaultSubtype(interaction, self.bot)
@@ -88,7 +84,6 @@ class YagooSlash(commands.Cog):
     
     @app_commands.command(name="sublist", description="List this channel's YouTube subscriptions")
     @app_commands.check(subPerms)
-    @app_commands.guilds(751669314196602972)
     async def sublistSlash(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         await sublistDisplay(interaction, self.bot)
@@ -103,7 +98,6 @@ class YagooSlash(commands.Cog):
     @app_commands.command(name="follow", description="Follow a Twitter account's tweets")
     @app_commands.describe(handle="The Twitter account's handle/username")
     @app_commands.check(subPerms)
-    @app_commands.guilds(751669314196602972)
     async def followSlash(self, interaction: discord.Interaction, handle: str):
         await interaction.response.defer(ephemeral=True)
         await botTwt.follow(interaction, self.bot, handle)
@@ -117,7 +111,6 @@ class YagooSlash(commands.Cog):
     
     @app_commands.command(name="unfollow", description="Unfollow from any followed Twitter accounts")
     @app_commands.check(subPerms)
-    @app_commands.guilds(751669314196602972)
     async def unfollowSlash(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         await botTwt.unfollow(interaction, self.bot)

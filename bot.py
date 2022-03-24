@@ -86,7 +86,7 @@ class updateStatus(commands.Cog):
 @bot.event
 async def on_ready():
     if not bot.finishedInit:
-        await bot.tree.sync(guild=discord.Object(id=751669314196602972))
+        await bot.tree.sync()
         guildCount = 0
         for guilds in bot.guilds:
             guildCount += 1
