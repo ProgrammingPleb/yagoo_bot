@@ -109,7 +109,7 @@ async def on_guild_remove(server):
 
 @bot.event
 async def on_message(message: discord.Message):
-    if not settings["maintenance"]:
+    if not settings["maintenance"] or message.author.id == bot.ownerID:
         await bot.process_commands(message)
 
 @bot.command(alias=['help'])
@@ -337,6 +337,13 @@ async def guildCount(ctx):
     await ctx.send(f"Yagoo Bot is now live in {totalGuilds} servers!")
 
 async def setup_hook():
+    if "ownerID" in settings:
+        if settings["ownerID"] != "":
+            bot.ownerID = settings["ownerID"]
+        else:
+            bot.ownerID = bot.owner_id
+    else:
+        bot.ownerID = bot.owner_id
     bot.maintenance = settings["maintenance"]
     bot.pool = await aiomysql.create_pool(host=settings["sql"]["host"],
                                           user=settings["sql"]["username"],

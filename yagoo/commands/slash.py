@@ -28,7 +28,7 @@ from yagoo.types.message import YagooMessage
 from yagoo.types.views import YagooSelectOption
 
 class YagooSlash(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
     
     @commands.Cog.listener()
@@ -37,7 +37,7 @@ class YagooSlash(commands.Cog):
     
     @app_commands.command(name="help", description="List all commands under Yagoo bot")
     async def helpslash(self, interaction: discord.Interaction): # pylint: disable=redefined-builtin
-        if self.bot.maintenance:
+        if self.bot.maintenance and not (interaction.user.id == self.bot.ownerID):
             raise InMaintenanceMode()
         await interaction.response.send_message(embed=await botHelp("/"), ephemeral=True)
     
@@ -52,7 +52,7 @@ class YagooSlash(commands.Cog):
     @app_commands.describe(channel='The YouTube channel to subscribe to')
     @app_commands.check(subPerms)
     async def subscribeSlash(self, interaction: discord.Interaction, channel: str = None):
-        if self.bot.maintenance:
+        if self.bot.maintenance and not (interaction.user.id == self.bot.ownerID):
             raise InMaintenanceMode()
         await interaction.response.defer(ephemeral=True)
         if channel is None:
@@ -71,7 +71,7 @@ class YagooSlash(commands.Cog):
     @app_commands.describe(channel='The YouTube channel to unsubscribe from')
     @app_commands.check(subPerms)
     async def unsubscribeSlash(self, interaction: discord.Interaction, channel: str = None):
-        if self.bot.maintenance:
+        if self.bot.maintenance and not (interaction.user.id == self.bot.ownerID):
             raise InMaintenanceMode()
         await interaction.response.defer(ephemeral=True)
         await unsubChannel(interaction, self.bot, channel)
@@ -86,7 +86,7 @@ class YagooSlash(commands.Cog):
     @app_commands.command(name="subdefault", description="Sets the default channel subscription types")
     @app_commands.check(subPerms)
     async def subDefaultSlash(self, interaction: discord.Interaction):
-        if self.bot.maintenance:
+        if self.bot.maintenance and not (interaction.user.id == self.bot.ownerID):
             raise InMaintenanceMode()
         await interaction.response.defer(ephemeral=True)
         await defaultSubtype(interaction, self.bot)
@@ -101,7 +101,7 @@ class YagooSlash(commands.Cog):
     @app_commands.command(name="sublist", description="List this channel's YouTube subscriptions")
     @app_commands.check(subPerms)
     async def sublistSlash(self, interaction: discord.Interaction):
-        if self.bot.maintenance:
+        if self.bot.maintenance and not (interaction.user.id == self.bot.ownerID):
             raise InMaintenanceMode()
         await interaction.response.defer(ephemeral=True)
         await sublistDisplay(interaction, self.bot)
@@ -117,7 +117,7 @@ class YagooSlash(commands.Cog):
     @app_commands.describe(handle="The Twitter account's handle/username")
     @app_commands.check(subPerms)
     async def followSlash(self, interaction: discord.Interaction, handle: str):
-        if self.bot.maintenance:
+        if self.bot.maintenance and not (interaction.user.id == self.bot.ownerID):
             raise InMaintenanceMode()
         await interaction.response.defer(ephemeral=True)
         await botTwt.follow(interaction, self.bot, handle)
@@ -132,7 +132,7 @@ class YagooSlash(commands.Cog):
     @app_commands.command(name="unfollow", description="Unfollow from any followed Twitter accounts")
     @app_commands.check(subPerms)
     async def unfollowSlash(self, interaction: discord.Interaction):
-        if self.bot.maintenance:
+        if self.bot.maintenance and not (interaction.user.id == self.bot.ownerID):
             raise InMaintenanceMode()
         await interaction.response.defer(ephemeral=True)
         await botTwt.unfollow(interaction, self.bot)
