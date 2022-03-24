@@ -280,6 +280,14 @@ class subPrompts:
         searchResult.channelName = result.selectValues[0]
         return searchResult
     
+    async def displayProgress(message: YagooMessage):
+        message.resetEmbed()
+        message.embed.title = "Currently Subscribing..."
+        message.embed.description = "Currently subscribing to the channels specified.\n" \
+                                    "This might take longer if the amount of channels is larger."
+        message.embed.color = discord.Color.from_rgb(0, 0, 0)
+        message.msg = await message.msg.edit(content=None, embed=message.embed, view=None)
+    
     async def displaySubbed(message: YagooMessage, subResult: SubscriptionResponse):
         """
         Gives a status to the user about subbed accounts.

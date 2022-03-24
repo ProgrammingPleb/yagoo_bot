@@ -43,6 +43,7 @@ async def subCategory(cmd: Union[commands.Context, discord.Interaction], bot: co
         channels = await botdb.getAllData("channels", ("id", "name"), ctgPick.selectValues[0], "category", keyDict="id", db=db)
         result = await subPrompts.channelPick.prompt(cmd, message, channels, ctgPick.selectValues[0])
         if result.status:
+            await subPrompts.displayProgress(message)
             if result.allInCategory:
                 subResult = await subUtils.subAll(cmd, message, server, str(cmd.channel.id), db, ctgPick.selectValues[0])
                 subResult.channelNames = [f"all {ctgPick.selectValues[0]} VTubers"]
