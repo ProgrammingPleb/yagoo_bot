@@ -20,10 +20,10 @@ import discord
 import asyncio
 from typing import Union
 from discord.ext import commands
-from yagoo.lib.prompts import TwitterPrompts, removeMessage
+from yagoo.lib.prompts import TwitterPrompts, refreshPrompts, removeMessage
 from yagoo.scrapers.infoscraper import FandomScrape, TwitterScrape
 from yagoo.lib.botUtils import TwitterUtils, embedContinue, getRoles, msgDelete, fandomTextParse, vtuberSearch
-from yagoo.lib.dataUtils import botdb, dbTools
+from yagoo.lib.dataUtils import botdb, dbTools, refreshWebhook
 from yagoo.types.error import NoFollows
 from yagoo.types.message import YagooMessage
 
@@ -62,7 +62,34 @@ async def botHelp(prefix: str):
 
     return hembed
 
-# TODO: (LATER) Rewrite to use new prompts format
+async def refreshCommand(cmd: Union[commands.Context, discord.Interaction],
+                         bot: commands.Bot):
+    """
+    Refreshes the channel's webhook on request.
+    
+    Arguments
+    ---
+    cmd: Context or interaction from the invoked command.
+    bot: The Discord bot.
+    """
+    db = await botdb.getDB(bot.pool)
+    if isinstance(cmd, commands.Context):
+        message = YagooMessage(bot, cmd.author)
+    else:
+        message = YagooMessage(bot, cmd.user)
+    
+    result = await refreshPrompts.confirm(cmd, message)
+    if result.responseType:
+        if result.buttonID == "yes":
+            await refreshWebhook(bot, cmd.guild, cmd.channel, db)
+            message.resetEmbed()
+            message.embed.title = "Successfully Refreshed!"
+            message.embed.description = "The channel's webhook should now be refreshed. "\
+                                        "Channel notifications will be posted after a short while."
+            message.msg = await message.msg.edit(content=None, embed=message.embed, view=None)
+            return
+    await removeMessage(message, cmd)
+
 async def botGetInfo(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, name: str):
     retry = True
     infoMsg = None

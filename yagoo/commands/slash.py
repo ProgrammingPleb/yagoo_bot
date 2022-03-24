@@ -19,7 +19,7 @@ along with Yagoo Bot.  If not, see <http://www.gnu.org/licenses/>.
 import discord
 from discord import app_commands
 from discord.ext import commands
-from yagoo.commands.general import botHelp, botTwt
+from yagoo.commands.general import botHelp, botTwt, refreshCommand
 from yagoo.commands.subscribe import defaultSubtype, subCategory, subCustom, sublistDisplay, unsubChannel
 from yagoo.lib.botUtils import subPerms
 from yagoo.lib.prompts import botError
@@ -139,6 +139,21 @@ class YagooSlash(commands.Cog):
     
     @unfollowSlash.error
     async def unfollowSlashError(self, interaction: discord.Interaction, error):
+        if not interaction.response.is_done():
+            await interaction.response.defer(ephemeral=True)
+        
+        await interaction.followup.send(embed=await botError(interaction, self.bot, error), ephemeral=True)
+    
+    @app_commands.command(name="refresh", description="Refreshes the channel's webhook")
+    @app_commands.check(subPerms)
+    async def refreshSlash(self, interaction: discord.Interaction):
+        if self.bot.maintenance and not (interaction.user.id == self.bot.ownerID):
+            raise InMaintenanceMode()
+        await interaction.response.defer(ephemeral=True)
+        await refreshCommand(interaction, self.bot)
+    
+    @refreshSlash.error
+    async def refreshSlashError(self, interaction: discord.Interaction, error):
         if not interaction.response.is_done():
             await interaction.response.defer(ephemeral=True)
         

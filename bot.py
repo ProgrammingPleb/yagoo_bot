@@ -33,7 +33,7 @@ from yagoo.cogs.msCycle import msCycle, milestoneNotify
 from yagoo.cogs.dblUpdate import guildUpdate
 from yagoo.cogs.premiereCycle import PremiereCycle
 from yagoo.cogs.twtCycle import twtCycle
-from yagoo.commands.general import botHelp, botTwt
+from yagoo.commands.general import botHelp, botTwt, refreshCommand
 from yagoo.commands.slash import YagooSlash
 from yagoo.commands.subscribe import defaultSubtype, subCategory, subCustom, sublistDisplay, unsubChannel
 from yagoo.lib.botUtils import getRoles, subPerms, creatorCheck, userWhitelist
@@ -281,28 +281,10 @@ async def omedetou(ctx: commands.Context):
 async def ytchCount(ctx):
     await ctx.send(f"Yagoo Bot has {len(await botdb.getAllData('channels', db=await botdb.getDB(bot.pool)))} channels in the database.")
 
-@bot.command()
+@bot.command(aliases=['chRefresh'])
 @commands.check(subPerms)
-async def chRefresh(ctx: commands.Context):
-    buttonRow = create_actionrow(create_button(style=ButtonStyle.blue, label="No"), create_button(style=ButtonStyle.red, label="Yes"))
-    qmsg = await ctx.send("Are you sure to refresh this channel's webhook URL?", components=[buttonRow])
-    
-    def check(res):
-        return res.author == ctx.message.author and res.channel == ctx.channel
-
-    try:
-        res: ComponentContext = await wait_for_component(bot, qmsg, buttonRow, check, 30)
-    except asyncio.TimeoutError:
-        await qmsg.delete()
-        await ctx.message.delete()
-    else:
-        if res.component["label"] == "Yes":
-            await res.defer()
-            await refreshWebhook(bot, ctx.guild, ctx.channel)
-            await res.edit_origin(content="The webhook URL has been refreshed for this channel.", components=[])
-        else:
-            await qmsg.delete()
-            await ctx.message.delete()
+async def refresh(ctx: commands.Context):
+    await refreshCommand(ctx, bot)
 
 @bot.command(aliases=["maint", "shutdown", "stop"])
 @commands.check(creatorCheck)

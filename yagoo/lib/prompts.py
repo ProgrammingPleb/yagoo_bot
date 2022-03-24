@@ -184,6 +184,26 @@ async def removeMessage(message: Optional[YagooMessage] = None, cmd: Union[comma
             message.embed.color = discord.Color.red()
             await message.msg.edit(content=None, embed=message.embed, view=None)
 
+class refreshPrompts:
+    async def confirm(cmd: Union[commands.Context, discord.Interaction],
+                      message: YagooMessage):
+        """
+        Prompts the user if they want to refresh the channel's webhook.
+        
+        Arguments
+        ---
+        cmd: Context or interaction from the invoked command.
+        message: The message used for the prompt.
+        """
+        message.embed.title = "Refreshing Channel Webhook"
+        message.embed.description = "Are you sure you want to refresh this channel's webhook?"
+        message.addButton(1, "no", "No", style=discord.ButtonStyle.red)
+        message.addButton(1, "yes", "Yes", style=discord.ButtonStyle.green)
+        
+        if isinstance(cmd, commands.Context):
+            return await message.legacyPost(cmd)
+        return await message.post(cmd, True, True)
+
 class subPrompts:
     async def categoryPages(data: dict):
         """
