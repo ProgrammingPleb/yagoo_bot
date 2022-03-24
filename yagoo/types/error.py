@@ -79,6 +79,13 @@ class InvalidSubscriptionType(TypeError):
     def __init__(self, subType: str):
         super().__init__(f"\"{subType}\" is an invalid subscription type!")
 
+class InMaintenanceMode(Exception):
+    """
+    Exception used for when an invalid subscription type was passed through.
+    """
+    def __init__(self):
+        super().__init__(f"A command was passed through in maintenance mode!")
+
 class NoArguments(Exception):
     """
     Exception used for when a required argument was not filled in.

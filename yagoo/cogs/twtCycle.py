@@ -59,7 +59,7 @@ async def twtUpdater(pool: aiomysql.Pool):
         await botdb.addMultiData(channelUpdate, ("id", "twitter"), "channels", db)
         await botdb.addMultiData(twitterUpdate, ("twtID", "ytID"), "twitter", db)
 
-async def twtSubscribe(bot):
+async def twtSubscribe(bot, maintenance: bool):
     """
     Subscribes to tweets from Twitter IDs registered in `channels.json`.  
     Requires the async branch of `tweepy`.
@@ -79,15 +79,16 @@ async def twtSubscribe(bot):
                 twtUsers.append(account["twtID"])
 
     twtCred = await TwitterScrape.getCredentials()
-    stream = twtPost(bot, db, twtUsers, twtCred["apiKey"], twtCred["apiSecret"], twtCred["accessKey"], twtCred["accessSecret"])
+    stream = twtPost(bot, db, twtUsers, maintenance, twtCred["apiKey"], twtCred["apiSecret"], twtCred["accessKey"], twtCred["accessSecret"])
     await stream.filter(follow=twtUsers)
 
 class twtPost(AsyncStream):
-    def __init__(self, bot, db, twtUsers, *args, **kwargs):
+    def __init__(self, bot, db, twtUsers, maintenance, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.bot = bot
         self.db = db
         self.twtUsers = twtUsers
+        self.maintenance = maintenance
 
     async def on_connect(self):
         logging.info("Twitter - Connected to Twitter Tweets stream!")
@@ -116,10 +117,13 @@ class twtPost(AsyncStream):
 
             async def postTweet(ptServer, ptChannel, db):
                 try:
-                    whurl = (await dbTools.serverGrab(self.bot, ptServer, ptChannel, ("url",), db))["url"]
-                    async with aiohttp.ClientSession() as session:
-                        webhook = Webhook.from_url(whurl, session=session)
-                        await webhook.send(twtString, avatar_url=tweet.user.profile_image_url_https, username=tweet.user.name)
+                    if not self.maintenance:
+                        whurl = (await dbTools.serverGrab(self.bot, ptServer, ptChannel, ("url",), db))["url"]
+                        async with aiohttp.ClientSession() as session:
+                            webhook = Webhook.from_url(whurl, session=session)
+                            await webhook.send(twtString, avatar_url=tweet.user.profile_image_url_https, username=tweet.user.name)
+                    else:
+                        print(f"Twitter Post on {ptChannel}:\n{twtString}\n")
                 except Exception as e:
                     if "429 Too Many Requests" in str(e):
                         logging.warning(f"Too many requests for {ptChannel}! Sleeping for 10 seconds.")
@@ -145,15 +149,18 @@ def updateWrapper(pool: aiomysql.Pool):
     asyncio.run(twtUpdater(pool))
 
 class twtCycle(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot, maintenance):
         self.bot = bot
         self.subscribed = False
-        self.twtIDcheck.start()
+        self.maintenance = maintenance
+        if not maintenance:
+            self.twtIDcheck.start()
         self.twtSubWrapper.start()
 
     def cog_unload(self):
         self.subscribed = False
-        self.twtIDcheck.cancel()
+        if not self.maintenance:
+            self.twtIDcheck.cancel()
         self.twtSubWrapper.cancel()
     
     def botVar(self):
@@ -164,7 +171,7 @@ class twtCycle(commands.Cog):
         try:
             if not self.subscribed:
                 self.subscribed = True
-            await twtSubscribe(self.bot)
+            await twtSubscribe(self.bot, self.maintenance)
         except Exception as e:
             traceback.print_exception(type(e), e, e.__traceback__)
 

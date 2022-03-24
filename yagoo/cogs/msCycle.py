@@ -72,15 +72,18 @@ async def milestoneCheck(pool: aiomysql.Pool):
     
     return milestone
 
-async def milestoneNotify(msDict: dict, bot: commands.Bot):
+async def milestoneNotify(msDict: dict, bot: commands.Bot, maintenance: bool):
     db = await botdb.getDB(bot.pool)
     servers = await botdb.getAllData("servers", ("channel", "milestone"), db=db)
     queue = []
     
     async def postMsg(channel: str, server: tuple):
         try:
-            await bot.get_channel(int(server["channel"])).send(f'{msDict[channel]["name"]} has reached {msDict[channel]["msText"].replace("Subscribers", "subscribers")}!', file=discord.File(f'milestone/generated/{channel}.png'))
-            await bot.get_channel(int(server["channel"])).send("おめでとう！")
+            if not maintenance:
+                await bot.get_channel(int(server["channel"])).send(f'{msDict[channel]["name"]} has reached {msDict[channel]["msText"].replace("Subscribers", "subscribers")}!', file=discord.File(f'milestone/generated/{channel}.png'))
+                await bot.get_channel(int(server["channel"])).send("おめでとう！")
+            else:
+                print(f"Milestone Post on {server['channel']}:\n{msDict[channel]['name']} has reached {msDict[channel]['msText'].replace('Subscribers', 'subscribers')}!\n")
         except Exception as e:
             logging.error("Milestone - Failed to post on a server/channel!", exc_info=True)
     
@@ -116,8 +119,9 @@ def mcWrapper(pool: aiomysql.Pool):
     return asyncio.run(milestoneCheck(pool))
 
 class msCycle(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot, maintenance):
         self.bot = bot
+        self.maintenance = maintenance
         self.timecheck.start()
 
     def cog_unload(self):
@@ -132,7 +136,7 @@ class msCycle(commands.Cog):
                 msData = await loop.run_in_executor(pool, functools.partial(mcWrapper, self.bot.pool))
             if msData != {}:
                 logging.info("Milestone - Notifying channels.")
-                await milestoneNotify(msData, self.bot)
+                await milestoneNotify(msData, self.bot, self.maintenance)
         except Exception as e:
             logging.error("Milestone - An error has occured in the cog!", exc_info=True)
             traceback.print_exception(type(e), e, e.__traceback__)

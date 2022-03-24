@@ -23,6 +23,7 @@ from yagoo.commands.general import botHelp, botTwt
 from yagoo.commands.subscribe import defaultSubtype, subCategory, subCustom, sublistDisplay, unsubChannel
 from yagoo.lib.botUtils import subPerms
 from yagoo.lib.prompts import botError
+from yagoo.types.error import InMaintenanceMode
 from yagoo.types.message import YagooMessage
 from yagoo.types.views import YagooSelectOption
 
@@ -36,12 +37,23 @@ class YagooSlash(commands.Cog):
     
     @app_commands.command(name="help", description="List all commands under Yagoo bot")
     async def helpslash(self, interaction: discord.Interaction): # pylint: disable=redefined-builtin
+        if self.bot.maintenance:
+            raise InMaintenanceMode()
         await interaction.response.send_message(embed=await botHelp("/"), ephemeral=True)
+    
+    @helpslash.error
+    async def helpslashError(self, interaction: discord.Interaction, error):
+        if not interaction.response.is_done():
+            await interaction.response.defer(ephemeral=True)
+        
+        await interaction.followup.send(embed=await botError(interaction, self.bot, error), ephemeral=True)
     
     @app_commands.command(name="subscribe", description="Subscribes to the specified channel(s)")
     @app_commands.describe(channel='The YouTube channel to subscribe to')
     @app_commands.check(subPerms)
     async def subscribeSlash(self, interaction: discord.Interaction, channel: str = None):
+        if self.bot.maintenance:
+            raise InMaintenanceMode()
         await interaction.response.defer(ephemeral=True)
         if channel is None:
             await subCategory(interaction, self.bot)
@@ -59,6 +71,8 @@ class YagooSlash(commands.Cog):
     @app_commands.describe(channel='The YouTube channel to unsubscribe from')
     @app_commands.check(subPerms)
     async def unsubscribeSlash(self, interaction: discord.Interaction, channel: str = None):
+        if self.bot.maintenance:
+            raise InMaintenanceMode()
         await interaction.response.defer(ephemeral=True)
         await unsubChannel(interaction, self.bot, channel)
     
@@ -72,6 +86,8 @@ class YagooSlash(commands.Cog):
     @app_commands.command(name="subdefault", description="Sets the default channel subscription types")
     @app_commands.check(subPerms)
     async def subDefaultSlash(self, interaction: discord.Interaction):
+        if self.bot.maintenance:
+            raise InMaintenanceMode()
         await interaction.response.defer(ephemeral=True)
         await defaultSubtype(interaction, self.bot)
     
@@ -85,6 +101,8 @@ class YagooSlash(commands.Cog):
     @app_commands.command(name="sublist", description="List this channel's YouTube subscriptions")
     @app_commands.check(subPerms)
     async def sublistSlash(self, interaction: discord.Interaction):
+        if self.bot.maintenance:
+            raise InMaintenanceMode()
         await interaction.response.defer(ephemeral=True)
         await sublistDisplay(interaction, self.bot)
     
@@ -99,6 +117,8 @@ class YagooSlash(commands.Cog):
     @app_commands.describe(handle="The Twitter account's handle/username")
     @app_commands.check(subPerms)
     async def followSlash(self, interaction: discord.Interaction, handle: str):
+        if self.bot.maintenance:
+            raise InMaintenanceMode()
         await interaction.response.defer(ephemeral=True)
         await botTwt.follow(interaction, self.bot, handle)
     
@@ -112,6 +132,8 @@ class YagooSlash(commands.Cog):
     @app_commands.command(name="unfollow", description="Unfollow from any followed Twitter accounts")
     @app_commands.check(subPerms)
     async def unfollowSlash(self, interaction: discord.Interaction):
+        if self.bot.maintenance:
+            raise InMaintenanceMode()
         await interaction.response.defer(ephemeral=True)
         await botTwt.unfollow(interaction, self.bot)
     

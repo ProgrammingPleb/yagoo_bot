@@ -87,10 +87,17 @@ class updateStatus(commands.Cog):
 async def on_ready():
     if not bot.finishedInit:
         await bot.tree.sync()
-        guildCount = 0
-        for guilds in bot.guilds:
-            guildCount += 1
-        print(f"Yagoo Bot now streaming in {guildCount} servers!")
+        await bot.tree.sync(guild=discord.Object(751669314196602972))
+        if settings["maintenance"]:
+            await bot.change_presence(status=discord.Status.do_not_disturb, activity=discord.Activity(type=discord.ActivityType.playing, name=f'Maintenance Mode'))
+            print("----------MAINTENANCE MODE----------")
+            print("Disable maintenance mode in \"settings.yaml\" if maintenance has finished.")
+            print("Notification logs will show up below.\n")
+        else:
+            guildCount = 0
+            for guilds in bot.guilds:
+                guildCount += 1
+            print(f"Yagoo Bot now streaming in {guildCount} servers!")
         bot.finishedInit = True
     else:
         print("Reconnected to Discord!")
@@ -99,6 +106,11 @@ async def on_ready():
 async def on_guild_remove(server):
     logging.info(f'Got removed from a server, cleaning up server data for: {str(server)}')
     await botdb.deleteRow(str(server), "server", "servers", await botdb.getDB(bot.pool))
+
+@bot.event
+async def on_message(message: discord.Message):
+    if not settings["maintenance"]:
+        await bot.process_commands(message)
 
 @bot.command(alias=['help'])
 async def helptext(ctx: commands.Context): # pylint: disable=redefined-builtin
@@ -325,6 +337,7 @@ async def guildCount(ctx):
     await ctx.send(f"Yagoo Bot is now live in {totalGuilds} servers!")
 
 async def setup_hook():
+    bot.maintenance = settings["maintenance"]
     bot.pool = await aiomysql.create_pool(host=settings["sql"]["host"],
                                           user=settings["sql"]["username"],
                                           password=settings["sql"]["password"],
@@ -337,15 +350,16 @@ async def setup_hook():
     if settings["channel"]:
         await bot.add_cog(chCycle(bot))
     if settings["twitter"]["enabled"]:
-        await bot.add_cog(twtCycle(bot))
+        await bot.add_cog(twtCycle(bot, settings["maintenance"]))
     if settings["notify"]:
-        await bot.add_cog(StreamCycle(bot, await botdb.getDB(bot.pool)))
+        await bot.add_cog(StreamCycle(bot, await botdb.getDB(bot.pool), settings["maintenance"]))
     if settings["premiere"]:
-        await bot.add_cog(PremiereCycle(bot, await botdb.getDB(bot.pool)))
+        await bot.add_cog(PremiereCycle(bot, await botdb.getDB(bot.pool), settings["maintenance"]))
     if settings["milestone"]:
-        await bot.add_cog(msCycle(bot))
+        await bot.add_cog(msCycle(bot, settings["maintenance"]))
     await bot.add_cog(YagooSlash(bot))
-    #await bot.add_cog(updateStatus(bot))
+    if not settings["maintenance"]:
+        await bot.add_cog(updateStatus(bot))
 
 bot.setup_hook = setup_hook
 bot.finishedInit = False

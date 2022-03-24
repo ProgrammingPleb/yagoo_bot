@@ -18,7 +18,7 @@ along with Yagoo Bot.  If not, see <http://www.gnu.org/licenses/>.
 import discord
 from discord.ext import commands
 from typing import Optional, Union, TypedDict, List
-from yagoo.types.error import AccountNotFound, ChannelNotFound, InvalidSubscriptionType, NoArguments, NoDatabaseConnection, NoFollows, NoSubscriptions
+from yagoo.types.error import AccountNotFound, ChannelNotFound, InMaintenanceMode, InvalidSubscriptionType, NoArguments, NoDatabaseConnection, NoFollows, NoSubscriptions
 
 class SubscriptionList(TypedDict, total=False):
     livestream: bool
@@ -438,6 +438,10 @@ class ErrorReport():
             self.report = "An internal database error has occurred.\n" \
                           "This error has been reported automatically."
             self.internal = True
+        elif isinstance(self.error.original, InMaintenanceMode):
+            self.report = "The bot is currently in maintenance mode. " \
+                          "Please wait until the bot resumes operation.\n" \
+                          "Any updates on the maintenance can be seen in the support server linked below."
     
     def discordErrors(self):
         if isinstance(self.error, (commands.CheckFailure, discord.app_commands.errors.CheckFailure)):

@@ -26,19 +26,22 @@ from discord import Webhook
 from discord.ext import commands, tasks
 from yagoo.lib.dataUtils import botdb, checkNotified
 
-async def streamNotify(db):
+async def streamNotify(db, maintenance):
     channels = await botdb.getAllData("scrape", ("id", "name", "image", "streams"), db=db)
     servers = await botdb.getAllData("servers", ("server", "channel", "url", "livestream"), db=db)
     
     async def postMsg(server: dict, channel: dict, video: dict, videoId: str, notified: dict):
         if notified[channel["id"]] != video:
             try:
-                async with aiohttp.ClientSession() as session:
-                    embed = discord.Embed(title=f'{video["title"]}', url=f'https://youtube.com/watch?v={videoId}')
-                    embed.description = f'{video["status"]}'
-                    embed.set_image(url=video["thumbnail"])
-                    webhook = Webhook.from_url(server["url"], session=session)
-                    await webhook.send(f'New livestream from {channel["name"]}!', embed=embed, username=channel["name"], avatar_url=channel["image"])
+                if not maintenance:
+                    async with aiohttp.ClientSession() as session:
+                        embed = discord.Embed(title=f'{video["title"]}', url=f'https://youtube.com/watch?v={videoId}')
+                        embed.description = f'{video["status"]}'
+                        embed.set_image(url=video["thumbnail"])
+                        webhook = Webhook.from_url(server["url"], session=session)
+                        await webhook.send(f'New livestream from {channel["name"]}!', embed=embed, username=channel["name"], avatar_url=channel["image"])
+                else:
+                    print(f"Livestream Post on {server['channel']}:\nNew livestream from {channel['name']}!\nURL: https://youtube.com/watch?v={videoId}\n")
             except Exception as e:
                 if "429 Too Many Requests" in str(e):
                     logging.warning(f"Too many requests for {channel['id']}! Sleeping for 10 seconds.")
@@ -66,9 +69,10 @@ async def streamNotify(db):
     await asyncio.gather(*queue)
 
 class StreamCycle(commands.Cog):
-    def __init__(self, bot, db):
+    def __init__(self, bot, db, maintenance):
         self.bot = bot
         self.db = db
+        self.maintenance = maintenance
         self.timecheck.start()
 
     def cog_unload(self):
@@ -78,7 +82,7 @@ class StreamCycle(commands.Cog):
     async def timecheck(self):
         logging.info("Starting stream checks.")
         try:
-            await streamNotify(self.db)
+            await streamNotify(self.db, self.maintenance)
         except Exception as e:
             logging.error("Stream - An error has occurred in the cog!", exc_info=True)
             traceback.print_exception(type(e), e, e.__traceback__)
