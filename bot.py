@@ -112,7 +112,7 @@ async def on_message(message: discord.Message):
     if not settings["maintenance"] or message.author.id == bot.ownerID:
         await bot.process_commands(message)
 
-@bot.command(alias=['help'])
+@bot.command(aliases=['help'])
 async def helptext(ctx: commands.Context): # pylint: disable=redefined-builtin
     db = await botdb.getDB(bot.pool)
     if await botdb.checkIfExists(str(ctx.guild.id), "server", "prefixes", db):
