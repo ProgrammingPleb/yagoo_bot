@@ -122,6 +122,9 @@ class msCycle(commands.Cog):
     def __init__(self, bot, maintenance):
         self.bot = bot
         self.maintenance = maintenance
+    
+    @commands.Cog.listener()
+    async def on_ready(self):
         self.timecheck.start()
 
     def cog_unload(self):

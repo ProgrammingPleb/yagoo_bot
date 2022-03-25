@@ -74,6 +74,9 @@ class PremiereCycle(commands.Cog):
         self.bot = bot
         self.db = db
         self.maintenance = maintenance
+    
+    @commands.Cog.listener()
+    async def on_ready(self):
         self.timecheck.start()
 
     def cog_unload(self):

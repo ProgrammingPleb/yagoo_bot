@@ -153,7 +153,10 @@ class twtCycle(commands.Cog):
         self.bot = bot
         self.subscribed = False
         self.maintenance = maintenance
-        if not maintenance:
+    
+    @commands.Cog.listener()
+    async def on_ready(self):
+        if not self.maintenance:
             self.twtIDcheck.start()
         self.twtSubWrapper.start()
 

@@ -53,6 +53,9 @@ async def channelUpdate(pool: aiomysql.Pool):
 class chCycle(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+    
+    @commands.Cog.listener()
+    async def on_ready(self):
         self.chCheck.start()
 
     def cog_unload(self):

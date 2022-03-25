@@ -68,6 +68,9 @@ bot.remove_command('help')
 class updateStatus(commands.Cog):
     def __init__(self, bot):
         self.bot: commands.Bot = bot
+    
+    @commands.Cog.listener()
+    async def on_ready(self):
         self.updateStatus.start()
     
     def cog_unload(self):
