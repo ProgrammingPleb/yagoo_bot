@@ -29,32 +29,32 @@ from yagoo.types.message import YagooMessage
 
 async def botHelp(prefix: str):
     hembed = discord.Embed(title="Yagoo Bot Commands")
-    hembed.description = "Currently the bot only has a small number of commands, as it is still in development!\n" \
+    hembed.description = "**Please use slash commands from now on, as the bot can no longer read messages.**\n" \
                          "New stream notifications will be posted on a 3 minute interval, thus any new notifications " \
                          "will not come immediately after subscribing.\n" \
-                         f"Currently all the commands (except for `{prefix}help` and `{prefix}info`) require the user to have either the `Administrator` or `Manage Webhook` permission in the channel or server.\n" \
+                         f"Currently all the commands (except for `/help` and `/info`) require the user to have either the `Administrator` or `Manage Webhook` permission in the channel or server.\n" \
                          "Anything in angle brackets `<>` are required, leaving them will result in an error. " \
                          "Meanwhile, anything in square brackets `[]` are optional, so leaving them will also make the command work."
     
     hembed.add_field(name="Commands",
-                     value=f"**{prefix}subscribe** [VTuber Name] (Alias: sub)\n"
+                     value=f"**/subscribe** [VTuber Name] (Alias: sub)\n"
                            "Brings up a list of channels to subscribe to.\n"
                            "Add a non-Hololive VTuber's name to the command to opt in to their notifications.\n\n"
-                           f"**{prefix}unsubscribe** (Alias: unsub)\n"
+                           f"**/unsubscribe** (Alias: unsub)\n"
                            "Brings up a list of channels to unsubscribe to.\n\n"
-                           f"**{prefix}sublist** (Alias: subs, subslist)\n"
+                           f"**/sublist** (Alias: subs, subslist)\n"
                            "Brings up a list of channels that the current chat channel has subscribed to.\n\n"
-                           f"**{prefix}subdefault** (Alias: subDefault)\n"
+                           f"**/subdefault** (Alias: subDefault)\n"
                            "Set's the default subscription type for the channel.\n\n"
-                           f"**{prefix}follow**\n"
+                           f"**/follow**\n"
                            "Follows a custom Twitter account's tweets to the channel.\n\n"
-                           f"**{prefix}unfollow**\n"
+                           f"**/unfollow**\n"
                            "Unfollows an already followed custom Twitter account from the channel.\n\n"
-                           f"**{prefix}info** <VTuber Name> (Alias: getinfo)\n"
+                           f"**/info** <VTuber Name> (Alias: getinfo)\n"
                            "Gets information about a VTuber. [Being reworked]\n\n"
-                           f"**{prefix}prefix** <VTuber Name>\n"
+                           f"**/prefix** <VTuber Name>\n"
                            "Changes the prefix used by the bot. [Only on non-slash commands]\n\n"
-                           f"**{prefix}refresh** (Alias: chRefresh)\n"
+                           f"**/refresh** (Alias: chRefresh)\n"
                            "Refreshes the webhook associated with the channel",
                      inline=False)
     

@@ -75,8 +75,10 @@ class updateStatus(commands.Cog):
     def cog_unload(self):
         self.updateStatus.stop()
 
-    @tasks.loop(minutes=20)
+    @tasks.loop(minutes=10)
     async def updateStatus(self):
+        await self.bot.change_presence(status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.watching, name=f'/help'))
+        await asyncio.sleep(10*60)
         channels = await botdb.getAllData("channels", ("id",), db=await botdb.getDB(bot.pool))
         await self.bot.change_presence(status=discord.Status.online, activity=discord.Activity(type=discord.ActivityType.watching, name=f'over {len(channels)} VTubers'))
         await asyncio.sleep(10*60)
