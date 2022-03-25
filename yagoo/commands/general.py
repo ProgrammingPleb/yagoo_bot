@@ -92,7 +92,8 @@ async def refreshCommand(cmd: Union[commands.Context, discord.Interaction],
             return
     await removeMessage(message, cmd)
 
-async def botGetInfo(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, name: str):
+# TODO: (LATER) Rewrite to use new prompts format
+async def botGetInfo(ctx: Union[commands.Context, discord.Interaction], bot: commands.Bot, name: str):
     retry = True
     infoMsg = None
 
@@ -145,7 +146,7 @@ async def botGetInfo(ctx: Union[commands.Context, SlashContext], bot: commands.B
                         else:
                             excessLoop = False
 
-async def botAssignRoles(ctx: Union[commands.Context, SlashContext], bot: commands.Bot):
+async def botAssignRoles(ctx: Union[commands.Context, discord.Interaction], bot: commands.Bot):
     db = await botdb.getDB(bot.pool)
     roles = await getRoles(ctx, True)
     subs = await dbTools.serverGrab(bot, str(ctx.guild.id), str(ctx.channel.id), ("livestream", "milestone", "premiere"), db)
