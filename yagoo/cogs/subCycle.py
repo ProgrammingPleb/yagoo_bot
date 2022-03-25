@@ -58,13 +58,14 @@ async def streamNotify(db, maintenance):
                     for video in data:
                         notifiedData = (await botdb.getData(server["channel"], "channel", ("notified",), "servers", db))["notified"]
                         notified = json.loads(notifiedData)
-                        if not checkNotified(video, "livestream", channel["id"], notified):
-                            notified[channel["id"]]["livestream"] = video
-                            try:
-                                queue.append(postMsg(server, channel, data[video], video, notified))
-                                await botdb.addData((server["channel"], json.dumps(notified)), ("channel", "notified"), "servers", db=db)
-                            except Exception as e:
-                                logging.error("Livestreams - An error has occured while queueing a notification!", exc_info=True)
+                        if channel["id"] in subList:
+                            if not checkNotified(video, "livestream", channel["id"], notified):
+                                notified[channel["id"]]["livestream"] = video
+                                try:
+                                    queue.append(postMsg(server, channel, data[video], video, notified))
+                                    await botdb.addData((server["channel"], json.dumps(notified)), ("channel", "notified"), "servers", db=db)
+                                except Exception as e:
+                                    logging.error("Livestreams - An error has occured while queueing a notification!", exc_info=True)
     
     await asyncio.gather(*queue)
 
