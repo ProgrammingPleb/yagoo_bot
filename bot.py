@@ -52,7 +52,6 @@ elif settings["logging"] == "debug":
     logging.basicConfig(level=logging.DEBUG, handlers=[logging.FileHandler('status.log', 'w', 'utf-8')], format='[%(asctime)s] %(name)s - %(levelname)s - %(message)s')
 
 intents = discord.Intents.default()
-intents.message_content = True
 
 async def determine_prefix(bot: commands.Bot, message: discord.Message):
     db = await botdb.getDB(bot.pool)
