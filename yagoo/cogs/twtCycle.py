@@ -116,10 +116,10 @@ class twtPost(AsyncStream):
             else:
                 twtString = f'@{tweet.user.screen_name} tweeted just now: https://twitter.com/{tweet.user.screen_name}/status/{tweet.id_str}'
 
-            async def postTweet(ptServer, ptChannel, db):
+            async def postTweet(ptServer, ptChannel):
                 try:
                     if not self.maintenance:
-                        whurl = (await dbTools.serverGrab(self.bot, ptServer, ptChannel, ("url",), db))["url"]
+                        whurl = (await dbTools.serverGrab(self.bot, ptServer, ptChannel, ("url",), await botdb.getDB(self.pool)))["url"]
                         async with aiohttp.ClientSession() as session:
                             webhook = Webhook.from_url(whurl, session=session)
                             await webhook.send(twtString, avatar_url=tweet.user.profile_image_url_https, username=tweet.user.name)
@@ -137,10 +137,10 @@ class twtPost(AsyncStream):
                 custom = await botdb.listConvert(channels[channel]["custom"])
                 if twitter:
                     if tweet.user.id_str in twitter or tweet.user.screen_name in twitter:
-                        queue.append(postTweet(channels[channel]["server"], channel, db))
+                        queue.append(postTweet(channels[channel]["server"], channel))
                 if custom:
                     if tweet.user.id_str in custom:
-                        queue.append(postTweet(channels[channel]["server"], channel, db))
+                        queue.append(postTweet(channels[channel]["server"], channel))
             await asyncio.gather(*queue)
 
     async def on_error(self, status):
