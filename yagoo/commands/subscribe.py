@@ -380,8 +380,7 @@ class subUtils:
                                         "using the `subDefault` command)"
             result = await subPrompts.subTypes.prompt(cmd, message)
             if isinstance(result, YagooViewResponse):
-                if not result.responseType:
-                    return SubscriptionResponse(False)
+                return SubscriptionResponse(False)
             subDefault = []
             for subType in result.subList:
                 if result.subList[subType]:
