@@ -56,6 +56,13 @@ class RowFull(Exception):
     def __init__(self, keyword: str, rowNumber: int):
         super().__init__(f"\"{keyword}\" is already using row {rowNumber}!")
 
+class NoSelectValues(ValueError):
+    """
+    Exception used for when there are no select values.
+    """
+    def __init__(self):
+        super().__init__("There are no select values for the select!")
+
 class ValueTooLong(ValueError):
     """
     Exception used for when a select value is too long.

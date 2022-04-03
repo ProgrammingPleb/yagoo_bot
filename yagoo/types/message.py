@@ -21,7 +21,7 @@ import discord
 from typing import List
 from discord.ext import commands
 from .views import YagooModal, YagooSelectOption, YagooTextInput, YagooView, YagooButton, YagooSelect
-from .error import ButtonNotFound, ButtonReserved, RowFull
+from .error import ButtonNotFound, ButtonReserved, NoSelectValues, RowFull
 
 class YagooMessage():
     """
@@ -122,6 +122,8 @@ class YagooMessage():
         max_values: Maximum amount of options to be selected.
         """
         singlePage = []
+        if len(options) == 0:
+            raise NoSelectValues()
         for option in options:
             singlePage.append(option)
             if len(singlePage) == 25:

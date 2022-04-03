@@ -18,7 +18,7 @@ along with Yagoo Bot.  If not, see <http://www.gnu.org/licenses/>.
 import discord
 from discord.ext import commands
 from typing import Optional, Union, TypedDict, List
-from yagoo.types.error import AccountNotFound, ChannelNotFound, InMaintenanceMode, InvalidSubscriptionType, NoArguments, NoDatabaseConnection, NoFollows, NoSubscriptions
+from yagoo.types.error import AccountNotFound, ChannelNotFound, InMaintenanceMode, InvalidSubscriptionType, NoArguments, NoDatabaseConnection, NoFollows, NoSelectValues, NoSubscriptions
 
 class SubscriptionList(TypedDict, total=False):
     livestream: bool
@@ -436,6 +436,10 @@ class ErrorReport():
             self.report = "A command argument was not given when required to."
         elif isinstance(self.error.original, NoDatabaseConnection):
             self.report = "An internal database error has occurred.\n" \
+                          "This error has been reported automatically."
+            self.internal = True
+        elif isinstance(self.error.original, NoSelectValues):
+            self.report = "An error has occurred while creating a list for the message.\n" \
                           "This error has been reported automatically."
             self.internal = True
         elif isinstance(self.error.original, InMaintenanceMode):
