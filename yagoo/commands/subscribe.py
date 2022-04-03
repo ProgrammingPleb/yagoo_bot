@@ -23,7 +23,6 @@ from yagoo.types.data import ChannelSubscriptionData, FandomChannel, Subscriptio
 from yagoo.types.error import NoSubscriptions
 from yagoo.types.message import YagooMessage
 from yagoo.scrapers.infoscraper import FandomScrape, channelInfo
-from yagoo.lib.botUtils import msgDelete
 from yagoo.lib.botVars import allSubTypes
 from yagoo.lib.dataUtils import botdb, dbTools
 from yagoo.lib.prompts import checkCancel, removeMessage, subPrompts, unsubPrompts

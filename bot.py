@@ -26,18 +26,17 @@ import sys
 import os
 from discord import app_commands
 from discord.ext import commands, tasks
-from yagoo.scrapers.infoscraper import channelInfo
 from yagoo.cogs.chUpdater import chCycle
 from yagoo.cogs.subCycle import StreamCycle
-from yagoo.cogs.msCycle import msCycle, milestoneNotify
+from yagoo.cogs.msCycle import msCycle
 from yagoo.cogs.dblUpdate import guildUpdate
 from yagoo.cogs.premiereCycle import PremiereCycle
 from yagoo.cogs.twtCycle import twtCycle
 from yagoo.commands.general import botHelp, botTwt, refreshCommand
 from yagoo.commands.slash import YagooSlash
 from yagoo.commands.subscribe import defaultSubtype, subCategory, subCustom, sublistDisplay, unsubChannel
-from yagoo.lib.botUtils import getRoles, subPerms, creatorCheck, userWhitelist
-from yagoo.lib.dataUtils import refreshWebhook, botdb, dbTools
+from yagoo.lib.botUtils import subPerms, creatorCheck, userWhitelist
+from yagoo.lib.dataUtils import botdb
 from yagoo.lib.prompts import botError
 from yagoo.types.error import NoArguments
 from yagoo.types.message import YagooMessage

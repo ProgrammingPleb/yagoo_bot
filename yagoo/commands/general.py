@@ -22,7 +22,7 @@ from typing import Union
 from discord.ext import commands
 from yagoo.lib.prompts import TwitterPrompts, refreshPrompts, removeMessage
 from yagoo.scrapers.infoscraper import FandomScrape, TwitterScrape
-from yagoo.lib.botUtils import TwitterUtils, embedContinue, getRoles, msgDelete, fandomTextParse, vtuberSearch
+from yagoo.lib.botUtils import TwitterUtils, embedContinue, getRoles, fandomTextParse, vtuberSearch
 from yagoo.lib.dataUtils import botdb, dbTools, refreshWebhook
 from yagoo.types.error import NoFollows
 from yagoo.types.message import YagooMessage

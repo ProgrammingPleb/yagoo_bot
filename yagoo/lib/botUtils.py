@@ -20,7 +20,6 @@ import logging
 import discord
 import aiohttp
 import asyncio
-import datetime
 import yaml
 import rpyc
 import tweepy

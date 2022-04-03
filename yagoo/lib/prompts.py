@@ -25,9 +25,7 @@ import tweepy
 from typing import Optional, Union, List
 from discord.ext import commands
 from yagoo.lib.botVars import allSubTypes
-from yagoo.lib.dataUtils import botdb
 from yagoo.types.data import CategorySubscriptionResponse, ChannelSearchResponse, ChannelSubscriptionData, ErrorReport, SubscriptionData, SubscriptionResponse, TwitterFollowData, TwitterUnfollowResponse, UnsubscriptionResponse, YouTubeChannel
-from yagoo.types.error import ChannelNotFound, NoSubscriptions
 from yagoo.types.message import YagooMessage
 from yagoo.types.views import YagooSelectOption, YagooViewResponse
 
