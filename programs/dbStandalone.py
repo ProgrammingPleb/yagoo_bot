@@ -1,3 +1,20 @@
+"""
+This file is a part of Yagoo Bot <https://yagoo.pleb.moe/>
+Copyright (C) 2020-present  ProgrammingPleb
+
+Yagoo Bot is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Yagoo Bot is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Yagoo Bot.  If not, see <http://www.gnu.org/licenses/>.
+"""
 import yaml
 import mysql.connector
 from typing import Union
@@ -12,7 +29,7 @@ class botdb:
         """
         Returns a `MySQLConnection` object to be used for database queries/modifications.
         """
-        with open("data/settings.yaml") as f:
+        with open("settings.yaml") as f:
             db = (yaml.load(f, Loader=yaml.SafeLoader))["sql"]
         
         return mysql.connector.connect(

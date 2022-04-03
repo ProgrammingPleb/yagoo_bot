@@ -1,10 +1,29 @@
+"""
+This file is a part of Yagoo Bot <https://yagoo.pleb.moe/>
+Copyright (C) 2020-present  ProgrammingPleb
+
+Yagoo Bot is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Yagoo Bot is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Yagoo Bot.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
 import logging
 import traceback
+import aiomysql
 from discord.ext import commands, tasks
-from ..share.dataUtils import botdb
+from yagoo.lib.dataUtils import botdb
 
-async def channelUpdate():
-    db = await botdb.getDB()
+async def channelUpdate(pool: aiomysql.Pool):
+    db = await botdb.getDB(pool)
     updates = {}
     scrape = await botdb.getAllData("scrape", ("id", "name", "image"), db=db)
     channels = await botdb.getAllData("channels", ("id", "name", "image"), keyDict="id", db=db)
@@ -34,6 +53,9 @@ async def channelUpdate():
 class chCycle(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+    
+    @commands.Cog.listener()
+    async def on_ready(self):
         self.chCheck.start()
 
     def cog_unload(self):
@@ -43,7 +65,7 @@ class chCycle(commands.Cog):
     async def chCheck(self):
         logging.info("Starting channel update checks.")
         try:
-            await channelUpdate()
+            await channelUpdate(self.bot.pool)
         except Exception as e:
             logging.error("Channel Update - An error has occurred in the cog!", exc_info=True)
             traceback.print_exception(type(e), e, e.__traceback__)

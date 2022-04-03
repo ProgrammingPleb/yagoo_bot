@@ -1,3 +1,21 @@
+"""
+This file is a part of Yagoo Bot <https://yagoo.pleb.moe/>
+Copyright (C) 2020-present  ProgrammingPleb
+
+Yagoo Bot is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Yagoo Bot is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Yagoo Bot.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
 import json
 import aiohttp
 import asyncio
@@ -6,17 +24,19 @@ import sys
 import logging
 import yaml
 import tweepy
+import urllib.parse
 from bs4 import BeautifulSoup
 from typing import Union
-from .share.botUtils import formatMilestone, premiereScrape
-from .share.dataUtils import botdb
+from yagoo.types.data import ChannelSearchResponse, FandomChannel
+from yagoo.lib.botUtils import formatMilestone, premiereScrape
+from yagoo.lib.dataUtils import botdb
 
 async def streamInfo(channelId: Union[str, int]):
     output = None
 
     consent = {'CONSENT': 'YES+cb.20210328-17-p0.en+FX+162'}
     async with aiohttp.ClientSession(cookies=consent) as session:
-        with open("data/settings.yaml") as f:
+        with open("settings.yaml") as f:
             settings = yaml.load(f, Loader=yaml.SafeLoader)
 
         if settings["proxy"]:
@@ -26,7 +46,7 @@ async def streamInfo(channelId: Union[str, int]):
             proxy = None
             proxyauth = None
         async with session.get(f'https://www.youtube.com/channel/{channelId}/live?hl=en-US', proxy=proxy, proxy_auth=proxyauth) as r:
-            soup = BeautifulSoup(await r.text(), "html5lib")
+            soup = BeautifulSoup(await r.text(), "lxml")
             scripts = soup.find_all("script")
             for script in scripts:
                 if ("var ytInitialData" in script.getText()) or ('window["ytInitialData"]' in script.getText()):
@@ -69,13 +89,13 @@ async def streamInfo(channelId: Union[str, int]):
         }
     return output
 
-async def channelInfo(channelId: Union[str, int], scrape = False, debug: bool = False):
+async def channelInfo(channelId: Union[str, int], scrape = False):
     channelData = None
 
     if scrape:
         consent = {'CONSENT': 'YES+cb.20210328-17-p0.en+FX+162'}
         async with aiohttp.ClientSession(cookies=consent) as session:
-            with open("data/settings.yaml") as f:
+            with open("settings.yaml") as f:
                 settings = yaml.load(f, Loader=yaml.SafeLoader)
 
             if settings["proxy"]:
@@ -84,8 +104,8 @@ async def channelInfo(channelId: Union[str, int], scrape = False, debug: bool = 
             else:
                 proxy = None
                 proxyauth = None
-            async with session.get(f'https://www.youtube.com/channel/{channelId}?hl=en-US', proxy=proxy, proxy_auth=proxyauth) as r:
-                soup = BeautifulSoup(await r.text(), "html5lib")
+            async with session.get(f'https://www.youtube.com/channel/{channelId}/videos?hl=en-US', proxy=proxy, proxy_auth=proxyauth) as r:
+                soup = BeautifulSoup(await r.text(), "lxml")
                 scripts = soup.find_all("script")
                 for script in scripts:
                     if ("var ytInitialData" in script.getText()) or ('window["ytInitialData"]' in script.getText()):
@@ -155,17 +175,14 @@ class FandomScrape():
         
         Returns
         ---
-        A `dict` with:
-        - status: `Success` if a match was found, `Cannot Match` if silent is `False` and no match was found.
-        - name: The wiki page name associated with the name of the channel.
-        - results: A list of search results from the wiki.
+        `ChannelSearchResponse`
         """
         chNSplit = chName.split()
 
         async with aiohttp.ClientSession() as session:
-            async with session.get(f'https://virtualyoutuber.fandom.com/api.php?action=opensearch&format=json&search={chName}') as r:
+            async with session.get(f'https://virtualyoutuber.fandom.com/api.php?action=opensearch&format=json&search={urllib.parse.quote(chName)}') as r:
                 resp = await r.json()
-                chLink = None
+                chLink = ChannelSearchResponse()
                 nameList = []
                 x = 0
                 matched = False
@@ -179,28 +196,21 @@ class FandomScrape():
                     x += 1
                 if not matched:
                     if silent:
-                        logging.debug("Not found! Returning to first entry.")
-                        chLink = {
-                                "status": "Success",
-                                "name": resp[1][0]
-                            }
+                        logging.debug(f"Fandom Scraper: Channel \"{chName}\" not found! Returning to first entry.")
+                        chLink.matched()
+                        chLink.channelName = resp[1][0]
                     else:
-                        chLink = {
-                            "status": "Cannot Match",
-                            "results": nameList
-                        }
+                        chLink.cannotMatch()
+                        chLink.searchResults = nameList
                 else:
-                    chLink = {
-                        "status": "Success",
-                        "name": chRName,
-                        "results": nameList
-                    }
-
+                    chLink.matched()
+                    chLink.channelName = chRName
+                    chLink.searchResults = nameList
         return chLink
 
-    async def getChannel(chLink, dataKey = "infobox", scope = 4):
+    async def getChannel(chLink: str, dataKey: str = "infobox", scope: int = 4):
         async with aiohttp.ClientSession() as session:
-            async with session.get(f'https://virtualyoutuber.fandom.com/api.php?action=parse&format=json&page={chLink.split("/")[0]}') as r:
+            async with session.get(f'https://virtualyoutuber.fandom.com/api.php?action=parse&format=json&page={urllib.parse.quote(chLink.split("/")[0])}') as r:
                 resp = await r.json()
                 if dataKey == "text":
                     dataSource = (resp["parse"]["text"]["*"])
@@ -224,7 +234,7 @@ class FandomScrape():
 
         outputData = []
 
-        soup = BeautifulSoup(dataText, "html5lib")
+        soup = BeautifulSoup(dataText, "lxml")
         for webObj in scrapeList:
             try:
                 header = soup.find("span", {"id": webObj}).parent
@@ -258,43 +268,38 @@ class FandomScrape():
         channelID = None
 
         async with aiohttp.ClientSession() as session:
-            async with session.get(f'https://virtualyoutuber.fandom.com/api.php?action=parse&format=json&page={chLink.split("/")[0]}') as r:
+            async with session.get(f'https://virtualyoutuber.fandom.com/api.php?action=parse&format=json&page={urllib.parse.quote(chLink.split("/")[0])}') as r:
                 resp = await r.json()
                 for url in resp["parse"]["externallinks"]:
-                    if "https://www.youtube.com/channel/" in url and channelID is None:
+                    if "https://www.youtube.com/channel/" in url.lower() and channelID is None:
                         for part in url.split("/"):
                             if 23 <= len(part) <= 25:
                                 if part[0] == "U":
                                     channelID = part
 
         if channelID is None:
-            return {
-                "success": False
-            }
+            return FandomChannel()
 
-        return {
-            "success": True,
-            "channelID": channelID
-        }
+        return FandomChannel(True, channelID, chLink)
 
     async def getThumbnail(dataText) -> str:
-        soup = BeautifulSoup(dataText, "html5lib")
+        soup = BeautifulSoup(dataText, "lxml")
         imgTag = soup.find("img", {"class": "pi-image-thumbnail"})
 
         return imgTag["src"]
 
     async def getAffiliate(chName) -> str:
-        fandomName = (await FandomScrape.searchChannel(chName, True))["name"]
+        fandomName = (await FandomScrape.searchChannel(chName, True)).channelName
         fullPage = await FandomScrape.getChannel(fandomName, dataKey="text")
         try:
-            affiliate = BeautifulSoup(fullPage, "html5lib").find("div", {"data-source": "affiliation"}).find("a").getText()
+            affiliate = BeautifulSoup(fullPage, "lxml").find("div", {"data-source": "affiliation"}).find("a").getText()
         except Exception as e:
             logging.warn(f'Failed getting affliate data for {fandomName}! Registering as "Other/Independent".', exc_info=True)
             affiliate = "Others/Independent"
         return affiliate
 
     async def getSections(dataText) -> list:
-        soup = BeautifulSoup(dataText, "html5lib")
+        soup = BeautifulSoup(dataText, "lxml")
 
         pastInfobox = False
         sections = []
@@ -310,7 +315,7 @@ class FandomScrape():
         return sections
 
     async def getSectionData(dataText, sections) -> list:
-        soup = BeautifulSoup(dataText, "html5lib")
+        soup = BeautifulSoup(dataText, "lxml")
 
         data = []
         for h2 in soup.find_all("h2"):
@@ -399,7 +404,7 @@ class FandomScrape():
 
 class TwitterScrape:
     async def getCredentials():
-        with open("data/settings.yaml") as f:
+        with open("settings.yaml") as f:
             settings = yaml.load(f, Loader=yaml.SafeLoader)
 
         return settings["twitter"]
@@ -433,7 +438,7 @@ async def channelScrape(query: str):
             "success": False
         }
 
-    dataSource = await FandomScrape.getChannel(await FandomScrape.searchChannel(chInfo["name"], True))
+    dataSource = await FandomScrape.getChannel((await FandomScrape.searchChannel(chInfo["name"], True)).channelName)
 
     result = {
         "success": True,
@@ -464,7 +469,7 @@ async def channelScrape(query: str):
         for data in dataSource:
             if data["type"] == "data":
                 if data["data"]["source"] == infoGrab[entry]["source"]:
-                    result[infoGrab[entry]["dict"]] = re.sub('\[\d+\]', '', BeautifulSoup(data["data"]["value"], "html5lib").text.replace('\n', ''))
+                    result[infoGrab[entry]["dict"]] = re.sub('\[\d+\]', '', BeautifulSoup(data["data"]["value"], "lxml").text.replace('\n', ''))
                     infoPresent = True
         if not infoPresent:
             result[infoGrab[entry]["dict"]] = None

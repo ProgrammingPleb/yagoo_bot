@@ -1,30 +1,32 @@
+"""
+This file is a part of Yagoo Bot <https://yagoo.pleb.moe/>
+Copyright (C) 2020-present  ProgrammingPleb
+
+Yagoo Bot is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Yagoo Bot is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Yagoo Bot.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
 import yaml
 import discord
 import mysql.connector
+import aiomysql
 from typing import Union
 from discord.ext import commands
+from yagoo.types.error import NoDatabaseConnection
 
-# DEPRECATE: Deprecate the use of getWebhook in place of dbTools.serverGrab
-async def _getWebhook(bot: commands.Bot, cserver: str, cchannel: str, db: mysql.connector.MySQLConnection):
-    if db is not None:
-        db = await botdb.getDB()
-    
-    server = await botdb.getData(cchannel, "channel", "url", "servers", db)
-    
-    if server is None:
-        channel = await bot.get_channel(int(cchannel))
-        with open("yagoo.jpg", "rb") as image:
-            webhook = await channel.create_webhook(name="Yagoo", avatar=image.read())
-        whurl = webhook.url
-        await botdb.addData((cserver, cchannel, whurl), ("server", "channel", "url"), "servers", db)
-    else:
-        whurl = server["url"]
-
-    return whurl
-
-async def refreshWebhook(bot: commands.Bot, server: discord.Guild, channel: discord.TextChannel, db: mysql.connector.CMySQLConnection = None):
+async def refreshWebhook(bot: commands.Bot, server: discord.Guild, channel: discord.TextChannel, db: mysql.connector.MySQLConnection = None):
     if not db:
-        db = await botdb.getDB()
+        raise NoDatabaseConnection()
 
     server = await dbTools.serverGrab(bot, str(server.id), str(channel.id), ("url",), db)
     webhooks = await channel.webhooks()
@@ -36,6 +38,40 @@ async def refreshWebhook(bot: commands.Bot, server: discord.Guild, channel: disc
         webhook = await channel.create_webhook(name="Yagoo", avatar=image.read())
     
     await botdb.addData((str(channel.id), webhook.url), ("channel", "url"), "servers", db)
+
+def checkNotified(videoID: str, videoType: str, channelID: str, notifiedData: dict):
+    """
+    Checks if the channel has been notified of the livestream/premiere.
+    
+    Arguments
+    ---
+    videoID: The video's ID.
+    videoType: Whether the video is a `livestream` or a `premiere`.
+    channelID: The YouTube channel's ID.
+    notifiedData: The Discord channel's `videos notified` data.
+    
+    Returns
+    ---
+    `True` if the channel has already been notified, `False` if otherwise.
+    """
+    if channelID not in notifiedData:
+        notifiedData[channelID] = {
+            "livestream": "",
+            "premiere": ""
+        }
+    
+    if "livestream" not in notifiedData[channelID]:
+        originalVideo = str(notifiedData[channelID])
+        notifiedData[channelID] = {
+            "livestream": "",
+            "premiere": ""
+        }
+        if notifiedData[channelID] == videoID:
+            notifiedData[channelID][videoType] = originalVideo
+    
+    if notifiedData[channelID][videoType] != videoID:
+        return False
+    return True
 
 class dbTools:
     """
@@ -71,20 +107,21 @@ class botdb:
     """
     Communication layer for the bot to communicate to it's MySQL database.
     """
-    async def getDB():
+    async def getDB(pool: aiomysql.Pool) -> aiomysql.Connection:
         """
-        Returns a `MySQLConnection` object to be used for database queries/modifications.
+        Returns a `aiomysql.Connection` object to be used for database queries/modifications.
+        
+        Arguments
+        ---
+        pool: The database connection pool.
         """
-        with open("data/settings.yaml") as f:
+        with open("settings.yaml") as f:
             db = (yaml.load(f, Loader=yaml.SafeLoader))["sql"]
         
-        return mysql.connector.connect(
-            host=db["host"],
-            username=db["username"],
-            password=db["password"],
-            database=db["database"],
-            buffered=True
-        )
+        return await aiomysql.connect(host=db["host"],
+                                      user=db["username"],
+                                      password=db["password"],
+                                      db=db["database"])
     
     async def changeToMany(data: tuple, dataTypes: tuple, table: str) -> list:
         """
@@ -107,7 +144,7 @@ class botdb:
         
         return execList
 
-    async def checkIfExists(key: str, keyType: str, table: str, db: mysql.connector.MySQLConnection = None):
+    async def checkIfExists(key: str, keyType: str, table: str, db: aiomysql.Connection = None):
         """
         Checks if a key exists on the database.
 
@@ -123,19 +160,21 @@ class botdb:
         `True` if the key exists, `False` if otherwise.
         """
         if db is None:
-            db = await botdb.getDB()
-        cursor = db.cursor()
+            raise NoDatabaseConnection()
 
-        sql = f"SELECT {keyType} FROM {table} WHERE {keyType} = %s"
-        arg = (key,)
-        cursor.execute(sql, arg)
+        async with db.cursor() as cursor:
+            sql = f"SELECT {keyType} FROM {table} WHERE {keyType} = %s"
+            arg = (key,)
+            await cursor.execute(sql, arg)
+            result = await cursor.fetchone()
+        await db.commit()
 
-        if cursor.fetchone() is None:
+        if result is None:
             return False
         return True
         
     
-    async def addData(data: tuple, dataTypes: tuple, table: str, db: mysql.connector.MySQLConnection = None, index = 0):
+    async def addData(data: tuple, dataTypes: tuple, table: str, db: aiomysql.Connection = None, index = 0):
         """
         Adds data to a table in the bot's database.
         Inserts a new row if the data does not exist, and updates the data if otherwise.
@@ -149,15 +188,15 @@ class botdb:
         index: Index of item to be used as existing reference on the database.
         """
         if db is None:
-            db = await botdb.getDB()
+            raise NoDatabaseConnection()
         exists = await botdb.checkIfExists(data[index], dataTypes[index], table, db)
-        cursor = db.cursor()
+        cursor: aiomysql.Cursor = await db.cursor()
 
         if exists:
             for key, keyType in zip(data, dataTypes):
                 sql = f"UPDATE {table} SET {keyType} = %s WHERE {dataTypes[index]} = '{data[index]}'"
                 arg = (key,)
-                cursor.execute(sql, arg)
+                await cursor.execute(sql, arg)
         else:
             sql = f"INSERT INTO {table} ("
             for x in dataTypes:
@@ -167,12 +206,12 @@ class botdb:
                 sql += "%s, "
             sql = sql.strip(", ") + ")"
             arg = data
-            cursor.execute(sql, arg)
+            await cursor.execute(sql, arg)
         
-        db.commit()
+        await db.commit()
         return
     
-    async def addMultiData(data: list, dataTypes: tuple, table: str, db: mysql.connector.MySQLConnection = None, index = 0):
+    async def addMultiData(data: list, dataTypes: tuple, table: str, db: aiomysql.Connection = None, index = 0):
         """
         Performs the same actions as `addData` but commits after all insert/update queries are executed.
 
@@ -197,8 +236,8 @@ class botdb:
             updSQL.append(f"UPDATE {table} SET {keyType} = %s WHERE {dataTypes[index]} = %s")
         
         if db is None:
-            db = await botdb.getDB()
-        cursor = db.cursor()
+            raise NoDatabaseConnection()
+        cursor: aiomysql.Cursor = await db.cursor()
 
         for item in data:
             exists = await botdb.checkIfExists(item[index], dataTypes[index], table, db)
@@ -206,15 +245,15 @@ class botdb:
             if exists:
                 i = 0
                 for query in updSQL:
-                    cursor.execute(query, (str(item[i]), item[index]))
+                    await cursor.execute(query, (str(item[i]), item[index]))
                     i += 1
             else:
-                cursor.execute(insSQL, item)
+                await cursor.execute(insSQL, item)
         
-        db.commit()
+        await db.commit()
         return
     
-    async def deleteCell(cellType: str, rowKey: str, rowKeyType: str, table: str, db: mysql.connector.MySQLConnection = None):
+    async def deleteCell(cellType: str, rowKey: str, rowKeyType: str, table: str, db: aiomysql.Connection = None):
         """
         Deletes the cell on the row where the key and it's type specified exists.
 
@@ -227,14 +266,14 @@ class botdb:
         db: An existing MySQL connection to avoid making a new uncesssary connection.
         """
         if db is None:
-            db = await botdb.getDB()
-        cursor = db.cursor()
+            raise NoDatabaseConnection()
+        cursor: aiomysql.Cursor = await db.cursor()
 
-        cursor.execute(f"UPDATE {table} SET {cellType} = NULL WHERE {rowKeyType} = %s", (rowKey, ))
-        db.commit()
+        await cursor.execute(f"UPDATE {table} SET {cellType} = NULL WHERE {rowKeyType} = %s", (rowKey, ))
+        await db.commit()
         return
     
-    async def deleteRow(rowKey: str, rowKeyType: str, table: str, db: mysql.connector.MySQLConnection = None):
+    async def deleteRow(rowKey: str, rowKeyType: str, table: str, db: aiomysql.Connection = None):
         """
         Deletes the row containing the key and it's type specified.
 
@@ -246,14 +285,14 @@ class botdb:
         db: An existing MySQL connection to avoid making a new uncesssary connection.
         """
         if db is None:
-            db = await botdb.getDB()
-        cursor = db.cursor()
+            raise NoDatabaseConnection()
+        cursor: aiomysql.Cursor = await db.cursor()
 
-        cursor.execute(f"DELETE FROM {table} WHERE {rowKeyType} = %s", (rowKey, ))
-        db.commit()
+        await cursor.execute(f"DELETE FROM {table} WHERE {rowKeyType} = %s", (rowKey, ))
+        await db.commit()
         return
 
-    async def deleteMultiRow(rowKey: list, rowKeyType: str, table: str, db: mysql.connector.MySQLConnection = None):
+    async def deleteMultiRow(rowKey: list, rowKeyType: str, table: str, db: aiomysql.Connection = None):
         """
         Performs the same actions as `deleteData` but commits after all delete queries are executed.
 
@@ -265,15 +304,15 @@ class botdb:
         db: An existing MySQL connection to avoid making a new uncesssary connection.
         """
         if db is None:
-            db = await botdb.getDB()
-        cursor = db.cursor()
+            raise NoDatabaseConnection()
+        cursor: aiomysql.Cursor = await db.cursor()
 
         for key in rowKey:
-            cursor.execute(f"DELETE FROM {table} WHERE {rowKeyType} = %s", (key, ))
-        db.commit()
+            await cursor.execute(f"DELETE FROM {table} WHERE {rowKeyType} = %s", (key, ))
+        await db.commit()
         return
     
-    async def getData(key: str, keyType: str, returnType: tuple, table: str, db: mysql.connector.MySQLConnection = None) -> dict:
+    async def getData(key: str, keyType: str, returnType: tuple, table: str, db: aiomysql.Connection = None) -> dict:
         """
         Gets the data related to the key given with the key types specified.
 
@@ -290,18 +329,22 @@ class botdb:
         Dictionary that contains the key with the `returnType` specified.
         """
         if db is None:
-            db = await botdb.getDB()
-        cursor = db.cursor(dictionary=True)
+            raise NoDatabaseConnection()
+        cursor: aiomysql.DictCursor = await db.cursor(aiomysql.DictCursor)
 
         sql = "SELECT "
         for column in returnType:
             sql += f"{column}, "
         sql = sql.strip(", ") + f" FROM {table} WHERE {keyType} = %s"
 
-        cursor.execute(sql, (key, ))
-        return cursor.fetchone()
+        await cursor.execute(sql, (key, ))
+        result = await cursor.fetchone()
+        
+        await cursor.close()
+        await db.commit()
+        return result
     
-    async def getMultiData(keyList: list, keyType: str, returnType: tuple, table: str, db: mysql.connector.MySQLConnection = None) -> dict:
+    async def getMultiData(keyList: list, keyType: str, returnType: tuple, table: str, db: aiomysql.Connection = None) -> dict:
         """
         Performs `getData` for multiple rows, reducing load on the database server.
         
@@ -318,8 +361,8 @@ class botdb:
         Dictionary with key from `keyType` as main subdict, and `returnType` keys as keys in the subdict.
         """
         if db is None:
-            db = await botdb.getDB()
-        cursor = db.cursor(dictionary=True)
+            raise NoDatabaseConnection()
+        cursor: aiomysql.DictCursor = await db.cursor(aiomysql.DictCursor)
 
         sql = "SELECT "
         for column in returnType:
@@ -328,11 +371,14 @@ class botdb:
 
         finalData = {}
         for key in keyList:
-            cursor.execute(sql, (key, ))
+            await cursor.execute(sql, (key, ))
             finalData[key] = cursor.fetchone()
+        
+        await cursor.close()
+        await db.commit()
         return finalData
 
-    async def getAllData(table: str, keyTypes: tuple = None, filterKey: str = None, filterType: str = None, keyDict: str = None, db: mysql.connector.MySQLConnection = None):
+    async def getAllData(table: str, keyTypes: tuple = None, filterKey: str = None, filterType: str = None, keyDict: str = None, db: aiomysql.Connection = None):
         """
         Performs `getData` but gets all rows available in the table with te keyTypes if specified.
         
@@ -350,14 +396,14 @@ class botdb:
         A `dict` or `tuple` (`dict` is supplied when `keyDict` is supplied) that contains the data.
         """
         if db is None:
-            db = await botdb.getDB()
+            raise NoDatabaseConnection()
         
         if keyTypes is None:
-            cursor = db.cursor()
+            cursor: aiomysql.Cursor = await db.cursor()
             
             sql = f"SELECT * FROM {table}"
         else:
-            cursor = db.cursor(dictionary=True)
+            cursor: aiomysql.DictCursor = await db.cursor(aiomysql.DictCursor)
             
             sql = "SELECT "
             for dataType in keyTypes:
@@ -366,17 +412,21 @@ class botdb:
         
         if filterKey is not None:
             sql += f" WHERE {filterType} = %s"
-            cursor.execute(sql, (filterKey, ))
+            await cursor.execute(sql, (filterKey, ))
         else:
-            cursor.execute(sql)
+            await cursor.execute(sql)
+        result = {}
         if keyDict:
-            result = {}
-            for item in cursor.fetchall():
+            for item in await cursor.fetchall():
                 mainKey = item[keyDict]
                 item.pop(keyDict)
                 result[mainKey] = item
-            return result
-        return cursor.fetchall()
+        else:
+            result = await cursor.fetchall()
+
+        await cursor.close()
+        await db.commit()
+        return result
     
     async def listConvert(data: Union[str, list]):
         """

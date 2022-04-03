@@ -1,3 +1,20 @@
+"""
+This file is a part of Yagoo Bot <https://yagoo.pleb.moe/>
+Copyright (C) 2020-present  ProgrammingPleb
+
+Yagoo Bot is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Yagoo Bot is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Yagoo Bot.  If not, see <http://www.gnu.org/licenses/>.
+"""
 import json
 import yaml
 import asyncio
@@ -8,7 +25,7 @@ import traceback
 from bs4 import BeautifulSoup
 from dbStandalone import botdb
 
-with open("data/settings.yaml") as f:
+with open("settings.yaml") as f:
     settings = yaml.load(f, Loader=yaml.SafeLoader)
 
 async def uplThumbnail(channelID, videoID, live=True):
@@ -58,9 +75,13 @@ async def scrape(channel: str):
     """
     Grabs the stream data of the channel.
     """
-    streams = None
+    streams = {
+        "premieres": {},
+        "live": {}
+    }
     result = {}
     error = None
+    exists = True
     
     for x in range(3):
         try:
@@ -73,14 +94,18 @@ async def scrape(channel: str):
                     proxy = None
                     proxyauth = None
                 async with session.get(f'https://www.youtube.com/channel/{channel}/videos?hl=en-US', proxy=proxy, proxy_auth=proxyauth) as r:
-                    soup = BeautifulSoup(await r.text(), "html5lib")
+                    soup = BeautifulSoup(await r.text(), "lxml")
                     scripts = soup.find_all("script")
                     for script in scripts:
                         if ("var ytInitialData" in script.getText()) or ('window["ytInitialData"]' in script.getText()):
                             ytdata = json.loads(script.getText().replace(';', '').replace('var ytInitialData = ', '').replace('window["ytInitialData"]', ''))
-                            videos = ytdata["contents"]["twoColumnBrowseResultsRenderer"]["tabs"][1]["tabRenderer"]["content"]["sectionListRenderer"]["contents"]\
-                                        [0]["itemSectionRenderer"]["contents"][0]["gridRenderer"]["items"]
-                            streams = await streamParse(videos, channel)
+                            if "messageRenderer" in ytdata["contents"]["twoColumnBrowseResultsRenderer"]["tabs"][1]["tabRenderer"]["content"] \
+                                                          ["sectionListRenderer"]["contents"][0]["itemSectionRenderer"]["contents"][0]:
+                                exists = False
+                            if exists:
+                                videos = ytdata["contents"]["twoColumnBrowseResultsRenderer"]["tabs"][1]["tabRenderer"]["content"]["sectionListRenderer"] \
+                                               ["contents"][0]["itemSectionRenderer"]["contents"][0]["gridRenderer"]["items"]
+                                streams = await streamParse(videos, channel)
 
                             cSubsA, cSubsR = await formatMilestone(ytdata["header"]["c4TabbedHeaderRenderer"]["subscriberCountText"]["simpleText"])
                             result = {
@@ -133,17 +158,22 @@ async def streamParse(videos: list, channel: str):
     for video in videos:
         if "gridVideoRenderer" in video:
             label = video["gridVideoRenderer"]["thumbnailOverlays"][0]["thumbnailOverlayTimeStatusRenderer"]["text"]["accessibility"]\
-                        ["accessibilityData"]["label"]
+                         ["accessibilityData"]["label"]
             if not label[0].isdigit():
                 title = ""
                 status = ""
                 upcoming = None
                 if label == "LIVE":
                     live = True
+                if label == "Shorts":
+                    continue
                 for part in video["gridVideoRenderer"]["title"]["runs"]:
                     title += part["text"]
-                for part in video["gridVideoRenderer"]["shortViewCountText"]["runs"]:
-                    status += part["text"]
+                if "simpleText" in video["gridVideoRenderer"]["viewCountText"]:
+                    status = video["gridVideoRenderer"]["viewCountText"]["simpleText"]
+                else:
+                    for part in video["gridVideoRenderer"]["viewCountText"]["runs"]:
+                        status += part["text"]
                 if "upcomingEventData" in video["gridVideoRenderer"]:
                     upcoming = video["gridVideoRenderer"]["upcomingEventData"]["startTime"]
                 thumbnail = await uplThumbnail(channel, video["gridVideoRenderer"]["videoId"], live)
@@ -170,7 +200,6 @@ async def queue():
     
     db = await botdb.getDB()
     channels = await botdb.getAllData("channels", ("id",), db=db)
-    #channels = [{'id': 'UCp6993wxpyDPHUpavwDFqgg'}, {'id': 'UCDqI2jOz0weumE8s7paEk6g'}, {'id': 'UC-hM6YJuNYVAmUWxeIr9FeA'}, {'id': 'UC5CwaMl1eIgY8h02uZw7u8A'}]
     
     for channel in channels:
         queue.append(scrape(channel["id"]))

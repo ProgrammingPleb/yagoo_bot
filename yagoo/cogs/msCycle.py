@@ -1,16 +1,35 @@
+"""
+This file is a part of Yagoo Bot <https://yagoo.pleb.moe/>
+Copyright (C) 2020-present  ProgrammingPleb
+
+Yagoo Bot is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Yagoo Bot is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Yagoo Bot.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
 import asyncio
-import json
 import logging
 import os
+import aiomysql
 import imgkit
 import discord
 import traceback
 import concurrent.futures
-from ..share.dataUtils import botdb
+import functools
 from discord.ext import commands, tasks
+from yagoo.lib.dataUtils import botdb
 
-async def milestoneCheck():
-    db = await botdb.getDB()
+async def milestoneCheck(pool: aiomysql.Pool):
+    db = await botdb.getDB(pool)
     channels = await botdb.getAllData("channels", ("id", "name", "milestone", "image"), db=db)
     scrape = await botdb.getAllData("scrape", ("id", "roundSubs", "mbanner"), keyDict="id", db=db)
     
@@ -53,15 +72,18 @@ async def milestoneCheck():
     
     return milestone
 
-async def milestoneNotify(msDict: dict, bot: commands.Bot):
-    db = await botdb.getDB()
+async def milestoneNotify(msDict: dict, bot: commands.Bot, maintenance: bool):
+    db = await botdb.getDB(bot.pool)
     servers = await botdb.getAllData("servers", ("channel", "milestone"), db=db)
     queue = []
     
     async def postMsg(channel: str, server: tuple):
         try:
-            await bot.get_channel(int(server["channel"])).send(f'{msDict[channel]["name"]} has reached {msDict[channel]["msText"].replace("Subscribers", "subscribers")}!', file=discord.File(f'milestone/generated/{channel}.png'))
-            await bot.get_channel(int(server["channel"])).send("おめでとう！")
+            if not maintenance:
+                await bot.get_channel(int(server["channel"])).send(f'{msDict[channel]["name"]} has reached {msDict[channel]["msText"].replace("Subscribers", "subscribers")}!', file=discord.File(f'milestone/generated/{channel}.png'))
+                await bot.get_channel(int(server["channel"])).send("おめでとう！")
+            else:
+                print(f"Milestone Post on {server['channel']}:\n{msDict[channel]['name']} has reached {msDict[channel]['msText'].replace('Subscribers', 'subscribers')}!\n")
         except Exception as e:
             logging.error("Milestone - Failed to post on a server/channel!", exc_info=True)
     
@@ -93,12 +115,16 @@ async def milestoneNotify(msDict: dict, bot: commands.Bot):
     
     await asyncio.gather(*queue)
 
-def mcWrapper():
-    return asyncio.run(milestoneCheck())
+def mcWrapper(pool: aiomysql.Pool):
+    return asyncio.run(milestoneCheck(pool))
 
 class msCycle(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot, maintenance):
         self.bot = bot
+        self.maintenance = maintenance
+    
+    @commands.Cog.listener()
+    async def on_ready(self):
         self.timecheck.start()
 
     def cog_unload(self):
@@ -110,10 +136,10 @@ class msCycle(commands.Cog):
         try:
             with concurrent.futures.ThreadPoolExecutor() as pool:
                 loop = asyncio.get_running_loop()
-                msData = await loop.run_in_executor(pool, mcWrapper)
+                msData = await loop.run_in_executor(pool, functools.partial(mcWrapper, self.bot.pool))
             if msData != {}:
                 logging.info("Milestone - Notifying channels.")
-                await milestoneNotify(msData, self.bot)
+                await milestoneNotify(msData, self.bot, self.maintenance)
         except Exception as e:
             logging.error("Milestone - An error has occured in the cog!", exc_info=True)
             traceback.print_exception(type(e), e, e.__traceback__)

@@ -1,3 +1,21 @@
+"""
+This file is a part of Yagoo Bot <https://yagoo.pleb.moe/>
+Copyright (C) 2020-present  ProgrammingPleb
+
+Yagoo Bot is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Yagoo Bot is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Yagoo Bot.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
 import logging
 import discord
 import aiohttp
@@ -8,12 +26,12 @@ import rpyc
 import tweepy
 import mysql.connector
 from discord.ext import commands
-from discord_slash.context import SlashContext
 from itertools import islice
-from typing import Union
+from typing import List, Union
 from yaml.loader import SafeLoader
-from .prompts import searchConfirm, searchPrompt
-from .dataUtils import botdb
+from yagoo.lib.prompts import searchConfirm, searchPrompt
+from yagoo.lib.dataUtils import botdb
+from yagoo.types.error import NoDatabaseConnection
 
 def round_down(num, divisor):
     return num - (num%divisor)
@@ -27,16 +45,20 @@ def creatorCheck(ctx):
     return ctx.author.id == 256009740239241216
 
 def userWhitelist(ctx):
-    with open("data/settings.yaml") as f:
+    with open("settings.yaml") as f:
         settings = yaml.load(f, Loader=SafeLoader)
     
     return ctx.author.id in settings["whitelist"]
 
-def subPerms(ctx):
-    userPerms = ctx.channel.permissions_for(ctx.author)
-    return userPerms.administrator or userPerms.manage_webhooks or ctx.guild.owner_id == ctx.author.id
+def subPerms(cmd: Union[commands.Context, discord.Interaction]):
+    if isinstance(cmd, commands.Context):
+        user = cmd.author
+    else:
+        user = cmd.user
+    userPerms = cmd.channel.permissions_for(user)
+    return userPerms.administrator or userPerms.manage_webhooks or cmd.guild.owner_id == user.id
 
-async def msgDelete(ctx: Union[commands.Context, SlashContext]):
+async def msgDelete(ctx: commands.Context):
     """
     Removes the message that invoked the command (if any)
 
@@ -44,8 +66,39 @@ async def msgDelete(ctx: Union[commands.Context, SlashContext]):
     ---
     `ctx`: A discord.py `commands.Context` or discord-py-slash-commands `SlashContext`
     """
-    if type(ctx) != SlashContext:
-        await ctx.message.delete()
+    await ctx.message.delete()
+
+async def getRoles(ctx: commands.Context, noEveryone: bool = False):
+    """
+    Gets the roles affiliated with the server.
+    
+    Arguments
+    ---
+    `ctx`: Context from the executed command.
+    `noEveryone`: A `bool` to exclude the @everyone role from being included.
+    
+    Returns
+    ---
+    A `dict` with:
+    - `names`: A `list` with the names of the roles.
+    - `ids`: A `list` with the IDs of the roles.
+    - `roleRef`: A `dict` with the role names as keys and the role IDs as values.
+    """
+    roles = ctx.guild.roles
+    roleNames = []
+    roleIDs = []
+    roleRef = {}
+    for role in roles:
+        if role.name == "@everyone" and noEveryone:
+            continue
+        roleNames.append(role.name)
+        roleIDs.append(role.id)
+        roleRef[role.name] = role.id
+    return {
+        "names": roleNames,
+        "ids": roleIDs,
+        "roleRef": roleRef
+    }
 
 class fandomTextParse():
     """
@@ -125,7 +178,7 @@ class fandomTextParse():
 
         return dictText
 
-async def vtuberSearch(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, searchTerm: str, searchMsg, askTerm: str, getOther: bool = False):
+async def vtuberSearch(ctx: commands.Context, bot: commands.Bot, searchTerm: str, searchMsg, askTerm: str, getOther: bool = False):
     """
     Searches for a VTuber and returns a `dict` with it's relevant data.
 
@@ -138,7 +191,7 @@ async def vtuberSearch(ctx: Union[commands.Context, SlashContext], bot: commands
     `askTerm`: Term used when the search embed says "[askTerm] this channel"
     `getOther`: Whether to have a message confirming the detected VTuber from `searchTerm` or to assume that the first term is correct.
     """
-    from ..infoscraper import FandomScrape, channelInfo
+    from ..scrapers.infoscraper import FandomScrape, channelInfo
 
     getChannel = False
 
@@ -206,7 +259,7 @@ async def vtuberSearch(ctx: Union[commands.Context, SlashContext], bot: commands
                 "name": sPick['name']
             }
 
-async def embedContinue(ctx: Union[commands.Context, SlashContext], bot: commands.Bot, embedMsg: discord.Message, section: str, text: str, name: str):
+async def embedContinue(ctx: commands.Context, bot: commands.Bot, embedMsg: discord.Message, section: str, text: str, name: str):
     textLines = text.split("\n")
     textFormatted = []
     pagePos = 0
@@ -271,29 +324,37 @@ async def premiereScrape(ytData):
     pEvents = {}
 
     try:
-        cFirstTab = ytData["contents"]["twoColumnBrowseResultsRenderer"]["tabs"][0]["tabRenderer"]["content"]["sectionListRenderer"]["contents"]
+        exists = True
+        count = 0
+        if "messageRenderer" in ytData["contents"]["twoColumnBrowseResultsRenderer"]["tabs"][1]["tabRenderer"]["content"] \
+                                      ["sectionListRenderer"]["contents"][0]["itemSectionRenderer"]["contents"][0]:
+            exists = False
 
-        for oContents in cFirstTab:
-            if "shelfRenderer" in oContents["itemSectionRenderer"]["contents"][0]:
-                if "horizontalListRenderer" in oContents["itemSectionRenderer"]["contents"][0]["shelfRenderer"]["content"]:
-                    for iContents in oContents["itemSectionRenderer"]["contents"][0]["shelfRenderer"]["content"]["horizontalListRenderer"]["items"]:
-                        if "gridVideoRenderer" in iContents:
-                            if "upcomingEventData" in iContents["gridVideoRenderer"]:
-                                for runs in iContents["gridVideoRenderer"]["upcomingEventData"]["upcomingEventText"]["runs"]:
-                                    if "Premieres" in runs["text"]:
-                                        cPremiereVid = iContents["gridVideoRenderer"]
-                                        if cPremiereVid["videoId"] not in pEvents and (int(cPremiereVid["upcomingEventData"]["startTime"]) - datetime.datetime.now().timestamp()) > 10:
-                                            pEvents[cPremiereVid["videoId"]] = {
-                                                "title": cPremiereVid["title"]["simpleText"],
-                                                "time": int(cPremiereVid["upcomingEventData"]["startTime"])
-                                            }
+        if exists:
+            videos = ytData["contents"]["twoColumnBrowseResultsRenderer"]["tabs"][1]["tabRenderer"]["content"]["sectionListRenderer"]["contents"] \
+                    [0]["itemSectionRenderer"]["contents"][0]["gridRenderer"]["items"]
+            
+            for video in videos:
+                if count <= 6:
+                    videoData = video["gridVideoRenderer"]
+                    if "upcomingEventData" in videoData:
+                        for runs in videoData["upcomingEventData"]["upcomingEventText"]["runs"]:
+                            if "Premieres" in runs["text"]:
+                                title = ""
+                                for runs in videoData["title"]["runs"]:
+                                    title += runs["text"]
+                                pEvents[videoData["videoId"]] = {
+                                    "title": title,
+                                    "time": int(videoData["upcomingEventData"]["startTime"])
+                                }
+                count += 1
     except Exception as e:
         logging.error("Premiere Scrape - An error has occured!", exc_info=True)
 
     return pEvents
 
 async def uplThumbnail(channelID, videoID, live=True):
-    with open("data/settings.yaml") as f:
+    with open("settings.yaml") as f:
         settings = yaml.load(f, Loader=yaml.SafeLoader)
     extServer = rpyc.connect(settings["thumbnailIP"], int(settings["thumbnailPort"]))
     asyncUpl = rpyc.async_(extServer.root.thumbGrab)
@@ -377,7 +438,7 @@ class TwitterUtils:
     Twitter-related utilities to be used by the bot's functions.
     """
 
-    async def dbExists(twtID: str, db: mysql.connector.CMySQLConnection = None):
+    async def dbExists(twtID: str, db: mysql.connector.MySQLConnection = None):
         """
         Checks if the supplied Twitter user ID exists in the bot's Twitter database.
         
@@ -393,7 +454,7 @@ class TwitterUtils:
         - user: User's account data if `status` is `True`, `None` if otherwise.
         """
         if not db:
-            db = await botdb.getDB()
+            raise NoDatabaseConnection()
         
         result = await botdb.getData(twtID, "twtID", ("twtID", ), "twitter", db)
         
@@ -407,7 +468,7 @@ class TwitterUtils:
             "user": None
         }
 
-    async def newAccount(userData: tweepy.User, db: mysql.connector.CMySQLConnection = None):
+    async def newAccount(userData: tweepy.User, db: mysql.connector.MySQLConnection = None):
         """
         Adds a new Twitter account to the bot's database.
 
@@ -417,12 +478,12 @@ class TwitterUtils:
         db: An existing MySQL connection to avoid making a new uncesssary connection.
         """
         if not db:
-            db = await botdb.getDB()
+            raise NoDatabaseConnection()
         
         await botdb.addData((userData.id_str, 1, userData.name, userData.screen_name),
                             ("twtID", "custom", "name", "screenName"), "twitter", db)
     
-    async def followActions(action: str, channel: str, userID: str = None, allAccounts: bool = False, db: mysql.connector.CMySQLConnection = None):
+    async def followActions(action: str, channel: str, userIDs: List[str] = None, allAccounts: bool = False, db: mysql.connector.MySQLConnection = None):
         """
         Follow or unfollow a user based on the action argument given. Saves it inside the bot's database.
 
@@ -430,7 +491,7 @@ class TwitterUtils:
         ---
         action: Can be either `add` to follow or `remove` to unfollow.
         channel: The channel's ID in `str` type.
-        userID: The user's Twitter ID. Optional if `all` is set to `True`.
+        userIDs: A list of the Twitter accounts' ID. Optional if `all` is set to `True`.
         all: Selects all currently followed users of the channel. Can be used only if `action` is `remove`.
         db: An existing MySQL connection to avoid making a new uncesssary connection.
 
@@ -439,29 +500,31 @@ class TwitterUtils:
         `True` if the action was successful, `False` if otherwise.
         """
         if not db:
-            db = await botdb.getDB()
+            raise NoDatabaseConnection()
         
         server = await botdb.getData(channel, "channel", ("custom", ), "servers", db)
         custom = await botdb.listConvert(server["custom"])
         if not custom:
             custom = []
+        success = False
         
         if action == "add":
-            if userID not in custom:
-                custom.append(userID)
-            else:
-                return False
+            for userID in userIDs:
+                if userID not in custom:
+                    custom.append(userID)
+                    success = True
         elif action == "remove":
             if allAccounts:
                 custom = []
-            elif userID != []:
-                for x in userID:
-                    custom.remove(x)
-            else:
-                return False
+                success = True
+            elif userIDs != []:
+                for userID in userIDs:
+                    custom.remove(userID)
+                success = True
         
-        await botdb.addData((channel, await botdb.listConvert(custom)), ("channel", "custom"), "servers", db)
-        return True
+        if success:
+            await botdb.addData((channel, await botdb.listConvert(custom)), ("channel", "custom"), "servers", db)
+        return success
     
     async def getScreenName(accLink: str):
         """
