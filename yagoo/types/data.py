@@ -35,14 +35,17 @@ class YouTubeChannel():
     channelID: The channel's ID.
     channelName: The channel's name.
     twitter: The channel's Twitter account handle.
+    affiliation: The affiliation of the channel.
     """
     def __init__(self,
                  channelID: str,
                  channelName: str,
-                 twitter: str = None):
+                 twitter: str = None,
+                 affiliation: str = None):
         self.channelID = channelID
         self.channelName = channelName
         self.twitter = twitter
+        self.affiliation = affiliation
 
 class TwitterAccount():
     """
@@ -99,7 +102,8 @@ class ChannelSubscriptionData():
                    subscriptionType: str,
                    channelID: str,
                    channelName: str,
-                   twitter: str = None):
+                   twitter: Optional[str] = None,
+                   affiliation: Optional[str] = None):
         """
         Add a YouTube channel that is subscribed to the Discord channel.
         
@@ -109,26 +113,27 @@ class ChannelSubscriptionData():
         channelID: The YouTube channel's ID.
         channelName: The YouTube channel's name.
         twitter: The Twitter account associated with the YouTube channel. (Required if the subscription type is "twitter")
+        affiliation: The affiliation of the YouTube channel.
         """
         if channelID not in self._rawChannelID:
             self._rawChannelID.append(channelID)
-            self._rawChannelListing[channelID] = YouTubeChannel(channelID, channelName, twitter)
-            self.allChannels.append(YouTubeChannel(channelID, channelName))
+            self._rawChannelListing[channelID] = YouTubeChannel(channelID, channelName, twitter, affiliation)
+            self.allChannels.append(YouTubeChannel(channelID, channelName, twitter, affiliation))
         else:
             if twitter and not (self._rawChannelListing[channelID]).twitter:
-                self._rawChannelListing[channelID] = YouTubeChannel(channelID, channelName, twitter)
+                self._rawChannelListing[channelID] = YouTubeChannel(channelID, channelName, twitter, affiliation)
                 for channel in self.allChannels:
                     if channel.channelID == channelID:
                         self.allChannels.remove(channel)
-                self.allChannels.append(YouTubeChannel(channelID, channelName, twitter))
+                self.allChannels.append(YouTubeChannel(channelID, channelName, twitter, affiliation))
         if subscriptionType == "livestream":
-            self.subscriptions.livestream.append(YouTubeChannel(channelID, channelName))
+            self.subscriptions.livestream.append(YouTubeChannel(channelID, channelName, twitter, affiliation))
         elif subscriptionType == "milestone":
-            self.subscriptions.milestone.append(YouTubeChannel(channelID, channelName))
+            self.subscriptions.milestone.append(YouTubeChannel(channelID, channelName, twitter, affiliation))
         elif subscriptionType == "premiere":
-            self.subscriptions.premiere.append(YouTubeChannel(channelID, channelName))
+            self.subscriptions.premiere.append(YouTubeChannel(channelID, channelName, twitter, affiliation))
         elif subscriptionType == "twitter":
-            self.subscriptions.twitter.append(YouTubeChannel(channelID, channelName, twitter))
+            self.subscriptions.twitter.append(YouTubeChannel(channelID, channelName, twitter, affiliation))
         else:
             raise InvalidSubscriptionType(subscriptionType)
     
