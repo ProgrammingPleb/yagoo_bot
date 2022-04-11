@@ -71,7 +71,10 @@ class YagooMessage():
         """
         if button_id in ("prev", "next", "pageid"):
             raise ButtonReserved(button_id)
-        self.buttons.append(YagooButton(button_id, label, url, style, disabled, row))
+        if url:
+            self.buttons.append(YagooButton(None, label, url, style, disabled, row))
+        else:
+            self.buttons.append(YagooButton(button_id, label, None, style, disabled, row))
     
     def addPaginator(self, row: int = 1):
         """
