@@ -1,3 +1,6 @@
+# Bot Discontinuation
+Due to a revamp of the YouTube's site, there will need to be major change made to the bot. Unfortunately due to some issues, I will not be able to maintain the bot. Anyone who wants to continue this bot can fork this repo and continue from here. The original bot, Yagoo#7084, will stop being on operation effective 20th November 2022. If development does resume for the bot, then the original bot will be online once that happens.
+
 ![](https://yagoo.ezz.moe/banner.png)
 [![Discord Bots](https://top.gg/api/widget/status/786108316865658890.svg?noavatar=true)](https://top.gg/bot/786108316865658890)
 [![CodeFactor](https://www.codefactor.io/repository/github/programmingpleb/yagoo_bot/badge)](https://www.codefactor.io/repository/github/programmingpleb/yagoo_bot)  
